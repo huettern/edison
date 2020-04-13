@@ -4,3 +4,4 @@
 
 void micInit(void);
 int32_t * micSampleSingle(uint32_t n);
+void micEndlessStream(void);

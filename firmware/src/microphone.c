@@ -2,19 +2,22 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-13 15:52:05
+* @Last Modified time: 2020-04-13 17:00:26
 */
 #include "main.h"
 
 /*------------------------------------------------------------------------------
  * Settings
  * ---------------------------------------------------------------------------*/
-#define MIC_BUFFER_SIZE 256
+#define MIC_BUFFER_SIZE 20000
 
 /*------------------------------------------------------------------------------
  * Private data
  * ---------------------------------------------------------------------------*/
-int32_t dataBuffer [MIC_BUFFER_SIZE];
+static int32_t dataBuffer [MIC_BUFFER_SIZE];
+
+static bool regConvCplt = false;
+static bool regConvHalfCplt = false;
 
 /*------------------------------------------------------------------------------
  * Prototypes
@@ -49,6 +52,9 @@ void micInit(void)
   }
 
   // Init DMA 
+  __HAL_RCC_DMA1_CLK_ENABLE();
+  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
   hdma_dfsdm1_flt0.Instance = DMA1_Channel4;
   hdma_dfsdm1_flt0.Init.Request = DMA_REQUEST_0; // ref man page 340 CxS value
   hdma_dfsdm1_flt0.Init.Direction = DMA_PERIPH_TO_MEMORY;
@@ -58,7 +64,6 @@ void micInit(void)
   hdma_dfsdm1_flt0.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
   hdma_dfsdm1_flt0.Init.Mode = DMA_CIRCULAR; // cicular
   hdma_dfsdm1_flt0.Init.Priority = DMA_PRIORITY_HIGH; // LOW MEDIUM HIGH VERYHIGH
-  __HAL_RCC_DMA1_CLK_ENABLE();
   if (HAL_DMA_Init(&hdma_dfsdm1_flt0) != HAL_OK)
   {
     Error_Handler();
@@ -73,7 +78,7 @@ void micInit(void)
   hdfsdm1_filter0.Init.RegularParam.FastMode = ENABLE;
   hdfsdm1_filter0.Init.RegularParam.DmaMode = ENABLE;
   hdfsdm1_filter0.Init.FilterParam.SincOrder = DFSDM_FILTER_SINC3_ORDER;
-  hdfsdm1_filter0.Init.FilterParam.Oversampling = 100;
+  hdfsdm1_filter0.Init.FilterParam.Oversampling = 484; // 100->24kHz, 242->10Khz, 484->5kHz
   hdfsdm1_filter0.Init.FilterParam.IntOversampling = 1;
   if (HAL_DFSDM_FilterInit(&hdfsdm1_filter0) != HAL_OK)
   {
@@ -130,6 +135,39 @@ int32_t * micSampleSingle(uint32_t n)
   return dataBuffer;
 }
 
+void micEndlessStream(void)
+{
+  int32_t* data = dataBuffer;
+  const uint32_t chunksize=128;
+
+  while(1)
+  {
+    regConvCplt = false; regConvHalfCplt = false;
+    
+    // start
+    if (HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, dataBuffer, chunksize) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    while(!regConvHalfCplt);
+
+    for(int i = 0; i < chunksize/2; i++)
+    {
+      printf("%d\r\n", data[i]>>16);
+    }
+
+    while(!regConvCplt);
+
+    for(int i = 0; i < chunksize/2; i++)
+    {
+      printf("%d\r\n", data[chunksize/2+i]>>16);
+    }
+
+    HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
+  }
+}
+
 /*------------------------------------------------------------------------------
  * Privates
  * ---------------------------------------------------------------------------*/
@@ -140,8 +178,13 @@ int32_t * micSampleSingle(uint32_t n)
  * ---------------------------------------------------------------------------*/
 void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter)
 {
-  printf("HAL_DFSDM_FilterRegConvCpltCallback\n");
+  regConvCplt = true;
+  // printf("HAL_DFSDM_FilterRegConvCpltCallback\n");
+  // HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 }
 
-
+void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter)
+{
+  regConvHalfCplt = true;
+}
 

@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <stdbool.h>
+
 #include "stm32l4xx_hal.h"
 #include "printf.h"
 

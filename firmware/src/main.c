@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-13 15:58:07
+* @Last Modified time: 2020-04-13 16:56:51
 */
 
 #include "main.h"
@@ -66,23 +66,27 @@ int main(void)
 
   micInit();
 
+  micEndlessStream();
+
   /* Infinite loop */
   while (1)
   {
-    for(int i = 0; i < 256; i++)
-    {
-      HAL_Delay(10);
-      databuf[i] = micSampleSingle(1);
-    }
+    // for(int i = 0; i < 256; i++)
+    // {
+    //   HAL_Delay(10);
+    //   databuf[i] = micSampleSingle(1);
+    // }
+    data = micSampleSingle(100);
 
     printf("x=[");
-    for(int i = 0; i < 256; i++)
-      printf("%d,",databuf[i]);
+    for(int i = 0; i < 100; i++)
+      printf("%d,",data[i]);
     printf("];\n");
-    
-    HAL_Delay(500);
-    HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+
+    HAL_Delay(1000);
+    // HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
     HAL_GPIO_TogglePin(LED3_WIFI__LED4_BLE_GPIO_Port, LED3_WIFI__LED4_BLE_Pin);
+    HAL_Delay(1000);
   
     // printf("Start sampling...\n");
     // data = micSampleSingle(1);
