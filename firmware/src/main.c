@@ -20,6 +20,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "printf.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -55,6 +56,17 @@ UART_HandleTypeDef huart3;
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
+/**
+ * @brief ll function for printf
+ * @details 
+ * 
+ * @param character 
+ */
+void _putchar(char character)
+{
+  // send char to console etc.
+  HAL_UART_Transmit(&huart1, (uint8_t *)&character, 1, 1000);
+}
 
 /* USER CODE END PV */
 
@@ -121,6 +133,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+    printf("Hello world!\n");
     HAL_Delay(500);
     HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
     HAL_GPIO_TogglePin(LED3_WIFI__LED4_BLE_GPIO_Port, LED3_WIFI__LED4_BLE_Pin);

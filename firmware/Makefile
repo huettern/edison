@@ -48,9 +48,10 @@ GEN_LST = 1
 # User code
 
 # Build path
-USR_INC = -Isrc 
+USR_INC = -Isrc -Isrc/io
 
-USR_CSRC = 	$(wildcard src/*.c)
+USR_CSRC = 	$(wildcard src/*.c) \
+						$(wildcard src/io/*.c) \
 
 USR_DEFINES = 
 
