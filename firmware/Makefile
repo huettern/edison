@@ -95,6 +95,12 @@ HAL_CSRC = $(filter-out $(wildcard $(HAL)/src/*template.c), $(wildcard $(HAL)/sr
 #
 ##############################################################################
 
+##############################################################################
+# Misc
+GIT_VERSION := "$(shell git describe --abbrev=8 --dirty --always --tags)"
+BUILD_DATE  := "$(shell date +%Y-%m-%d\ %H:%M:%S\ %Z)"
+#
+##############################################################################
 
 ##############################################################################
 # sources and objects
@@ -141,7 +147,7 @@ MCU = -mcpu=$(CPU) -mthumb $(FPU) -mfloat-abi=$(FLOAT-ABI)
 AS_DEFS = 
 
 # C defines
-C_DEFS =  \
+C_DEFS =  -DGIT_SHA=\"$(GIT_VERSION)\" -DBUILD_DATE=\"$(BUILD_DATE)\"\
 	-DUSE_HAL_DRIVER \
 	-D$(DEVICE) \
 	-D$(ARM_MATH) \

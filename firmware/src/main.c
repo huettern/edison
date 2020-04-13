@@ -1,11 +1,32 @@
+/*
+* @Author: Noah Huetter
+* @Date:   2020-04-13 13:49:34
+* @Last Modified by:   Noah Huetter
+* @Last Modified time: 2020-04-13 13:55:43
+*/
+
 #include "main.h"
 #include "printf.h"
+#include "version.h"
 
 
-/* Private variables ---------------------------------------------------------*/
-DFSDM_Channel_HandleTypeDef hdfsdm1_channel1;
-UART_HandleTypeDef huart1;
+/*------------------------------------------------------------------------------
+ * Private data
+ * ---------------------------------------------------------------------------*/
+static DFSDM_Channel_HandleTypeDef hdfsdm1_channel1;
+static UART_HandleTypeDef huart1;
 
+/*------------------------------------------------------------------------------
+ * Prototypes
+ * ---------------------------------------------------------------------------*/
+static void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_DFSDM1_Init(void);
+static void MX_USART1_UART_Init(void);
+
+/*------------------------------------------------------------------------------
+ * Publics
+ * ---------------------------------------------------------------------------*/
 
 /**
  * @brief ll function for printf
@@ -18,11 +39,6 @@ void _putchar(char character)
   // send char to console etc.
   HAL_UART_Transmit(&huart1, (uint8_t *)&character, 1, 1000);
 }
-
-void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_DFSDM1_Init(void);
-static void MX_USART1_UART_Init(void);
 
 /**
   * @brief  The application entry point.
@@ -45,6 +61,10 @@ int main(void)
   MX_DFSDM1_Init();
   MX_USART1_UART_Init();
   
+  printf("%s / %s / %s / %s\n",
+             verProgName, verVersion,
+             verBuildDate, verGitSha);
+
   /* Infinite loop */
   while (1)
   {
@@ -58,11 +78,14 @@ int main(void)
   }
 }
 
+/*------------------------------------------------------------------------------
+ * Privates
+ * ---------------------------------------------------------------------------*/
 /**
   * @brief System Clock Configuration
   * @retval None
   */
-void SystemClock_Config(void)
+static void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
