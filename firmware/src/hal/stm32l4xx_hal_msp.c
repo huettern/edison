@@ -14,6 +14,29 @@ void HAL_MspInit(void)
 
 static uint32_t DFSDM1_Init = 0;
 /**
+* @brief DFSDM_Filter MSP Initialization
+* This function configures the hardware resources used in this example
+* @param hdfsdm_filter: DFSDM_Filter handle pointer
+* @retval None
+*/
+void HAL_DFSDM_FilterMspInit(DFSDM_Filter_HandleTypeDef* hdfsdm_filter)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  if(DFSDM1_Init == 0)
+  {
+  /* USER CODE BEGIN DFSDM1_MspInit 0 */
+
+  /* USER CODE END DFSDM1_MspInit 0 */
+    /* Peripheral clock enable */
+    __HAL_RCC_DFSDM1_CLK_ENABLE();
+  
+    /* DFSDM1 interrupt Init */
+    HAL_NVIC_SetPriority(DFSDM1_FLT0_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DFSDM1_FLT0_IRQn);
+  }
+}
+
+/**
 * @brief DFSDM_Channel MSP Initialization
 * This function configures the hardware resources used in this example
 * @param hdfsdm_channel: DFSDM_Channel handle pointer

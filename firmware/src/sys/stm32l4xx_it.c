@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:51:28
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-13 13:51:39
+* @Last Modified time: 2020-04-13 15:07:17
 */
 
 #include "main.h"
@@ -92,6 +92,22 @@ void SysTick_Handler(void)
 /*------------------------------------------------------------------------------
  * STM32L4xx Peripheral Interrupt Handlers 
  * ---------------------------------------------------------------------------*/
+
+/**
+  * @brief This function handles DMA1 channel4 global interrupt.
+  */
+void DMA1_Channel4_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_dfsdm1_flt0);
+}
+
+/**
+  * @brief This function handles DFSDM1 filter0 global interrupt.
+  */
+void DFSDM1_FLT0_IRQHandler(void)
+{
+  HAL_DFSDM_IRQHandler(&hdfsdm1_filter0);
+}
 
 /**
   * @brief This function handles EXTI line[9:5] interrupts.

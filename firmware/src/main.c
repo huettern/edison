@@ -2,18 +2,18 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-13 13:55:43
+* @Last Modified time: 2020-04-13 15:58:07
 */
 
 #include "main.h"
 #include "printf.h"
 #include "version.h"
+#include "microphone.h"
 
 
 /*------------------------------------------------------------------------------
  * Private data
  * ---------------------------------------------------------------------------*/
-static DFSDM_Channel_HandleTypeDef hdfsdm1_channel1;
 static UART_HandleTypeDef huart1;
 
 /*------------------------------------------------------------------------------
@@ -21,7 +21,6 @@ static UART_HandleTypeDef huart1;
  * ---------------------------------------------------------------------------*/
 static void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_DFSDM1_Init(void);
 static void MX_USART1_UART_Init(void);
 
 /*------------------------------------------------------------------------------
@@ -46,7 +45,8 @@ void _putchar(char character)
   */
 int main(void)
 {
-
+  int32_t* data;
+  int32_t databuf[256];
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -58,24 +58,47 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DFSDM1_Init();
   MX_USART1_UART_Init();
   
   printf("%s / %s / %s / %s\n",
              verProgName, verVersion,
              verBuildDate, verGitSha);
 
+  micInit();
+
   /* Infinite loop */
   while (1)
   {
-    printf("Hello world!\n");
+    for(int i = 0; i < 256; i++)
+    {
+      HAL_Delay(10);
+      databuf[i] = micSampleSingle(1);
+    }
+
+    printf("x=[");
+    for(int i = 0; i < 256; i++)
+      printf("%d,",databuf[i]);
+    printf("];\n");
+    
     HAL_Delay(500);
     HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
     HAL_GPIO_TogglePin(LED3_WIFI__LED4_BLE_GPIO_Port, LED3_WIFI__LED4_BLE_Pin);
-    HAL_Delay(500);
-    HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-    HAL_GPIO_TogglePin(LED3_WIFI__LED4_BLE_GPIO_Port, LED3_WIFI__LED4_BLE_Pin);
+  
+    // printf("Start sampling...\n");
+    // data = micSampleSingle(1);
+    // printf("%5d\n", data[0]);
+
+
   }
+  // while (1)
+  // {
+  //   HAL_Delay(500);
+  //   HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+  //   HAL_GPIO_TogglePin(LED3_WIFI__LED4_BLE_GPIO_Port, LED3_WIFI__LED4_BLE_Pin);
+  //   HAL_Delay(500);
+  //   HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+  //   HAL_GPIO_TogglePin(LED3_WIFI__LED4_BLE_GPIO_Port, LED3_WIFI__LED4_BLE_Pin);
+  // }
 }
 
 /*------------------------------------------------------------------------------
@@ -154,32 +177,6 @@ static void SystemClock_Config(void)
   /** Enable MSI Auto calibration 
   */
   HAL_RCCEx_EnableMSIPLLMode();
-}
-
-/**
-  * @brief DFSDM1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_DFSDM1_Init(void)
-{
-  hdfsdm1_channel1.Instance = DFSDM1_Channel1;
-  hdfsdm1_channel1.Init.OutputClock.Activation = ENABLE;
-  hdfsdm1_channel1.Init.OutputClock.Selection = DFSDM_CHANNEL_OUTPUT_CLOCK_SYSTEM;
-  hdfsdm1_channel1.Init.OutputClock.Divider = 2;
-  hdfsdm1_channel1.Init.Input.Multiplexer = DFSDM_CHANNEL_EXTERNAL_INPUTS;
-  hdfsdm1_channel1.Init.Input.DataPacking = DFSDM_CHANNEL_STANDARD_MODE;
-  hdfsdm1_channel1.Init.Input.Pins = DFSDM_CHANNEL_FOLLOWING_CHANNEL_PINS;
-  hdfsdm1_channel1.Init.SerialInterface.Type = DFSDM_CHANNEL_SPI_RISING;
-  hdfsdm1_channel1.Init.SerialInterface.SpiClock = DFSDM_CHANNEL_SPI_CLOCK_INTERNAL;
-  hdfsdm1_channel1.Init.Awd.FilterOrder = DFSDM_CHANNEL_FASTSINC_ORDER;
-  hdfsdm1_channel1.Init.Awd.Oversampling = 1;
-  hdfsdm1_channel1.Init.Offset = 0;
-  hdfsdm1_channel1.Init.RightBitShift = 0x00;
-  if (HAL_DFSDM_ChannelInit(&hdfsdm1_channel1) != HAL_OK)
-  {
-    Error_Handler();
-  }
 }
 
 /**
@@ -398,6 +395,8 @@ static void MX_GPIO_Init(void)
   */
 void Error_Handler(void)
 {
+  printf("Error Handler\n");
+  while(1);
 }
 
 #ifdef  USE_FULL_ASSERT

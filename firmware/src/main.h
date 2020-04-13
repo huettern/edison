@@ -8,12 +8,17 @@
 #pragma once
 
 #include "stm32l4xx_hal.h"
+#include "printf.h"
 
 /*------------------------------------------------------------------------------
  * Publics
  * ---------------------------------------------------------------------------*/
 void Error_Handler(void);
 
+
+DFSDM_Channel_HandleTypeDef hdfsdm1_ch1;
+DFSDM_Filter_HandleTypeDef hdfsdm1_filter0;
+DMA_HandleTypeDef hdma_dfsdm1_flt0;
 
 /*------------------------------------------------------------------------------
  * Defines
