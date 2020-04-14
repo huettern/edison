@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-14 14:45:06
+* @Last Modified time: 2020-04-14 17:19:38
 */
 #include "main.h"
 #include "util.h"
@@ -28,6 +28,11 @@
  * Types
  * ---------------------------------------------------------------------------*/
 
+/**
+ * experimentally determined offset from output
+ */
+#define OFFSET_DATA 316736
+
 typedef struct 
 {
   // 2..256
@@ -51,9 +56,10 @@ typedef struct
 /**
  * Results in 5kHz sample rate
  */
-const filterSettings_t fs5k = {33, 484, 0x00, 0, DFSDM_FILTER_SINC3_ORDER,1};
-const filterSettings_t fs10k = {33, 242, 0x00, 0, DFSDM_FILTER_SINC3_ORDER,1};
-const filterSettings_t fs44k = {33, 55, 0x00, 0, DFSDM_FILTER_SINC3_ORDER,1};
+const filterSettings_t fs5k = {33, 484, 0x00, OFFSET_DATA, DFSDM_FILTER_SINC3_ORDER,1};
+const filterSettings_t fs10k = {33, 242, 0x00, OFFSET_DATA, DFSDM_FILTER_SINC3_ORDER,1};
+const filterSettings_t fs44k = {33, 55, 0x00, OFFSET_DATA, DFSDM_FILTER_SINC3_ORDER,1};
+const filterSettings_t fs8krs16 = {33, 242, 16, OFFSET_DATA, DFSDM_FILTER_SINC3_ORDER,1};
 
 
 /*------------------------------------------------------------------------------
