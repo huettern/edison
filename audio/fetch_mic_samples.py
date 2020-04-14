@@ -5,20 +5,24 @@ from tqdm import tqdm
 from time import sleep
 import struct
 
+# Set tu False to get raw sampels, to true to get preprocessed samples
+preprocessed = False
+
 ser = Serial('/dev/tty.usbmodem1413303', 115200)  # open serial port
-# ser.open()
 
 data = []
 
-count = 20000
+count = 5000
 fs = 5000
 
 # request count samples
 ser.flush()
-# ser.read(-1)
-ser.write(b'\0') # command byte
+if preprocessed:
+  ser.write(b'\1') # command byte
+else:
+  ser.write(b'\0') # command byte
+
 ser.write(count.to_bytes(2,'big')) # number of samples
-ser.write(b'\0') # optional argument
 
 # poll for command status
 ret = ser.read(1)
@@ -33,26 +37,35 @@ while (ser.in_waiting < 1):
   sleep(0.01)
 
 # Read data to keep buffer from overflowing
+
+if preprocessed:
+  nBytesPerSampe = 1
+else:
+  nBytesPerSampe = 4
+
 buf = b''
 readCtr = 0
 inWaiting = 0
 while(1):
   sleep(0.01)
   inWaiting = ser.in_waiting
-  nRead = min(inWaiting, count*4-readCtr)
+  nRead = min(inWaiting, count*nBytesPerSampe-readCtr)
   buf += ser.read(nRead)
   readCtr += nRead
   print("read %d, total bytes read: %d" % (nRead,readCtr))
-  if readCtr >= count*4:
+  if readCtr >= count*nBytesPerSampe:
     break
-print(ser.readline())
+# print(ser.readline())
 ser.close()             # close port
 
 # convert byte string of integers to int array
 d = []
-for i in range(int(readCtr/4)):
-  inp = buf[4*i:4*i+4]
-  d.append(struct.unpack('>i', inp)[0])
+for i in range(int(readCtr/nBytesPerSampe)):
+  inp = buf[nBytesPerSampe*i:nBytesPerSampe*i+nBytesPerSampe]
+  if preprocessed:
+    d.append(struct.unpack('>b', inp)[0]) # b: signed char
+  else:
+    d.append(struct.unpack('>i', inp)[0]) # i: int
 data = np.array(d)
 
 print("Acquired min: %d max: %d" % (np.min(data), np.max(data)))
@@ -80,35 +93,3 @@ for ele in data:
 
 # scaled = np.int16((data-np.mean(data))/np.max(np.abs(data)) * 32767)
 write('test.wav', fs, data)
-
-exit()
-
-
-######################################################################
-# ASCII continuous stream
-######################################################################
-
-# ser = Serial('/dev/tty.usbmodem1413303', 115200)  # open serial port
-# # ser.open()
-
-# data = []
-
-# count = 5000
-# for i in tqdm(range(count)):
-#   try:
-#     s = int(ser.readline()[:-1])
-#     data.append(s)
-#   except:
-#     pass
-#   # print(s)
-
-# ser.close()             # close port
-
-# data = np.array(data)
-
-# f=open('data.txt','w')
-# for ele in data:
-#     f.write(str(ele)+'\n')
-
-# scaled = np.int16((data-np.mean(data))/np.max(np.abs(data)) * 32767)
-# write('test.wav', int(5000/2), scaled)

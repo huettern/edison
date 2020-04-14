@@ -2,8 +2,10 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-14 17:19:38
+* @Last Modified time: 2020-04-14 18:23:03
 */
+#include "microphone.h"
+
 #include "main.h"
 #include "util.h"
 
@@ -65,22 +67,27 @@ const filterSettings_t fs8krs16 = {33, 242, 16, OFFSET_DATA, DFSDM_FILTER_SINC3_
 /*------------------------------------------------------------------------------
  * Settings
  * ---------------------------------------------------------------------------*/
-#define MIC_BUFFER_SIZE 20000
+#define RAW_BUFFER_SIZE 10000
+#define MIC_BUFFER_SIZE 5000
 
 const filterSettings_t* filterSettings = &fs5k;
 
 /*------------------------------------------------------------------------------
  * Private data
  * ---------------------------------------------------------------------------*/
-static int32_t dataBuffer [MIC_BUFFER_SIZE];
+static int32_t dataBuffer [RAW_BUFFER_SIZE];
+static int8_t procBuffer [MIC_BUFFER_SIZE];
 static int32_t exdMaxValue, exdMinValue;
 
 static bool regConvCplt = false;
 static bool regConvHalfCplt = false;
 
+static uint32_t dbg32;
+
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
+static void preprocess(int8_t * outPtr, int32_t * srcPtr, uint32_t nProcess);
 
 /*------------------------------------------------------------------------------
  * Publics
@@ -162,7 +169,7 @@ void micInit(void)
  */
 uint32_t micSampleSingle(int32_t ** data, uint32_t n)
 {
-  uint32_t len = (n>MIC_BUFFER_SIZE)?MIC_BUFFER_SIZE:n;
+  uint32_t len = (n>RAW_BUFFER_SIZE)?RAW_BUFFER_SIZE:n;
   uint32_t unused;
 
   if (len < 1) return 0;
@@ -264,7 +271,7 @@ void micEndlessStream(void)
  * @brief Endless loop waiting for sample requests via serial
  * @details 
  */
-void micHostSampleRequest(uint16_t nSamples, uint8_t optArg)
+void micHostSampleRequest(uint16_t nSamples)
 {
   int32_t* datap = 0;
   uint8_t txdata;
@@ -311,10 +318,132 @@ void micHostSampleRequest(uint16_t nSamples, uint8_t optArg)
 
 }
 
+/**
+ * @brief Host interface helper for getting nSamples preprocessed
+ * @details 
+ * 
+ * @param nSamples 
+ */
+void micHostSampleRequestPreprocessed(uint16_t nSamples)
+{
+  int8_t* datap = 0;
+  uint8_t txdata;
+
+  nSamples = micSampleSinglePreprocessed(&datap, nSamples);
+
+  for(int i = 0; i < nSamples; i++)
+  {
+    txdata = (uint8_t)(datap[i]);
+    HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
+  }
+}
+
+/**
+ * @brief Samples n samples and preprocesses them before returning
+ * @details 
+ * 
+ * @param data pointer where output data is stored
+ * @param n number of samples to fetch
+ * 
+ * @return 
+ */
+uint32_t micSampleSinglePreprocessed(int8_t ** data, uint32_t n)
+{
+  uint32_t len = (n>MIC_BUFFER_SIZE)?MIC_BUFFER_SIZE:n;
+  int8_t *outPtr = procBuffer;
+  uint32_t nProcess, remaining;
+  int32_t *srcPtr;
+  // start fetching
+  if (len < 1) return 0;
+
+  dbg32 = 0;
+  if(HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, dataBuffer, RAW_BUFFER_SIZE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  regConvCplt = false; regConvHalfCplt = false;
+  remaining = len;
+  do
+  {
+    nProcess = remaining > (RAW_BUFFER_SIZE/2) ? RAW_BUFFER_SIZE/2 : remaining;
+    // printf("%d/%d\n", nProcess, remaining);
+    while( !regConvCplt || !regConvHalfCplt);
+    if(regConvHalfCplt)
+    {
+      regConvHalfCplt = false;
+      srcPtr = &dataBuffer[0];
+    }
+    else
+    {
+      regConvCplt = false;
+      srcPtr = &dataBuffer[RAW_BUFFER_SIZE/2];
+    }
+    preprocess(outPtr, srcPtr, nProcess); //dst, src, N
+    remaining-=nProcess;
+    outPtr+=nProcess;
+  } while(remaining);
+  HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
+
+  return len;
+  // while(!regConvCplt);
+  // printf("dbg32=%d\n", dbg32);
+
+  // regConvCplt = false; regConvHalfCplt = false;
+  // if(len < RAW_BUFFER_SIZE)
+  // {
+  //   if(HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, dataBuffer, len) != HAL_OK)
+  //   {
+  //     Error_Handler();
+  //   }
+  //   while(!regConvCplt);
+  //   preprocess(outPtr, &dataBuffer[0], len); //dst, src, N
+  //   len -= len;
+  // }
+  // else
+  // {
+  //   if(HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, dataBuffer, RAW_BUFFER_SIZE) != HAL_OK)
+  //   {
+  //     Error_Handler();
+  //   }
+  //   while(!regConvHalfCplt);
+  //   preprocess(outPtr, &dataBuffer[0], RAW_BUFFER_SIZE/2); //dst, src, N
+  //   len -= RAW_BUFFER_SIZE/2;
+  //   while(!regConvCplt);
+  //   preprocess(outPtr, &dataBuffer[0], RAW_BUFFER_SIZE/2); //dst, src, N
+  //   len -= RAW_BUFFER_SIZE/2;
+  // }
+
+  // do
+  // {
+
+  // } while(!regConvCplt);
+
+  // while(!regConvCplt);
+  // HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
+
+
+}
+
 /*------------------------------------------------------------------------------
  * Privates
  * ---------------------------------------------------------------------------*/
-
+/**
+ * @brief Preprocess batch of samples
+ * @details 
+ * 
+ * @param outPtr where to write the data
+ * @param srcPtr where to fetch the data
+ * @param nProcess number of values to process
+ */
+static void preprocess(int8_t * outPtr, int32_t * srcPtr, uint32_t nProcess)
+{
+  for(int i = 0; i < nProcess; i++)
+  {
+    // get only 8 bits of data
+    outPtr[i] = srcPtr[i] >> 24;
+  }
+}
 
 /*------------------------------------------------------------------------------
  * Callbacks
@@ -322,12 +451,13 @@ void micHostSampleRequest(uint16_t nSamples, uint8_t optArg)
 void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter)
 {
   regConvCplt = true;
-  // printf("HAL_DFSDM_FilterRegConvCpltCallback\n");
-  // HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+  // printf("c\n");
 }
 
 void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter)
 {
   regConvHalfCplt = true;
+  dbg32++;
+  // printf("h\n");
 }
 

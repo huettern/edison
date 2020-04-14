@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 
 # input raw samples from MCU
 # in_data = 'out/data_raw.txt'
-in_data = 'data/data_raw_5k_24bit_ac_command.txt'
+in_data = 'out/8bit.txt'
 fs = 5000
-in_bits = 24
+in_bits = 8
 
 # load file
 raw = np.loadtxt(in_data)

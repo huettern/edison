@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-14 15:23:23
+* @Last Modified time: 2020-04-14 18:09:26
 */
 
 #include "main.h"
@@ -45,6 +45,7 @@ void _putchar(char character)
 int main(void)
 {
   int32_t* data;
+  int8_t* data8;
   int32_t databuf[256];
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -67,6 +68,12 @@ int main(void)
 
   // micEndlessStream();
   // micReqSampling();
+  // micSampleSinglePreprocessed(&data8, 5000);
+
+  // for(int i = 0; i < 5000; i++)
+  // {
+  //   printf("%d\r\n", data8[i]);
+  // }
 
   while(1)
   {
