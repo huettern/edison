@@ -11,14 +11,21 @@ ser = Serial('/dev/tty.usbmodem1413303', 115200)  # open serial port
 data = []
 
 count = 20000
-fs = 10000
+fs = 5000
 
 # request count samples
 ser.flush()
 # ser.read(-1)
-ser.write(count.to_bytes(2,'big'))
-ser.write(b'\0')
-ser.write(b'\0')
+ser.write(b'\0') # command byte
+ser.write(count.to_bytes(2,'big')) # number of samples
+ser.write(b'\0') # optional argument
+
+# poll for command status
+ret = ser.read(1)
+if ret != b'\0':
+  print('Command not accepted, exiting')
+  exit()
+print('Command accepted')
 
 # Read data to keep buffer from overflowing
 print(ser.readline())
@@ -41,6 +48,10 @@ for i in range(int(readCtr/4)):
   inp = buf[4*i:4*i+4]
   d.append(struct.unpack('>i', inp)[0])
 data = np.array(d)
+
+# use only some MSB bits
+# msbBits = 16
+# data = data / 2**(32-msbBits)
 
 # dump raw values to file
 f=open('data_raw.txt','w')
