@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-14 10:41:10
+* @Last Modified time: 2020-04-14 10:55:15
 */
 #include "main.h"
 #include "util.h"
@@ -52,6 +52,7 @@ typedef struct
  * Results in 5kHz sample rate
  */
 const filterSettings_t fs5k = {33, 484, 0x00, 0, DFSDM_FILTER_SINC3_ORDER,1};
+const filterSettings_t fs10k = {33, 242, 0x00, 0, DFSDM_FILTER_SINC3_ORDER,1};
 
 
 /*------------------------------------------------------------------------------
@@ -59,7 +60,7 @@ const filterSettings_t fs5k = {33, 484, 0x00, 0, DFSDM_FILTER_SINC3_ORDER,1};
  * ---------------------------------------------------------------------------*/
 #define MIC_BUFFER_SIZE 20000
 
-const filterSettings_t* filterSettings = &fs5k;
+const filterSettings_t* filterSettings = &fs10k;
 
 /*------------------------------------------------------------------------------
  * Private data

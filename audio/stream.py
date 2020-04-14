@@ -11,6 +11,7 @@ ser = Serial('/dev/tty.usbmodem1413303', 115200)  # open serial port
 data = []
 
 count = 20000
+fs = 10000
 
 # request count samples
 ser.flush()
@@ -58,7 +59,7 @@ for ele in data:
     f.write(str(ele)+'\n')
 
 # scaled = np.int16((data-np.mean(data))/np.max(np.abs(data)) * 32767)
-write('test.wav', int(5000), data)
+write('test.wav', fs, data)
 
 exit()
 
