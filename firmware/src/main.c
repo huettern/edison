@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-13 16:56:51
+* @Last Modified time: 2020-04-14 10:13:55
 */
 
 #include "main.h"
@@ -14,7 +14,6 @@
 /*------------------------------------------------------------------------------
  * Private data
  * ---------------------------------------------------------------------------*/
-static UART_HandleTypeDef huart1;
 
 /*------------------------------------------------------------------------------
  * Prototypes
@@ -66,7 +65,8 @@ int main(void)
 
   micInit();
 
-  micEndlessStream();
+  // micEndlessStream();
+  micReqSampling();
 
   /* Infinite loop */
   while (1)
@@ -74,14 +74,19 @@ int main(void)
     // for(int i = 0; i < 256; i++)
     // {
     //   HAL_Delay(10);
-    //   databuf[i] = micSampleSingle(1);
+    //   micSampleSingle(&databuf[i], 1);
     // }
-    data = micSampleSingle(100);
+    micSampleSingle(&data, 10);
 
-    printf("x=[");
-    for(int i = 0; i < 100; i++)
-      printf("%d,",data[i]);
-    printf("];\n");
+    printf(">>>\n");
+    for(int i = 0; i < 10; i++)
+      printf("%032b %10d\n",data[i],data[i]);
+    printf("<<<\n");
+
+    // printf("x=[");
+    // for(int i = 0; i < 10; i++)
+    //   printf("%d,",data[i]);
+    // printf("];\n");
 
     HAL_Delay(1000);
     // HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
@@ -89,7 +94,7 @@ int main(void)
     HAL_Delay(1000);
   
     // printf("Start sampling...\n");
-    // data = micSampleSingle(1);
+    // micSampleSingle(data, 1);
     // printf("%5d\n", data[0]);
 
 

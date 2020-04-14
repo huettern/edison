@@ -17,7 +17,7 @@
  * ---------------------------------------------------------------------------*/
 void Error_Handler(void);
 
-
+UART_HandleTypeDef huart1;
 DFSDM_Channel_HandleTypeDef hdfsdm1_ch1;
 DFSDM_Filter_HandleTypeDef hdfsdm1_filter0;
 DMA_HandleTypeDef hdma_dfsdm1_flt0;

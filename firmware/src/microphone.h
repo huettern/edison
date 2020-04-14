@@ -3,5 +3,6 @@
 #include "main.h"
 
 void micInit(void);
-int32_t * micSampleSingle(uint32_t n);
+uint32_t micSampleSingle(int32_t ** data, uint32_t n);
 void micEndlessStream(void);
+void micReqSampling(void);

@@ -2,9 +2,10 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-14 08:29:17
+* @Last Modified time: 2020-04-14 10:41:10
 */
 #include "main.h"
+#include "util.h"
 
 /**
  * f_ckin     Clock frequency of data line: f_ckin = 80e6 / clockDivider
@@ -20,6 +21,7 @@
  *    DR [Samples/s] = f_ckin / (f_osr * I_osr)
  *   
  * Cut-off frequency
+ *    fg = f_ckin / f_osr
  */
 
 /*------------------------------------------------------------------------------
@@ -149,24 +151,28 @@ void micInit(void)
  * @param n number of samples to get
  * @return pointer to data buffer
  */
-int32_t * micSampleSingle(uint32_t n)
+uint32_t micSampleSingle(int32_t ** data, uint32_t n)
 {
+  uint32_t len = (n>MIC_BUFFER_SIZE)?MIC_BUFFER_SIZE:n;
+
+  if (len < 1) return 0;
+  regConvCplt = false;
 
   // (#) Start regular conversion using HAL_DFSDM_FilterRegularStart(),
   //     HAL_DFSDM_FilterRegularStart_IT(), HAL_DFSDM_FilterRegularStart_DMA() or
   //     HAL_DFSDM_FilterRegularMsbStart_DMA().
-  if (HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, dataBuffer, (n>MIC_BUFFER_SIZE)?MIC_BUFFER_SIZE:n) != HAL_OK)
+  if (HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, dataBuffer, len) != HAL_OK)
   {
     Error_Handler();
   }
 
   // (#) In polling mode, use HAL_DFSDM_FilterPollForRegConversion() to detect
   //     the end of regular conversion.
-  // while(1);
-  if (HAL_DFSDM_FilterPollForRegConversion(&hdfsdm1_filter0, HAL_MAX_DELAY) != HAL_OK) // block
-  {
-    Error_Handler();
-  }
+  while(!regConvCplt);
+  // if (HAL_DFSDM_FilterPollForRegConversion(&hdfsdm1_filter0, HAL_MAX_DELAY) != HAL_OK) // block
+  // {
+  //   Error_Handler();
+  // }
 
   // (#) In interrupt mode, HAL_DFSDM_FilterRegConvCpltCallback() will be called
   //     at the end of regular conversion.
@@ -181,9 +187,14 @@ int32_t * micSampleSingle(uint32_t n)
   //     HAL_DFSDM_FilterRegularStop_IT() or HAL_DFSDM_FilterRegularStop_DMA().
   HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
 
-  return dataBuffer;
+  *data = dataBuffer;
+  return len;
 }
 
+/**
+ * @brief Runs endless loop of streaming microphone data to serial
+ * @details 
+ */
 void micEndlessStream(void)
 {
   int32_t* data = dataBuffer;
@@ -215,6 +226,51 @@ void micEndlessStream(void)
 
     HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
   }
+}
+
+/**
+ * @brief Endless loop waiting for sample requests via serial
+ * @details 
+ */
+void micReqSampling(void)
+{
+  uint8_t rxData[4];
+  int32_t* datap = 0;
+  uint16_t sampleCount;
+  uint8_t txdata;
+
+  while(1)
+  {
+    // wait for 4 data bytes to arrive
+    HAL_UART_Receive(&huart1, rxData, 4, HAL_MAX_DELAY);
+
+    sampleCount = rxData[0]<<8 | rxData[1];
+
+    printf("rx: running for %d samples, ", sampleCount);
+
+    sampleCount = micSampleSingle(&datap, sampleCount);
+
+    printf("got %d\n", sampleCount);
+    // HAL_Delay(1000);
+    // printf("%x %x \n", datap, dataBuffer);
+    // utilDumpHex(datap, 40);
+    for(int i = 0; i < sampleCount; i++)
+    {
+      txdata = (uint8_t)((datap[i] >> 24) & 0x000000ff);
+      // printf("%02x\n", txdata); 
+      HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
+      txdata = (uint8_t)((datap[i] >> 16) & 0x000000ff);
+      // printf("%02x\n", txdata); 
+      HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
+      txdata = (uint8_t)((datap[i] >>  8) & 0x000000ff);
+      // printf("%02x\n", txdata); 
+      HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
+      txdata = (uint8_t)((datap[i] >>  0) & 0x000000ff);
+      // printf("%02x\n", txdata); 
+      HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
+    }
+  }
+
 }
 
 /*------------------------------------------------------------------------------
