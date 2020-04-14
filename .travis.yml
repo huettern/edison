@@ -8,7 +8,7 @@ services:
 install:
   - sudo apt-get install -y build-essential git bzip2 wget
   - mkdir /tmp/toolchain && pushd /tmp/toolchain && wget -qO- https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-rm/8-2018q4/gcc-arm-none-eabi-8-2018-q4-major-linux.tar.bz2 | tar -xj && popd
-  - export PATH="/tmp/toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin:$PATH"
+  - export PATH="/tmp/toolchain/gcc-arm-none-eabi-8-2018-q4-major/bin:$PATH"
 
 script:
   - make -C firmware/ all
