@@ -35,9 +35,10 @@ inWaiting = 0
 while(1):
   sleep(0.01)
   inWaiting = ser.in_waiting
-  buf += ser.read(inWaiting)
-  readCtr += inWaiting
-  print("read %d, total bytes read: %d" % (inWaiting,readCtr))
+  nRead = min(inWaiting, count*4-readCtr)
+  buf += ser.read(nRead)
+  readCtr += nRead
+  print("read %d, total bytes read: %d" % (nRead,readCtr))
   if readCtr >= count*4:
     break
 ser.close()             # close port
