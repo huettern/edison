@@ -2,14 +2,62 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-13 17:00:26
+* @Last Modified time: 2020-04-14 08:29:17
 */
 #include "main.h"
+
+/**
+ * f_ckin     Clock frequency of data line: f_ckin = 80e6 / clockDivider
+ * f_osr      Filter oversampling ratio = oversampling
+ * f_ord      Filter order, [1,5] for sinc
+ * I_osr      Integrator oversampling ratio, [1,256] = intOversampling
+ * 
+ * Output datarate for FAST=0, SincX filter
+ *    DR [Samples/s] = f_ckin / (f_osr * (I_osr - 1 + f_ord ) + (f_ord + 1) )
+ * Output datarate for FAST=0, FastSinc filter
+ *    DR [Samples/s] = f_ckin / (f_osr * (I_osr - 1 + 4 ) + (2 + 1) )
+ * Output datarate for FAST=1
+ *    DR [Samples/s] = f_ckin / (f_osr * I_osr)
+ *   
+ * Cut-off frequency
+ */
+
+/*------------------------------------------------------------------------------
+ * Types
+ * ---------------------------------------------------------------------------*/
+
+typedef struct 
+{
+  // 2..256
+  uint32_t clockDivider;
+  // 1..32
+  uint16_t oversampling;
+  // between Min_Data = 0x00 and Max_Data = 0x1F
+  uint32_t rightBitShift;
+  // between Min_Data = -8388608 and Max_Data = 8388607
+  int32_t offset;
+  // DFSDM_FILTER_FASTSINC_ORDER
+  // DFSDM_FILTER_SINC1_ORDER
+  // DFSDM_FILTER_SINC2_ORDER
+  // DFSDM_FILTER_SINC3_ORDER
+  // DFSDM_FILTER_SINC4_ORDER
+  // DFSDM_FILTER_SINC5_ORDER
+  uint32_t sincOrder;
+  // 1..256
+  uint32_t intOversampling;
+} filterSettings_t;
+/**
+ * Results in 5kHz sample rate
+ */
+const filterSettings_t fs5k = {33, 484, 0x00, 0, DFSDM_FILTER_SINC3_ORDER,1};
+
 
 /*------------------------------------------------------------------------------
  * Settings
  * ---------------------------------------------------------------------------*/
 #define MIC_BUFFER_SIZE 20000
+
+const filterSettings_t* filterSettings = &fs5k;
 
 /*------------------------------------------------------------------------------
  * Private data
@@ -36,7 +84,7 @@ void micInit(void)
   hdfsdm1_ch1.Instance = DFSDM1_Channel2;
   hdfsdm1_ch1.Init.OutputClock.Activation = ENABLE;
   hdfsdm1_ch1.Init.OutputClock.Selection = DFSDM_CHANNEL_OUTPUT_CLOCK_SYSTEM;
-  hdfsdm1_ch1.Init.OutputClock.Divider = 33; // from Cube: 2
+  hdfsdm1_ch1.Init.OutputClock.Divider = filterSettings->clockDivider; // from Cube: 2
   hdfsdm1_ch1.Init.Input.Multiplexer = DFSDM_CHANNEL_EXTERNAL_INPUTS;
   hdfsdm1_ch1.Init.Input.DataPacking = DFSDM_CHANNEL_STANDARD_MODE;
   hdfsdm1_ch1.Init.Input.Pins = DFSDM_CHANNEL_SAME_CHANNEL_PINS;
@@ -44,8 +92,8 @@ void micInit(void)
   hdfsdm1_ch1.Init.SerialInterface.SpiClock = DFSDM_CHANNEL_SPI_CLOCK_INTERNAL;
   hdfsdm1_ch1.Init.Awd.FilterOrder = DFSDM_CHANNEL_FASTSINC_ORDER;
   hdfsdm1_ch1.Init.Awd.Oversampling = 1;
-  hdfsdm1_ch1.Init.Offset = 0;
-  hdfsdm1_ch1.Init.RightBitShift = 0x00;
+  hdfsdm1_ch1.Init.Offset = filterSettings->offset;
+  hdfsdm1_ch1.Init.RightBitShift = filterSettings->rightBitShift;
   if (HAL_DFSDM_ChannelInit(&hdfsdm1_ch1) != HAL_OK)
   {
     Error_Handler();
@@ -77,9 +125,9 @@ void micInit(void)
   hdfsdm1_filter0.Init.RegularParam.Trigger = DFSDM_FILTER_SW_TRIGGER;
   hdfsdm1_filter0.Init.RegularParam.FastMode = ENABLE;
   hdfsdm1_filter0.Init.RegularParam.DmaMode = ENABLE;
-  hdfsdm1_filter0.Init.FilterParam.SincOrder = DFSDM_FILTER_SINC3_ORDER;
-  hdfsdm1_filter0.Init.FilterParam.Oversampling = 484; // 100->24kHz, 242->10Khz, 484->5kHz
-  hdfsdm1_filter0.Init.FilterParam.IntOversampling = 1;
+  hdfsdm1_filter0.Init.FilterParam.SincOrder = filterSettings->sincOrder;
+  hdfsdm1_filter0.Init.FilterParam.Oversampling = filterSettings->oversampling; // 100->24kHz, 242->10Khz, 484->5kHz
+  hdfsdm1_filter0.Init.FilterParam.IntOversampling = filterSettings->intOversampling;
   if (HAL_DFSDM_FilterInit(&hdfsdm1_filter0) != HAL_OK)
   {
     Error_Handler();
@@ -91,6 +139,7 @@ void micInit(void)
   {
     Error_Handler();
   }
+
 }
 
 /**

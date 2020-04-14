@@ -31,3 +31,7 @@ Temporary Items
 .apdisk
 
 # End of https://www.gitignore.io/api/macos
+
+# User
+audio/*.wav
+audio/*.txt
