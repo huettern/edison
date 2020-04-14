@@ -73,6 +73,7 @@ const filterSettings_t* filterSettings = &fs5k;
  * Private data
  * ---------------------------------------------------------------------------*/
 static int32_t dataBuffer [MIC_BUFFER_SIZE];
+static int32_t exdMaxValue, exdMinValue;
 
 static bool regConvCplt = false;
 static bool regConvHalfCplt = false;
@@ -162,9 +163,22 @@ void micInit(void)
 uint32_t micSampleSingle(int32_t ** data, uint32_t n)
 {
   uint32_t len = (n>MIC_BUFFER_SIZE)?MIC_BUFFER_SIZE:n;
+  uint32_t unused;
 
   if (len < 1) return 0;
   regConvCplt = false;
+
+  // start extrem value detection and reset the values
+  // hdfsdm1_filter0.Instance->FLTCR2 &= ~(DFSDM_FLTCR2_EXCH);
+  // hdfsdm1_filter0.Instance->FLTCR2 |= ((0x3f) << DFSDM_FLTCR2_EXCH_Pos); // enable channel 2
+  // exdMaxValue = ((int32_t)hdfsdm1_filter0.Instance->FLTEXMAX/256);
+  // exdMinValue = ((int32_t)hdfsdm1_filter0.Instance->FLTEXMIN/256);
+  if(HAL_DFSDM_FilterExdStart(&hdfsdm1_filter0, DFSDM_CHANNEL_0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  exdMaxValue = HAL_DFSDM_FilterGetExdMaxValue(&hdfsdm1_filter0, &unused);
+  exdMinValue = HAL_DFSDM_FilterGetExdMinValue(&hdfsdm1_filter0, &unused);
 
   // (#) Start regular conversion using HAL_DFSDM_FilterRegularStart(),
   //     HAL_DFSDM_FilterRegularStart_IT(), HAL_DFSDM_FilterRegularStart_DMA() or
@@ -194,6 +208,16 @@ uint32_t micSampleSingle(int32_t ** data, uint32_t n)
   // (#) Stop regular conversion using HAL_DFSDM_FilterRegularStop(),
   //     HAL_DFSDM_FilterRegularStop_IT() or HAL_DFSDM_FilterRegularStop_DMA().
   HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
+
+  // store values and stop extreme detection
+  // exdMaxValue = ((int32_t)hdfsdm1_filter0.Instance->FLTEXMAX/256);
+  // exdMinValue = ((int32_t)hdfsdm1_filter0.Instance->FLTEXMIN/256);
+  exdMaxValue = HAL_DFSDM_FilterGetExdMaxValue(&hdfsdm1_filter0, &unused);
+  exdMinValue = HAL_DFSDM_FilterGetExdMinValue(&hdfsdm1_filter0, &unused);
+  // if(HAL_DFSDM_FilterExdStop(&hdfsdm1_filter0) != HAL_OK)
+  // {
+  //   Error_Handler();
+  // }
 
   *data = dataBuffer;
   return len;
@@ -244,12 +268,25 @@ void micHostSampleRequest(uint16_t nSamples, uint8_t optArg)
 {
   int32_t* datap = 0;
   uint8_t txdata;
-
-  printf("rx: running for %d samples, ", nSamples);
+  int32_t softMax, softMin;
 
   nSamples = micSampleSingle(&datap, nSamples);
 
-  printf("got %d\n", nSamples);
+  softMax = -8388608; softMin = 8388607;
+  for(int i = 0; i < nSamples; i++)
+  {
+    // data register is aligned at 8th bit
+    datap[i] >>= 8;
+    softMin = datap[i] < softMin ? datap[i] : softMin;
+    softMax = datap[i] > softMax ? datap[i] : softMax;
+  }
+
+  // downsample to 8 bits
+  // for(int i = 0; i < nSamples; i++)
+  // {
+  //   datap[i] = datap[i] >> 24;
+  // }
+
   // HAL_Delay(1000);
   // printf("%x %x \n", datap, dataBuffer);
   // utilDumpHex(datap, 40);
@@ -268,6 +305,9 @@ void micHostSampleRequest(uint16_t nSamples, uint8_t optArg)
     // printf("%02x\n", txdata); 
     HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
   }
+
+
+  printf("Max = %d(%d) Min = %d(%d) \n", exdMaxValue, softMax, exdMinValue, softMin);
 
 }
 
