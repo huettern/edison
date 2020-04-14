@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-14 10:55:15
+* @Last Modified time: 2020-04-14 14:45:06
 */
 #include "main.h"
 #include "util.h"
@@ -53,6 +53,7 @@ typedef struct
  */
 const filterSettings_t fs5k = {33, 484, 0x00, 0, DFSDM_FILTER_SINC3_ORDER,1};
 const filterSettings_t fs10k = {33, 242, 0x00, 0, DFSDM_FILTER_SINC3_ORDER,1};
+const filterSettings_t fs44k = {33, 55, 0x00, 0, DFSDM_FILTER_SINC3_ORDER,1};
 
 
 /*------------------------------------------------------------------------------
@@ -60,7 +61,7 @@ const filterSettings_t fs10k = {33, 242, 0x00, 0, DFSDM_FILTER_SINC3_ORDER,1};
  * ---------------------------------------------------------------------------*/
 #define MIC_BUFFER_SIZE 20000
 
-const filterSettings_t* filterSettings = &fs10k;
+const filterSettings_t* filterSettings = &fs5k;
 
 /*------------------------------------------------------------------------------
  * Private data
@@ -233,43 +234,33 @@ void micEndlessStream(void)
  * @brief Endless loop waiting for sample requests via serial
  * @details 
  */
-void micReqSampling(void)
+void micHostSampleRequest(uint16_t nSamples, uint8_t optArg)
 {
-  uint8_t rxData[4];
   int32_t* datap = 0;
-  uint16_t sampleCount;
   uint8_t txdata;
 
-  while(1)
+  printf("rx: running for %d samples, ", nSamples);
+
+  nSamples = micSampleSingle(&datap, nSamples);
+
+  printf("got %d\n", nSamples);
+  // HAL_Delay(1000);
+  // printf("%x %x \n", datap, dataBuffer);
+  // utilDumpHex(datap, 40);
+  for(int i = 0; i < nSamples; i++)
   {
-    // wait for 4 data bytes to arrive
-    HAL_UART_Receive(&huart1, rxData, 4, HAL_MAX_DELAY);
-
-    sampleCount = rxData[0]<<8 | rxData[1];
-
-    printf("rx: running for %d samples, ", sampleCount);
-
-    sampleCount = micSampleSingle(&datap, sampleCount);
-
-    printf("got %d\n", sampleCount);
-    // HAL_Delay(1000);
-    // printf("%x %x \n", datap, dataBuffer);
-    // utilDumpHex(datap, 40);
-    for(int i = 0; i < sampleCount; i++)
-    {
-      txdata = (uint8_t)((datap[i] >> 24) & 0x000000ff);
-      // printf("%02x\n", txdata); 
-      HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
-      txdata = (uint8_t)((datap[i] >> 16) & 0x000000ff);
-      // printf("%02x\n", txdata); 
-      HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
-      txdata = (uint8_t)((datap[i] >>  8) & 0x000000ff);
-      // printf("%02x\n", txdata); 
-      HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
-      txdata = (uint8_t)((datap[i] >>  0) & 0x000000ff);
-      // printf("%02x\n", txdata); 
-      HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
-    }
+    txdata = (uint8_t)((datap[i] >> 24) & 0x000000ff);
+    // printf("%02x\n", txdata); 
+    HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
+    txdata = (uint8_t)((datap[i] >> 16) & 0x000000ff);
+    // printf("%02x\n", txdata); 
+    HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
+    txdata = (uint8_t)((datap[i] >>  8) & 0x000000ff);
+    // printf("%02x\n", txdata); 
+    HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
+    txdata = (uint8_t)((datap[i] >>  0) & 0x000000ff);
+    // printf("%02x\n", txdata); 
+    HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
   }
 
 }

@@ -13,10 +13,10 @@
  * ---------------------------------------------------------------------------*/
 
 // The name of this program.
-const char * verProgName = "edison";
+#define verProgName "edison"
 // The version of this program.
-const char * verVersion = "0.01-dev";
+#define verVersion "0.01-dev"
 
-const char * verBuildDate = BUILD_DATE; /* 2009-11-10 11:09 */
+#define verBuildDate BUILD_DATE /* 2009-11-10 11:09 */
 
-const char * verGitSha = GIT_SHA;
+#define verGitSha GIT_SHA

@@ -2,14 +2,14 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-14 10:13:55
+* @Last Modified time: 2020-04-14 13:52:05
 */
 
 #include "main.h"
 #include "printf.h"
 #include "version.h"
 #include "microphone.h"
-
+#include "hostinterface.h"
 
 /*------------------------------------------------------------------------------
  * Private data
@@ -66,7 +66,12 @@ int main(void)
   micInit();
 
   // micEndlessStream();
-  micReqSampling();
+  // micReqSampling();
+
+  while(1)
+  {
+    hifRun();
+  }
 
   /* Infinite loop */
   while (1)
