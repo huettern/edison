@@ -27,8 +27,12 @@ if ret != b'\0':
   exit()
 print('Command accepted')
 
+# wait for data
+print('Acquiring.')
+while (ser.in_waiting < 1):
+  sleep(0.01)
+
 # Read data to keep buffer from overflowing
-print(ser.readline())
 buf = b''
 readCtr = 0
 inWaiting = 0
@@ -41,6 +45,7 @@ while(1):
   print("read %d, total bytes read: %d" % (nRead,readCtr))
   if readCtr >= count*4:
     break
+print(ser.readline())
 ser.close()             # close port
 
 # convert byte string of integers to int array
@@ -50,6 +55,8 @@ for i in range(int(readCtr/4)):
   d.append(struct.unpack('>i', inp)[0])
 data = np.array(d)
 
+print("Acquired min: %d max: %d" % (np.min(data), np.max(data)))
+
 # use only some MSB bits
 # msbBits = 16
 # data = data / 2**(32-msbBits)
@@ -57,7 +64,8 @@ data = np.array(d)
 # dump raw values to file
 f=open('data_raw.txt','w')
 for ele in data:
-    f.write(str(ele)+'\n')
+    # f.write(("%08x\n"%(ele)))
+    f.write(("%d\n"%(ele)))
 
 # strip from mean
 data = data - np.mean(data)
