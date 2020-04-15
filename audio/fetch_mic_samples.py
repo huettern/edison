@@ -6,13 +6,13 @@ from time import sleep
 import struct
 
 # Set tu False to get raw sampels, to true to get preprocessed samples
-preprocessed = False
+preprocessed = True
 
 ser = Serial('/dev/tty.usbmodem1413303', 115200)  # open serial port
 
 data = []
 
-count = 5000
+count = 25000
 fs = 5000
 
 # request count samples

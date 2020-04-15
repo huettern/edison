@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-14 18:23:03
+* @Last Modified time: 2020-04-15 08:48:16
 */
 #include "microphone.h"
 
@@ -67,8 +67,8 @@ const filterSettings_t fs8krs16 = {33, 242, 16, OFFSET_DATA, DFSDM_FILTER_SINC3_
 /*------------------------------------------------------------------------------
  * Settings
  * ---------------------------------------------------------------------------*/
-#define RAW_BUFFER_SIZE 10000
-#define MIC_BUFFER_SIZE 5000
+#define RAW_BUFFER_SIZE 1000
+#define MIC_BUFFER_SIZE 25000
 
 const filterSettings_t* filterSettings = &fs5k;
 
@@ -283,7 +283,7 @@ void micHostSampleRequest(uint16_t nSamples)
   for(int i = 0; i < nSamples; i++)
   {
     // data register is aligned at 8th bit
-    datap[i] >>= 8;
+    datap[i] /= 256;
     softMin = datap[i] < softMin ? datap[i] : softMin;
     softMax = datap[i] > softMax ? datap[i] : softMax;
   }
@@ -368,7 +368,7 @@ uint32_t micSampleSinglePreprocessed(int8_t ** data, uint32_t n)
   {
     nProcess = remaining > (RAW_BUFFER_SIZE/2) ? RAW_BUFFER_SIZE/2 : remaining;
     // printf("%d/%d\n", nProcess, remaining);
-    while( !regConvCplt || !regConvHalfCplt);
+    while( !regConvCplt && !regConvHalfCplt);
     if(regConvHalfCplt)
     {
       regConvHalfCplt = false;
@@ -385,6 +385,7 @@ uint32_t micSampleSinglePreprocessed(int8_t ** data, uint32_t n)
   } while(remaining);
   HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
 
+  *data = procBuffer;
   return len;
   // while(!regConvCplt);
   // printf("dbg32=%d\n", dbg32);
@@ -438,10 +439,12 @@ uint32_t micSampleSinglePreprocessed(int8_t ** data, uint32_t n)
  */
 static void preprocess(int8_t * outPtr, int32_t * srcPtr, uint32_t nProcess)
 {
+  // printf("out = %d in = %s\n", outPtr-procBuffer, (srcPtr==dataBuffer)?"base":"non-base");
   for(int i = 0; i < nProcess; i++)
   {
     // get only 8 bits of data
-    outPtr[i] = srcPtr[i] >> 24;
+    outPtr[i] = srcPtr[i] / 16777216;
+    // printf("in = %d out = %d\n",srcPtr[i],outPtr[i]);
   }
 }
 
