@@ -6,7 +6,8 @@ from time import sleep
 import struct
 
 # Set tu False to get raw sampels, to true to get preprocessed samples
-preprocessed = True
+preprocessed = 1
+preproc_bits = 16
 
 try:
   ser = Serial('/dev/tty.usbmodem1413303', 115200)  # open serial port
@@ -23,6 +24,7 @@ fs = 5000
 ser.flush()
 if preprocessed:
   ser.write(b'\1') # command byte
+  ser.write(struct.pack('<b',preproc_bits))
 else:
   ser.write(b'\0') # command byte
 
@@ -43,7 +45,7 @@ while (ser.in_waiting < 1):
 # Read data to keep buffer from overflowing
 
 if preprocessed:
-  nBytesPerSampe = 1
+  nBytesPerSampe = int(preproc_bits/8)
 else:
   nBytesPerSampe = 4
 
@@ -66,8 +68,10 @@ ser.close()             # close port
 d = []
 for i in range(int(readCtr/nBytesPerSampe)):
   inp = buf[nBytesPerSampe*i:nBytesPerSampe*i+nBytesPerSampe]
-  if preprocessed:
+  if preprocessed and preproc_bits==8:
     d.append(struct.unpack('>b', inp)[0]) # b: signed char
+  elif preprocessed and preproc_bits==16:
+    d.append(struct.unpack('>h', inp)[0]) # h: signed short
   else:
     d.append(struct.unpack('>i', inp)[0]) # i: int
 data = np.array(d)

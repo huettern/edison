@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-15 09:28:33
+* @Last Modified time: 2020-04-15 10:59:05
 */
 #include "microphone.h"
 
@@ -70,7 +70,8 @@ const filterSettings_t fs8krs16 = {33, 242, 16, OFFSET_DATA, DFSDM_FILTER_SINC3_
  * Settings
  * ---------------------------------------------------------------------------*/
 #define RAW_BUFFER_SIZE 1000
-#define MIC_BUFFER_SIZE 25000
+#define MIC_8BIT_BUF_SIZE 25000
+#define MIC_16BIT_BUF_SIZE 25000
 
 const filterSettings_t* filterSettings = &fs5k;
 
@@ -78,7 +79,8 @@ const filterSettings_t* filterSettings = &fs5k;
  * Private data
  * ---------------------------------------------------------------------------*/
 static int32_t dataBuffer [RAW_BUFFER_SIZE];
-static int8_t procBuffer [MIC_BUFFER_SIZE];
+static int8_t proc8bitBuffer [MIC_8BIT_BUF_SIZE];
+static int16_t proc16bitBuffer [MIC_16BIT_BUF_SIZE];
 static int32_t exdMaxValue, exdMinValue;
 
 static volatile bool regConvCplt = false;
@@ -89,7 +91,8 @@ static volatile uint32_t dbg32;
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
-static void preprocess(int8_t * outPtr, int32_t * srcPtr, uint32_t nProcess);
+static void preprocess8bit(int8_t * outPtr, int32_t * srcPtr, uint32_t nProcess);
+static void preprocess16bit(int16_t * outPtr, int32_t * srcPtr, uint32_t nProcess);
 
 /*------------------------------------------------------------------------------
  * Publics
@@ -326,17 +329,34 @@ void micHostSampleRequest(uint16_t nSamples)
  * 
  * @param nSamples 
  */
-void micHostSampleRequestPreprocessed(uint16_t nSamples)
+void micHostSampleRequestPreprocessed(uint16_t nSamples, uint8_t bits)
 {
-  int8_t* datap = 0;
+  int8_t* data8p = 0;
+  int16_t* data16p = 0;
   uint8_t txdata;
 
-  nSamples = micSampleSinglePreprocessed(&datap, nSamples);
+  if(bits == 8)
+    nSamples = micSampleSinglePreprocessed((void**)&data8p, nSamples, bits);
+  else
+    nSamples = micSampleSinglePreprocessed((void**)&data16p, nSamples, bits);
 
-  for(int i = 0; i < nSamples; i++)
+  if(bits == 8)
   {
-    txdata = (uint8_t)(datap[i]);
-    HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
+    for(int i = 0; i < nSamples; i++)
+    {
+      txdata = (uint8_t)(data8p[i]);
+      HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
+    }
+  }
+  else
+  {
+    for(int i = 0; i < nSamples; i++)
+    {
+      txdata = (uint8_t)((data16p[i] >>  8) & 0x00ff);
+      HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
+      txdata = (uint8_t)((data16p[i] >>  0) & 0x00ff);
+      HAL_UART_Transmit(&huart1, &txdata, 1, HAL_MAX_DELAY);
+    }
   }
 }
 
@@ -349,10 +369,11 @@ void micHostSampleRequestPreprocessed(uint16_t nSamples)
  * 
  * @return 
  */
-uint32_t micSampleSinglePreprocessed(int8_t ** data, uint32_t n)
+uint32_t micSampleSinglePreprocessed(void ** data, uint32_t n, uint8_t bits)
 {
-  uint32_t len = (n>MIC_BUFFER_SIZE)?MIC_BUFFER_SIZE:n;
-  int8_t *outPtr = procBuffer;
+  uint32_t len = (n>MIC_8BIT_BUF_SIZE)?MIC_8BIT_BUF_SIZE:n;
+  int8_t *outPtr8 = proc8bitBuffer;
+  int16_t *outPtr16 = proc16bitBuffer;
   uint32_t nProcess, remaining;
   int32_t *srcPtr;
   // start fetching
@@ -381,51 +402,24 @@ uint32_t micSampleSinglePreprocessed(int8_t ** data, uint32_t n)
       regConvCplt = false;
       srcPtr = &dataBuffer[RAW_BUFFER_SIZE/2];
     }
-    preprocess(outPtr, srcPtr, nProcess); //dst, src, N
+    if(bits == 8)
+    {
+      preprocess8bit(outPtr8, srcPtr, nProcess); //dst, src, N
+      outPtr8+=nProcess; 
+    }
+    else
+    {
+      preprocess16bit(outPtr16, srcPtr, nProcess); //dst, src, N
+      outPtr16+=nProcess; 
+    }
     remaining-=nProcess;
-    outPtr+=nProcess;
   } while(remaining);
   HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
 
-  *data = procBuffer;
+  if(bits == 8) *data = proc8bitBuffer;
+  else *data = proc16bitBuffer;
+
   return len;
-  // while(!regConvCplt);
-  // printf("dbg32=%d\n", dbg32);
-
-  // regConvCplt = false; regConvHalfCplt = false;
-  // if(len < RAW_BUFFER_SIZE)
-  // {
-  //   if(HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, dataBuffer, len) != HAL_OK)
-  //   {
-  //     Error_Handler();
-  //   }
-  //   while(!regConvCplt);
-  //   preprocess(outPtr, &dataBuffer[0], len); //dst, src, N
-  //   len -= len;
-  // }
-  // else
-  // {
-  //   if(HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, dataBuffer, RAW_BUFFER_SIZE) != HAL_OK)
-  //   {
-  //     Error_Handler();
-  //   }
-  //   while(!regConvHalfCplt);
-  //   preprocess(outPtr, &dataBuffer[0], RAW_BUFFER_SIZE/2); //dst, src, N
-  //   len -= RAW_BUFFER_SIZE/2;
-  //   while(!regConvCplt);
-  //   preprocess(outPtr, &dataBuffer[0], RAW_BUFFER_SIZE/2); //dst, src, N
-  //   len -= RAW_BUFFER_SIZE/2;
-  // }
-
-  // do
-  // {
-
-  // } while(!regConvCplt);
-
-  // while(!regConvCplt);
-  // HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
-
-
 }
 
 /*------------------------------------------------------------------------------
@@ -439,7 +433,7 @@ uint32_t micSampleSinglePreprocessed(int8_t ** data, uint32_t n)
  * @param srcPtr where to fetch the data
  * @param nProcess number of values to process
  */
-static void preprocess(int8_t * outPtr, int32_t * srcPtr, uint32_t nProcess)
+static void preprocess8bit(int8_t * outPtr, int32_t * srcPtr, uint32_t nProcess)
 {
   int32_t min, max, peak;
   uint32_t idx, msb;
@@ -460,11 +454,28 @@ static void preprocess(int8_t * outPtr, int32_t * srcPtr, uint32_t nProcess)
   
   // printf("ARM math min = %d max = %d peak: = %d msb = %d\n",min,max,peak,msb);
 
-  // printf("out = %d in = %s\n", outPtr-procBuffer, (srcPtr==dataBuffer)?"base":"non-base");  
+  // printf("out = %d in = %s\n", outPtr-proc8bitBuffer, (srcPtr==dataBuffer)?"base":"non-base");  
   for(int i = 0; i < nProcess; i++)
   {
     // get only 8 bits of data
     outPtr[i] = srcPtr[i] >> 24;
+  }
+}
+
+/**
+ * @brief Preprocess batch of samples
+ * @details 
+ * 
+ * @param outPtr where to write the data
+ * @param srcPtr where to fetch the data
+ * @param nProcess number of values to process
+ */
+static void preprocess16bit(int16_t * outPtr, int32_t * srcPtr, uint32_t nProcess)
+{
+  for(int i = 0; i < nProcess; i++)
+  {
+    // get only 16 bits of data
+    outPtr[i] = (int16_t)( (srcPtr[i] >> (16)) &0x0000ffff);
   }
 }
 

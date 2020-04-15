@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-15 08:43:24
+* @Last Modified time: 2020-04-15 10:35:30
 */
 
 #include "hostinterface.h"
@@ -56,7 +56,7 @@ typedef enum
 static const hostCommands_t commands [] = {
   {CMD_VERSION, 0},
   {CMD_MIC_SAMPLE, 2},
-  {CMD_MIC_SAMPLE_PREPROCESSED, 2},
+  {CMD_MIC_SAMPLE_PREPROCESSED, 3},
   {CMD_MIC_SAMPLE_PREPROCESSED_MANUAL, 0}
 };
 
@@ -142,11 +142,12 @@ static void runCommand(const hostCommands_t* cmd, uint8_t* args)
       break;
     case CMD_MIC_SAMPLE_PREPROCESSED:
       // parse arguments
-      u16 = args[0]<<8 | args[1];
+      u8 = args[0];
+      u16 = args[1]<<8 | args[2];
       // call
-      micHostSampleRequestPreprocessed(u16);
+      micHostSampleRequestPreprocessed(u16, u8);
     case CMD_MIC_SAMPLE_PREPROCESSED_MANUAL:
-      micHostSampleRequestPreprocessed(10000);
+      micHostSampleRequestPreprocessed(10, 16);
     default:
       // invalid command
       return;
