@@ -1,4 +1,4 @@
-from serial import Serial
+from serial import Serial, SerialException
 import numpy as np
 from scipy.io.wavfile import write
 from tqdm import tqdm
@@ -8,7 +8,11 @@ import struct
 # Set tu False to get raw sampels, to true to get preprocessed samples
 preprocessed = True
 
-ser = Serial('/dev/tty.usbmodem1413303', 115200)  # open serial port
+try:
+  ser = Serial('/dev/tty.usbmodem1413303', 115200)  # open serial port
+except SerialException:
+  print("coult not open serial port")
+  exit()
 
 data = []
 

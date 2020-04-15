@@ -2,12 +2,14 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-15 08:48:16
+* @Last Modified time: 2020-04-15 09:28:33
 */
 #include "microphone.h"
 
 #include "main.h"
 #include "util.h"
+
+#include "arm_math.h"
 
 /**
  * f_ckin     Clock frequency of data line: f_ckin = 80e6 / clockDivider
@@ -79,10 +81,10 @@ static int32_t dataBuffer [RAW_BUFFER_SIZE];
 static int8_t procBuffer [MIC_BUFFER_SIZE];
 static int32_t exdMaxValue, exdMinValue;
 
-static bool regConvCplt = false;
-static bool regConvHalfCplt = false;
+static volatile bool regConvCplt = false;
+static volatile bool regConvHalfCplt = false;
 
-static uint32_t dbg32;
+static volatile uint32_t dbg32;
 
 /*------------------------------------------------------------------------------
  * Prototypes
@@ -439,12 +441,30 @@ uint32_t micSampleSinglePreprocessed(int8_t ** data, uint32_t n)
  */
 static void preprocess(int8_t * outPtr, int32_t * srcPtr, uint32_t nProcess)
 {
-  // printf("out = %d in = %s\n", outPtr-procBuffer, (srcPtr==dataBuffer)?"base":"non-base");
+  int32_t min, max, peak;
+  uint32_t idx, msb;
+
+  arm_min_q31((q31_t *)srcPtr, nProcess, (q31_t *)&min, &idx);
+  arm_max_q31((q31_t *)srcPtr, nProcess, (q31_t *)&max, &idx);
+
+  peak = (max > -min) ? max : -min;
+  msb = 30;
+  for(; msb > 8; msb--)
+  {
+    if( peak & (1<<msb) ) break;
+  }
+
+  // experimental feature for detecting highest and lowest values.
+  // msb could be used for AGC (automatic gain control), where the data is not always
+  // shifted >>24 but only the amount required to not clip the audio
+  
+  // printf("ARM math min = %d max = %d peak: = %d msb = %d\n",min,max,peak,msb);
+
+  // printf("out = %d in = %s\n", outPtr-procBuffer, (srcPtr==dataBuffer)?"base":"non-base");  
   for(int i = 0; i < nProcess; i++)
   {
     // get only 8 bits of data
-    outPtr[i] = srcPtr[i] / 16777216;
-    // printf("in = %d out = %d\n",srcPtr[i],outPtr[i]);
+    outPtr[i] = srcPtr[i] >> 24;
   }
 }
 
