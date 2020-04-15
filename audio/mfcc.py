@@ -4,6 +4,8 @@ import struct
 import matplotlib.pyplot as plt
 from matplotlib import patches
 from scipy.io import wavfile
+from scipy.fftpack import dct
+from tqdm import tqdm
 
 # Input wav file to use
 in_wav = 'data/heysnips_true_5k_16b.wav'
@@ -112,7 +114,8 @@ def mfcc(data, \
     frame['fft'] = np.fft.fft(chunk)[:frame_len//2]
     
     # calcualte spectorgram
-    frame['spectrogram'] = np.abs(frame['fft'])
+    spectrogram = np.abs(frame['fft'])
+    frame['spectrogram'] = spectrogram
     num_spectrogram_bins = len(frame['spectrogram'])
 
     # calculate mel weights
@@ -120,6 +123,18 @@ def mfcc(data, \
       num_spectrogram_bins=num_spectrogram_bins, sample_rate=fs,
       lower_edge_hertz=mel_lower_hz, upper_edge_hertz=mel_upper_hz)
     frame['mel_weight_matrix'] = mel_weight_matrix
+
+    # dot product of spectrum and mel matrix to get mel spectrogram
+    mel_spectrogram = np.dot(spectrogram, mel_weight_matrix)
+    frame['mel_spectrogram'] = mel_spectrogram
+    
+    # take log of mel spectrogram
+    log_mel_spectrogram = np.log(mel_spectrogram + 1e-6)
+    frame['log_mel_spectrogram'] = log_mel_spectrogram
+
+    # calculate DCT-II
+    mfcc = dct(log_mel_spectrogram, type=2) / np.sqrt(2*mel_nbins)
+    frame['mfcc'] = mfcc
 
     # Add frame to output list
     output.append(frame)
@@ -138,13 +153,13 @@ in_data = np.array(in_data)
 # Set MFCC settings
 fs = in_fs
 nSamples = len(in_data)
-frame_len = 1024
-frame_step = 1024
+frame_len = 16*1024
+frame_step = 256
 frame_count = 0 # 0 for auto
-fft_len = 1024
+fft_len = frame_len
 mel_nbins = 8
-mel_lower_hz = 1000
-mel_upper_hz = 4000
+mel_lower_hz = 1
+mel_upper_hz = 5000
 
 # Some info
 print("Frame length in seconds = %.3fs" % (frame_len/fs))
@@ -157,52 +172,72 @@ o_mfcc = mfcc(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len
 ######################################################################
 # Plottery
 ######################################################################
-plt.style.use('seaborn-bright')
-t = np.linspace(0, nSamples/fs, num=nSamples)
-f = np.linspace(0.0, fs/2.0, fft_len/2)
-fig, axs = plt.subplots(2, 2)
+def plot_all(frame_idx):
+  plt.style.use('seaborn-bright')
+  t = np.linspace(0, nSamples/fs, num=nSamples)
+  f = np.linspace(0.0, fs/2.0, fft_len/2)
+  fig, axs = plt.subplots(2, 2)
 
-# which frame to plot
-frame = o_mfcc[10]
+  # which frame to plot
+  frame = o_mfcc[frame_idx]
 
-# Input
-axs[0,0].plot(t, in_data, label='input')
+  # Input
+  axs[0,0].plot(t, in_data, label='input')
+  origin = (frame['t_start'],-30000)
+  width = frame['t_end']-frame['t_start']
+  height = 60000
+  rect = patches.Rectangle(origin,width,height,linewidth=0,edgecolor='r',facecolor='r')
+  axs[0,0].add_patch(rect)
+  axs[0,0].set_xlabel('time [s]')
+  axs[0,0].set_ylabel('amplitude')
+  axs[0,0].set_xlim(0,nSamples/fs)
+  axs[0,0].set_ylim(-25000,25000)
+  axs[0,0].grid(True)
+  axs[0,0].legend()
 
-origin = (frame['t_start'],-30000)
-width = frame['t_end']-frame['t_start']
-height = 60000
-rect = patches.Rectangle(origin,width,height,linewidth=0,edgecolor='r',facecolor='r')
-axs[0,0].add_patch(rect)
+  # Spectrum
+  axs[1,0].plot(f, frame['spectrogram'], label='input')
+  axs[1,0].set_xlabel('frequency [Hz]')
+  axs[1,0].set_ylabel('spectrogram')
+  axs[1,0].set_xlim(10,fs/2)
+  axs[1,0].set_ylim(0,1e6)
+  axs[1,0].grid(True)
+  axs[1,0].legend()
 
-axs[0,0].set_xlabel('time [s]')
-axs[0,0].set_ylabel('amplitude')
-axs[0,0].set_xlim(0,nSamples/fs)
-# axs[0,0].set_ylim(-25000,25000)
-axs[0,0].grid(True)
-axs[0,0].legend()
+  # Mel coefficients
+  spectrogram_bins_mel = np.expand_dims( hertz_to_mel(f), 1)
+  axs[0,1].plot(f, frame['spectrogram']/np.max(frame['spectrogram']), color='black', label='input')
+  axs[0,1].plot(f, frame['mel_weight_matrix'], label='mel filters')
+  axs[0,1].text(mel_lower_hz, 0.4, 'mel_lower_hz',rotation=90)
+  axs[0,1].text(mel_upper_hz, 0.4, 'mel_upper_hz',rotation=90)
+  rect = patches.Rectangle((mel_lower_hz,0),mel_upper_hz-mel_lower_hz,1,linewidth=0,edgecolor='r',facecolor='k',alpha=0.2)
+  axs[0,1].add_patch(rect)
+  axs[0,1].set_xlim(0,fs/2)
+  axs[0,1].set_ylim(0,1)
+  axs[0,1].set_xlabel('frequency [Hz]')
+  axs[0,1].grid(True)
+  axs[0,1].legend()
 
-# Spectrum
-axs[1,0].plot(f, frame['spectrogram'], label='input')
-axs[1,0].set_xlabel('frequency [Hz]')
-axs[1,0].set_ylabel('spectrogram')
-axs[1,0].set_xlim(10,fs/2)
-axs[1,0].grid(True)
-axs[1,0].legend()
+  # Mel log spectrum
+  axs[1,1].plot(frame['log_mel_spectrogram'], label='log_mel')
+  axs[1,1].plot(frame['mfcc'], 'r', label='dct mfcc')
+  # axs[1,1].set_xlim(0,fs/2)
+  axs[1,1].set_ylim(0,100)
+  axs[1,1].set_xlabel('mel bin')
+  axs[1,1].set_ylabel('log_mel_spectrogram')
+  axs[1,1].grid(True)
+  axs[1,1].legend()
+  return fig
 
-# Mel coefficients
-spectrogram_bins_mel = np.expand_dims( hertz_to_mel(f), 1)
-axs[0,1].plot(f, frame['spectrogram']/np.max(frame['spectrogram']), color='black', label='input')
-axs[0,1].plot(f, frame['mel_weight_matrix'], label='mel filters')
-axs[0,1].text(mel_lower_hz, 0.4, 'mel_lower_hz',rotation=90)
-axs[0,1].text(mel_upper_hz, 0.4, 'mel_upper_hz',rotation=90)
-rect = patches.Rectangle((mel_lower_hz,0),mel_upper_hz-mel_lower_hz,1,linewidth=0,edgecolor='r',facecolor='k',alpha=0.2)
-axs[0,1].add_patch(rect)
-axs[0,1].set_xlim(0,fs/2)
-axs[0,1].set_xlabel('frequency [Hz]')
-axs[0,1].grid(True)
-axs[0,1].legend()
 
 # show
-fig.tight_layout()
-plt.show()
+for frame in tqdm(range(len(o_mfcc))):
+  fig = plot_all(frame)
+  fig.tight_layout()
+  # plt.show()
+  fig.set_size_inches(18.5, 10.5)
+  fig.savefig('out/figure%03d.png'%frame)
+  plt.close()
+  fig.clf()
+  del fig
 
