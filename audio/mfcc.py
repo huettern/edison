@@ -7,143 +7,16 @@ from scipy.io import wavfile
 from scipy.fftpack import dct
 from tqdm import tqdm
 
+import mfcc_utils as mfu
+
 # Input wav file to use
 in_wav = 'data/heysnips_true_5k_16b.wav'
 
-# mel freq. constants -> https://en.wikipedia.org/wiki/Mel_scale
-MEL_HIGH_FREQUENCY_Q = 1127.0
-MEL_BREAK_FREQUENCY_HERTZ = 700.0
-
-def frames(data, frame_length=3, frame_step=1):
-  """
-  Split a data vector into (possibly overlapipng) frames
-
-    frame_length: length of each frame
-    frame_step: how many sample to advance the frame each step
-  """
-  n_frames = 1 + (data.shape[0] - frame_length) // frame_step
-  out = np.zeros((n_frames,frame_length))
-  for i in range(n_frames):
-    out[i] = data[i*frame_step:i*frame_step+frame_length]
-  return out
-
-
-def hertz_to_mel(frequencies_hertz):
-  """
-  Converts frequencies in `frequencies_hertz` in Hertz to the mel scale.
-  """
-  return MEL_HIGH_FREQUENCY_Q * np.log(1.0 + (frequencies_hertz / MEL_BREAK_FREQUENCY_HERTZ))
-
-def gen_mel_weight_matrix(num_mel_bins=20, num_spectrogram_bins=129, sample_rate=8000, \
-    lower_edge_hertz=125.0, upper_edge_hertz=3800.0):
-  """
-  Generate mel weight matric from linear frequency spectrum, inspired by 
-    https://www.tensorflow.org/api_docs/python/tf/signal/linear_to_mel_weight_matrix
-
-  """
-  nyquist_hertz = sample_rate / 2.0
-  # excludes DC spectrogram bin
-  n_bands_to_zero = 1
-  linear_frequencies = np.linspace(0, nyquist_hertz, num_spectrogram_bins)[n_bands_to_zero:]
-  # convert linear frequency vector to mel scale
-  spectrogram_bins_mel = np.expand_dims( hertz_to_mel(linear_frequencies), 1)
-  
-  # Compute num_mel_bins triples of (lower_edge, center, upper_edge). The
-  # center of each band is the lower and upper edge of the adjacent bands.
-  # Accordingly, we divide [lower_edge_hertz, upper_edge_hertz] into
-  # num_mel_bins + 2 pieces.
-  band_edges_mel = frames(
-    np.linspace(hertz_to_mel(lower_edge_hertz), hertz_to_mel(upper_edge_hertz), num_mel_bins + 2),
-    frame_length=3, frame_step=1)
-  
-  # Split the triples up and reshape them into [1, num_mel_bins] vectors, one vector for
-  # lower edge, one for center and one for uppers
-  lower_edge_mel, center_mel, upper_edge_mel = tuple(np.reshape( t, [1, num_mel_bins] ) for t in np.split(band_edges_mel, 3, axis=1))
-  
-  # Calculate lower and upper slopes for every spectrogram bin. Line segments are 
-  # linear in the mel domain, not Hertz.
-  lower_slopes = (spectrogram_bins_mel - lower_edge_mel) / (
-    center_mel - lower_edge_mel)
-  upper_slopes = (upper_edge_mel - spectrogram_bins_mel) / (
-    upper_edge_mel - center_mel)
-  
-  # Intersect the line segments with each other and zero.
-  mel_weights_matrix = np.maximum(0, np.minimum(lower_slopes, upper_slopes))
-  
-  # Re-add the zeroed lower bins we sliced out above
-  return np.pad(mel_weights_matrix, [[n_bands_to_zero, 0], [0, 0]])
-
-def mfcc(data, \
-  fs, nSamples, frame_len, frame_step, frame_count, \
-  fft_len, \
-  mel_nbins, mel_lower_hz, mel_upper_hz):
-  """
-    Runs windowed mfcc on a strem of data
-  
-      data          input data
-      fs            input sample rate
-      nSamples      number of samples in input
-      frame_len     length of each frame
-      frame_step    how many samples to advance the frame
-      frame_count   how many frames to compute
-      fft_len       length of FFT, ideally frame_len 
-      mel_nbins     number of mel filter banks to create
-      mel_lower_hz  lowest frequency of mel bank
-      mel_upper_hz  highest frequency of mel bank
-  
-  """
-
-  if frame_count == 0:
-    frame_count = 1 + (nSamples - frame_len) // frame_step
-  print("Running mfcc for %d frames with %d step" % (frame_count, frame_step))
-  # will return a list with a dict for each frame
-  output = []
-
-  for frame_ctr in range(frame_count):
-    frame = {}
-    frame['t_start'] = frame_ctr*frame_step/fs
-    frame['t_end'] = (frame_ctr*frame_step+frame_len)/fs
-
-    # print("frame %d start %f end %f"%(frame_ctr, frame['t_start'],frame['t_end']))
-
-    # get chunk of data
-    chunk = data[frame_ctr*frame_step : frame_ctr*frame_step+frame_len]
-
-    # calculate FFT
-    frame['fft'] = np.fft.fft(chunk)[:frame_len//2]
-    
-    # calcualte spectorgram
-    spectrogram = np.abs(frame['fft'])
-    frame['spectrogram'] = spectrogram
-    num_spectrogram_bins = len(frame['spectrogram'])
-
-    # calculate mel weights
-    mel_weight_matrix = gen_mel_weight_matrix(num_mel_bins=mel_nbins, 
-      num_spectrogram_bins=num_spectrogram_bins, sample_rate=fs,
-      lower_edge_hertz=mel_lower_hz, upper_edge_hertz=mel_upper_hz)
-    frame['mel_weight_matrix'] = mel_weight_matrix
-
-    # dot product of spectrum and mel matrix to get mel spectrogram
-    mel_spectrogram = np.dot(spectrogram, mel_weight_matrix)
-    frame['mel_spectrogram'] = mel_spectrogram
-    
-    # take log of mel spectrogram
-    log_mel_spectrogram = np.log(mel_spectrogram + 1e-6)
-    frame['log_mel_spectrogram'] = log_mel_spectrogram
-
-    # calculate DCT-II
-    mfcc = dct(log_mel_spectrogram, type=2) / np.sqrt(2*mel_nbins)
-    frame['mfcc'] = mfcc
-
-    # Add frame to output list
-    output.append(frame)
-
-  return output
 
 ######################################################################
 # Plottery
 ######################################################################
-def plot_all(frame):
+def plotFrame(frame):
   plt.style.use('seaborn-bright')
   t = np.linspace(0, nSamples/fs, num=nSamples)
   f = np.linspace(0.0, fs/2.0, fft_len/2)
@@ -173,7 +46,7 @@ def plot_all(frame):
   axs[1,0].legend()
 
   # Mel coefficients
-  spectrogram_bins_mel = np.expand_dims( hertz_to_mel(f), 1)
+  spectrogram_bins_mel = np.expand_dims( mfu.hertz_to_mel(f), 1)
   axs[0,1].plot(f, frame['spectrogram']/np.max(frame['spectrogram']), color='black', label='input')
   axs[0,1].plot(f, frame['mel_weight_matrix'], label='mel filters')
   axs[0,1].text(mel_lower_hz, 0.4, 'mel_lower_hz',rotation=90)
@@ -203,7 +76,7 @@ def plotAllFrames(o_mfcc):
   plots all frames and stores each plot as png
   """
   for frame in tqdm(range(len(o_mfcc))):
-    fig = plot_all(o_mfcc[frame])
+    fig = plotFrame(o_mfcc[frame])
     fig.tight_layout()
     # plt.show()
     fig.set_size_inches(18.5, 10.5)
@@ -216,7 +89,7 @@ def plotShowSingle(frame):
   """
   Plot and show a single frame
   """
-  fig = plot_all(frame)
+  fig = plotFrame(frame)
   fig.tight_layout()
   plt.show()
 
@@ -248,13 +121,13 @@ def plotSpectrogram(o_mfcc):
     spectrogram_mel[i] = o_mfcc[i]['mfcc']
 
   ax = axs[1]
-  ax.pcolor(np.transpose(spectrogram), label='log spectrum')
+  ax.pcolor(np.transpose(spectrogram),cmap='plasma', label='log spectrum')
   ax.set_xlabel('sample')
   ax.set_ylabel('fft bin')
   ax.legend()
 
   ax = axs[2]
-  ax.pcolor(np.transpose(spectrogram_mel), label='mel coefficients')
+  ax.pcolor(np.transpose(spectrogram_mel),cmap='plasma', label='mel coefficients')
   ax.set_xlabel('time [s]')
   ax.set_ylabel('sample')
   ax.legend()
@@ -278,20 +151,29 @@ frame_len = 1024
 frame_step = 1024
 frame_count = 0 # 0 for auto
 fft_len = frame_len
-mel_nbins = 32
-mel_lower_hz = 1
-mel_upper_hz = 5000
+mel_nbins = 8
+mel_lower_hz = 80
+mel_upper_hz = 7600
 
 # Some info
 print("Frame length in seconds = %.3fs" % (frame_len/fs))
 print("Number of input samples = %d" % (nSamples))
 
 # calculate mfcc
-o_mfcc = mfcc(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, mel_nbins, mel_lower_hz, mel_upper_hz)
+o_mfcc = mfu.mfcc(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, mel_nbins, mel_lower_hz, mel_upper_hz)
+o_mfcc_tf = mfu.mfcc_tf(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, mel_nbins, mel_lower_hz, mel_upper_hz)
 
 # plot
 # plotAllFrames(o_mfcc)
 # plotShowSingle(o_mfcc[10])
-plotSpectrogram(o_mfcc)
-plt.show()
+# plotSpectrogram(o_mfcc)
+# plt.show()
 
+##
+# This makes two figures to compare own implementation with tensorflow
+##
+fig = plotFrame(o_mfcc[10])
+fig.tight_layout()
+fig = plotFrame(o_mfcc_tf[10])
+fig.tight_layout()
+plt.show()
