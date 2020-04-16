@@ -2,9 +2,9 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:47
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-16 21:08:30
+# @Last Modified time: 2020-04-16 21:30:24
 
-snipsDataPath = "/Volumes/spare/data/hey_snips_research_6k_en_train_eval_clean_ter"
+snipsDataPath = "/Users/noah/git/mlmcu-project/audio/data/snips/"
 
 def load_snips_data(sample_len=4*16000):
   """
@@ -55,7 +55,7 @@ def load_snips_data(sample_len=4*16000):
 
     # Cut/pad sample
     if _x_train.shape[0] < sample_len:
-      _x_train = np.pad(_x_train, (0, _x_train.shape[0]-sample_len))
+      _x_train = np.pad(_x_train, (0, sample_len-_x_train.shape[0]))
     else:
       _x_train = _x_train[:sample_len]
     
@@ -72,7 +72,7 @@ def load_snips_data(sample_len=4*16000):
 
     # Cut/pad sample
     if _x_test.shape[0] < sample_len:
-      _x_test = np.pad(_x_test, (0, _x_test.shape[0]-sample_len))
+      _x_test = np.pad(_x_test, (0, sample_len-_x_test.shape[0]))
     else:
       _x_test = _x_test[:sample_len]
     
