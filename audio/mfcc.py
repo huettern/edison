@@ -55,18 +55,17 @@ def gen_mel_weight_matrix(num_mel_bins=20, num_spectrogram_bins=129, sample_rate
   band_edges_mel = frames(
     np.linspace(hertz_to_mel(lower_edge_hertz), hertz_to_mel(upper_edge_hertz), num_mel_bins + 2),
     frame_length=3, frame_step=1)
-
+  
   # Split the triples up and reshape them into [1, num_mel_bins] vectors, one vector for
   # lower edge, one for center and one for uppers
-  lower_edge_mel, center_mel, upper_edge_mel = tuple(
-    np.reshape( t, [1, num_mel_bins] ) for t in np.split(band_edges_mel, 3, axis=1))
+  lower_edge_mel, center_mel, upper_edge_mel = tuple(np.reshape( t, [1, num_mel_bins] ) for t in np.split(band_edges_mel, 3, axis=1))
   
   # Calculate lower and upper slopes for every spectrogram bin. Line segments are 
   # linear in the mel domain, not Hertz.
   lower_slopes = (spectrogram_bins_mel - lower_edge_mel) / (
-      center_mel - lower_edge_mel)
+    center_mel - lower_edge_mel)
   upper_slopes = (upper_edge_mel - spectrogram_bins_mel) / (
-      upper_edge_mel - center_mel)
+    upper_edge_mel - center_mel)
   
   # Intersect the line segments with each other and zero.
   mel_weights_matrix = np.maximum(0, np.minimum(lower_slopes, upper_slopes))
@@ -80,7 +79,7 @@ def mfcc(data, \
   mel_nbins, mel_lower_hz, mel_upper_hz):
   """
     Runs windowed mfcc on a strem of data
-
+  
       data          input data
       fs            input sample rate
       nSamples      number of samples in input
@@ -91,7 +90,7 @@ def mfcc(data, \
       mel_nbins     number of mel filter banks to create
       mel_lower_hz  lowest frequency of mel bank
       mel_upper_hz  highest frequency of mel bank
-
+  
   """
 
   if frame_count == 0:
@@ -105,7 +104,7 @@ def mfcc(data, \
     frame['t_start'] = frame_ctr*frame_step/fs
     frame['t_end'] = (frame_ctr*frame_step+frame_len)/fs
 
-    print("frame %d start %f end %f"%(frame_ctr, frame['t_start'],frame['t_end']))
+    # print("frame %d start %f end %f"%(frame_ctr, frame['t_start'],frame['t_end']))
 
     # get chunk of data
     chunk = data[frame_ctr*frame_step : frame_ctr*frame_step+frame_len]
@@ -141,45 +140,14 @@ def mfcc(data, \
 
   return output
 
-
-######################################################################
-# Main
-######################################################################
-
-# Read data
-in_fs, in_data = wavfile.read(in_wav)
-in_data = np.array(in_data)
-
-# Set MFCC settings
-fs = in_fs
-nSamples = len(in_data)
-frame_len = 16*1024
-frame_step = 256
-frame_count = 0 # 0 for auto
-fft_len = frame_len
-mel_nbins = 8
-mel_lower_hz = 1
-mel_upper_hz = 5000
-
-# Some info
-print("Frame length in seconds = %.3fs" % (frame_len/fs))
-print("Number of input samples = %d" % (nSamples))
-
-# calculate mfcc
-o_mfcc = mfcc(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, mel_nbins, mel_lower_hz, mel_upper_hz)
-
-# exit()
 ######################################################################
 # Plottery
 ######################################################################
-def plot_all(frame_idx):
+def plot_all(frame):
   plt.style.use('seaborn-bright')
   t = np.linspace(0, nSamples/fs, num=nSamples)
   f = np.linspace(0.0, fs/2.0, fft_len/2)
   fig, axs = plt.subplots(2, 2)
-
-  # which frame to plot
-  frame = o_mfcc[frame_idx]
 
   # Input
   axs[0,0].plot(t, in_data, label='input')
@@ -229,15 +197,101 @@ def plot_all(frame_idx):
   axs[1,1].legend()
   return fig
 
-
 # show
-for frame in tqdm(range(len(o_mfcc))):
+def plotAllFrames(o_mfcc):
+  """
+  plots all frames and stores each plot as png
+  """
+  for frame in tqdm(range(len(o_mfcc))):
+    fig = plot_all(o_mfcc[frame])
+    fig.tight_layout()
+    # plt.show()
+    fig.set_size_inches(18.5, 10.5)
+    fig.savefig('out/figure%03d.png'%frame)
+    plt.close()
+    fig.clf()
+    del fig
+
+def plotShowSingle(frame):
+  """
+  Plot and show a single frame
+  """
   fig = plot_all(frame)
   fig.tight_layout()
-  # plt.show()
-  fig.set_size_inches(18.5, 10.5)
-  fig.savefig('out/figure%03d.png'%frame)
-  plt.close()
-  fig.clf()
-  del fig
+  plt.show()
+
+def plotSpectrogram(o_mfcc):
+  """
+    Plots the spectrogram of the sample
+  """
+  plt.style.use('seaborn-bright')
+  t = np.linspace(0, nSamples/fs, num=nSamples)
+  f = np.linspace(0.0, fs/2.0, fft_len/2)
+  fig, axs = plt.subplots(3, 1)
+
+  # Input
+  ax=axs[0]
+  ax.plot(t, in_data, label='input')
+  ax.set_xlabel('time [s]')
+  ax.set_ylabel('amplitude')
+  ax.set_xlim(0,nSamples/fs)
+  ax.set_ylim(-25000,25000)
+  ax.grid(True)
+  ax.legend()
+
+  # assemble spectrogram data
+  spectrogram = np.ndarray((len(o_mfcc), len(o_mfcc[0]['spectrogram'])))
+  for i in range(spectrogram.shape[0]):
+    spectrogram[i] = np.log(o_mfcc[i]['spectrogram'])
+  spectrogram_mel = np.ndarray((len(o_mfcc), len(o_mfcc[0]['mfcc'])))
+  for i in range(spectrogram_mel.shape[0]):
+    spectrogram_mel[i] = o_mfcc[i]['mfcc']
+
+  ax = axs[1]
+  ax.pcolor(np.transpose(spectrogram), label='log spectrum')
+  ax.set_xlabel('sample')
+  ax.set_ylabel('fft bin')
+  ax.legend()
+
+  ax = axs[2]
+  ax.pcolor(np.transpose(spectrogram_mel), label='mel coefficients')
+  ax.set_xlabel('time [s]')
+  ax.set_ylabel('sample')
+  ax.legend()
+
+  
+  # axs[1,0] = pcolor(spectrogram)
+
+
+######################################################################
+# Main
+######################################################################
+
+# Read data
+in_fs, in_data = wavfile.read(in_wav)
+in_data = np.array(in_data)
+
+# Set MFCC settings
+fs = in_fs
+nSamples = len(in_data)
+frame_len = 1024
+frame_step = 1024
+frame_count = 0 # 0 for auto
+fft_len = frame_len
+mel_nbins = 32
+mel_lower_hz = 1
+mel_upper_hz = 5000
+
+# Some info
+print("Frame length in seconds = %.3fs" % (frame_len/fs))
+print("Number of input samples = %d" % (nSamples))
+
+# calculate mfcc
+o_mfcc = mfcc(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, mel_nbins, mel_lower_hz, mel_upper_hz)
+
+# plot
+# plotAllFrames(o_mfcc)
+# plotShowSingle(o_mfcc[10])
+plotSpectrogram(o_mfcc)
+plt.show()
 
