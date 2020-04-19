@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-19 20:43:43
+# @Last Modified time: 2020-04-19 20:53:00
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -13,8 +13,12 @@ import numpy as np
 import os
 import pathlib
 import librosa
+from tqdm import tqdm
 import tensorflow as tf
-tf.config.experimental.set_memory_growth(tf.config.experimental.list_physical_devices('GPU')[0], True)
+try:
+  tf.config.experimental.set_memory_growth(tf.config.experimental.list_physical_devices('GPU')[0], True)
+except:
+  pass
 
 cache_dir = '.cache'
 verbose = 1
@@ -135,8 +139,8 @@ def load_data2(max_len=11):
   
     print('calculate mfcc with librosa')
     x_train_mfcc = []
-    for wave in tqdm(x_train):
-      mfcc = librosa.feature.mfcc(wave, sr=16000)
+    for waveCtr in tqdm(range(x_train.shape[0])):
+      mfcc = librosa.feature.mfcc(x_train[waveCtr], sr=16000)
       if (max_len > mfcc.shape[1]):
         pad_width = max_len - mfcc.shape[1]
         mfcc = np.pad(mfcc, pad_width=((0, 0), (0, pad_width)), mode='constant')
@@ -144,14 +148,19 @@ def load_data2(max_len=11):
         mfcc = mfcc[:, :max_len]
       x_train_mfcc.append(mfcc)
     x_test_mfcc = []
-    for wave in tqdm(x_test):
-      mfcc = librosa.feature.mfcc(wave, sr=16000)
+    for waveCtr in tqdm(range(x_test.shape[0])):
+      mfcc = librosa.feature.mfcc(x_test[waveCtr], sr=16000)
       if (max_len > mfcc.shape[1]):
         pad_width = max_len - mfcc.shape[1]
         mfcc = np.pad(mfcc, pad_width=((0, 0), (0, pad_width)), mode='constant')
       else:
         mfcc = mfcc[:, :max_len]
       x_test_mfcc.append(mfcc)
+
+    x_train_mfcc = np.array(x_train_mfcc)
+    x_test_mfcc = np.array(x_test_mfcc)
+    x_train_mfcc  = x_train_mfcc.reshape(x_train_mfcc.shape+(1,))
+    x_test_mfcc  = x_test_mfcc.reshape(x_test_mfcc.shape+(1,))
 
     # store data
     print('Store mfcc data')
@@ -168,7 +177,7 @@ def load_data2(max_len=11):
 # MAIN
 ##################################################
 
-x_train_mfcc, x_test_mfcc, y_train, y_test = load_data2()
+x_train_mfcc, x_test_mfcc, y_train, y_test = load_data()
 
 assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
 print(x_train_mfcc.shape)
