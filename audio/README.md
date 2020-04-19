@@ -9,3 +9,18 @@ A collection of scripts to test and train.
 | `mfcc.py` | Experiment with Mel Frequency cepstral coefficients |
 | `mfcc_utils.py` | Library to calculate MFCCs |
 
+## Environment
+Setup once:
+```bash
+virtualenv -p python3.7 venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Speechrecognizer
+
+### Inspirations
+https://medium.com/manash-en-blog/building-a-dead-simple-word-recognition-engine-using-convnet-in-keras-25e72c19c12b
+
+
+

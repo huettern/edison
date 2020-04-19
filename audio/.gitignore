@@ -1,3 +1,7 @@
 out/
 __pycache__
 data/snips
+venv
+*.pyc
+.cache
+.idea
