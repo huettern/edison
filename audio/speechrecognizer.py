@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-19 11:25:55
+# @Last Modified time: 2020-04-19 20:43:43
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -12,11 +12,14 @@ from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 import numpy as np
 import os
 import pathlib
+import librosa
 import tensorflow as tf
 tf.config.experimental.set_memory_growth(tf.config.experimental.list_physical_devices('GPU')[0], True)
 
 cache_dir = '.cache'
 verbose = 1
+trainsize = 1000
+testsize = 100
 
 ##################################################
 # Model definition
@@ -78,7 +81,7 @@ def load_data():
 
   except FileNotFoundError:
     print('Loading data from source')
-    x_train, y_train, x_test, y_test = au.load_snips_data(trainsize = 10000, testsize = 1000)
+    x_train, y_train, x_test, y_test = au.load_snips_data(trainsize = trainsize, testsize = testsize)
 
     fs = 16e3
     nSamples = x_train.shape[-1]
@@ -114,13 +117,58 @@ def load_data():
 
   return x_train_mfcc, x_test_mfcc, y_train, y_test
 
+def load_data2(max_len=11):
+  """
+    Another method for loading and preprocessing data
+  """
+  try:
+    x_train_mfcc = np.load(cache_dir+'/x_train_mfcc_2.npy')
+    x_test_mfcc = np.load(cache_dir+'/x_test_mfcc_2.npy')
+    y_train = np.load(cache_dir+'/y_train_2.npy')
+    y_test = np.load(cache_dir+'/y_test_2.npy')
+    assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
+    print('Load data from cache success!')
+
+  except:
+    print('Loading data from source')
+    x_train, y_train, x_test, y_test = au.load_snips_data(trainsize = trainsize, testsize = testsize)
+  
+    print('calculate mfcc with librosa')
+    x_train_mfcc = []
+    for wave in tqdm(x_train):
+      mfcc = librosa.feature.mfcc(wave, sr=16000)
+      if (max_len > mfcc.shape[1]):
+        pad_width = max_len - mfcc.shape[1]
+        mfcc = np.pad(mfcc, pad_width=((0, 0), (0, pad_width)), mode='constant')
+      else:
+        mfcc = mfcc[:, :max_len]
+      x_train_mfcc.append(mfcc)
+    x_test_mfcc = []
+    for wave in tqdm(x_test):
+      mfcc = librosa.feature.mfcc(wave, sr=16000)
+      if (max_len > mfcc.shape[1]):
+        pad_width = max_len - mfcc.shape[1]
+        mfcc = np.pad(mfcc, pad_width=((0, 0), (0, pad_width)), mode='constant')
+      else:
+        mfcc = mfcc[:, :max_len]
+      x_test_mfcc.append(mfcc)
+
+    # store data
+    print('Store mfcc data')
+    pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
+    np.save(cache_dir+'/x_train_mfcc_2.npy', x_train_mfcc)
+    np.save(cache_dir+'/x_test_mfcc_2.npy', x_test_mfcc)
+    np.save(cache_dir+'/y_train_2.npy', y_train)
+    np.save(cache_dir+'/y_test_2.npy', y_test)
+
+  return x_train_mfcc, x_test_mfcc, y_train, y_test
 
 
 ##################################################
 # MAIN
 ##################################################
 
-x_train_mfcc, x_test_mfcc, y_train, y_test = load_data()
+x_train_mfcc, x_test_mfcc, y_train, y_test = load_data2()
 
 assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
 print(x_train_mfcc.shape)

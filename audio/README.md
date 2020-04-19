@@ -17,6 +17,11 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+On marvin
+```bash
+sudo apt install python3-libnvinfer python3-libnvinfer-dev
+```
+
 ## Speechrecognizer
 
 ### Inspirations
