@@ -5,6 +5,7 @@
 # @Last Modified time: 2020-04-19 10:25:37
 
 snipsDataPath = "/Users/noah/git/mlmcu-project/audio/data/snips/"
+snipsDataPath = '/media/spare/data/hey_snips_research_6k_en_train_eval_clean_ter'
 
 def load_snips_data(sample_len=4*16000, trainsize = 1000, testsize = 100):
   """

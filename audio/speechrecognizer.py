@@ -12,6 +12,8 @@ from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 import numpy as np
 import os
 import pathlib
+import tensorflow as tf
+tf.config.experimental.set_memory_growth(tf.config.experimental.list_physical_devices('GPU')[0], True)
 
 cache_dir = '.cache'
 verbose = 1
@@ -44,6 +46,11 @@ def get_model(inp_shape, num_classes):
 ##################################################
 # Training
 def train(model):
+  #config = ConfigProto()
+  #config.gpu_options.allow_growth = True
+  #session = InteractiveSession(config=config)
+  #tf.config.experimental.set_memory_growth(tf.config.experimental.list_physical_devices('GPU')[0], True)
+
   batchSize = 10
   epochs = 30
 
@@ -71,7 +78,7 @@ def load_data():
 
   except FileNotFoundError:
     print('Loading data from source')
-    x_train, y_train, x_test, y_test = au.load_snips_data(trainsize = 100, testsize = 10)
+    x_train, y_train, x_test, y_test = au.load_snips_data(trainsize = 10000, testsize = 1000)
 
     fs = 16e3
     nSamples = x_train.shape[-1]
