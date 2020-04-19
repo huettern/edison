@@ -2,11 +2,11 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:47
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-16 21:30:24
+# @Last Modified time: 2020-04-19 10:25:37
 
 snipsDataPath = "/Users/noah/git/mlmcu-project/audio/data/snips/"
 
-def load_snips_data(sample_len=4*16000):
+def load_snips_data(sample_len=4*16000, trainsize = 1000, testsize = 100):
   """
     Load training and test data from hey snips dataset
     
@@ -33,10 +33,10 @@ def load_snips_data(sample_len=4*16000):
   totalSliceLength = 10 
 
   # number of training/test sampels to take
-  # trainsize = len(traindata)
-  # testsize = len(testdata)
-  trainsize = 1000 # Number of loaded training samples
-  testsize = 100 # Number of loaded testing samples
+  if trainsize < 0:
+    trainsize = len(traindata)
+  if testsize < 0:
+    testsize = len(testdata)
 
   # get sampling rate from a file, assuming all have same fs
   fs, _ = wavfile.read(snipsDataPath+'/'+traindata[0]['audio_file_path'])

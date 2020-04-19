@@ -2,10 +2,11 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:23:59
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-16 16:25:20
+# @Last Modified time: 2020-04-19 10:33:47
 
 import numpy as np
 from scipy.fftpack import dct
+from tqdm import tqdm
 
 
 # mel freq. constants -> https://en.wikipedia.org/wiki/Mel_scale
@@ -71,6 +72,65 @@ def gen_mel_weight_matrix(num_mel_bins=20, num_spectrogram_bins=129, sample_rate
   
   # Re-add the zeroed lower bins we sliced out above
   return np.pad(mel_weights_matrix, [[n_bands_to_zero, 0], [0, 0]])
+
+def batch_mfcc(data, \
+  fs, nSamples, frame_len, frame_step, frame_count, \
+  fft_len, \
+  mel_nbins, mel_lower_hz, mel_upper_hz):
+  """
+    Runs windowed mfcc on a strem of data
+  
+      data          input data fo shape [..., samples]
+      fs            input sample rate
+      nSamples      number of samples in input
+      frame_len     length of each frame
+      frame_step    how many samples to advance the frame
+      frame_count   how many frames to compute
+      fft_len       length of FFT, ideally frame_len 
+      mel_nbins     number of mel filter banks to create
+      mel_lower_hz  lowest frequency of mel bank
+      mel_upper_hz  highest frequency of mel bank
+
+  """
+
+  if frame_count == 0:
+    frame_count = 1 + (nSamples - frame_len) // frame_step
+  print("Running mfcc for %d frames with %d step on %d samples" % (frame_count, frame_step, data.shape[0]))
+  # will return a list with a dict for each frame
+  output = np.zeros((data.shape[0], frame_count, mel_nbins))
+
+  for sampleCtr in tqdm(range(data.shape[0])):
+    for frame_ctr in range(frame_count):      
+      # get chunk of data
+      chunk = data[sampleCtr][frame_ctr*frame_step : frame_ctr*frame_step+frame_len]
+
+      # calculate FFT
+      stfft = np.fft.fft(chunk)[:frame_len//2]
+      
+      # calcualte spectorgram
+      spectrogram = np.abs(stfft)
+      num_spectrogram_bins = len(spectrogram)
+
+      # calculate mel weights
+      mel_weight_matrix = gen_mel_weight_matrix(num_mel_bins=mel_nbins, 
+        num_spectrogram_bins=num_spectrogram_bins, sample_rate=fs,
+        lower_edge_hertz=mel_lower_hz, upper_edge_hertz=mel_upper_hz)
+
+      # dot product of spectrum and mel matrix to get mel spectrogram
+      mel_spectrogram = np.dot(spectrogram, mel_weight_matrix)
+      
+      # take log of mel spectrogram
+      log_mel_spectrogram = np.log(mel_spectrogram + 1e-6)
+
+      # calculate DCT-II
+      mfcc = dct(log_mel_spectrogram, type=2) / np.sqrt(2*mel_nbins)
+      frame = np.array(mfcc)
+
+      # Add frame to output list
+      output[sampleCtr, frame_ctr, ...] = frame
+
+  return output
+
 
 def mfcc(data, \
   fs, nSamples, frame_len, frame_step, frame_count, \
