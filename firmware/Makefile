@@ -78,7 +78,8 @@ CMSIS = lib/CMSIS
 CMSIS_INC = -I$(CMSIS)/Include \
 						-I$(CMSIS)/Device/ST/STM32L4xx/Include 
 
-CMSIS_ASMSRC = src/startup/startup_stm32l475xx.s
+CMSIS_ASMSRC = src/startup/startup_stm32l475xx.s \
+						$(CMSIS)/DSP\_Lib/Source/TransformFunctions/arm_bitreversal2.S
 
 CMSIS_CSRC = $(wildcard $(CMSIS)/DSP_Lib/Source/*/*.c)
 # $(wildcard $(CMSIS)/Device/ST/STM32L4xx/Source/Templates/*.c)
@@ -110,7 +111,7 @@ ASMSRC = $(CMSIS_ASMSRC)
 LIBS = $(CMSIS_LIB)
 
 COBJ   = $(patsubst src/%,$(BUILD_DIR)/obj/%,$(CSRC:.c=.o))
-ASMOBJ = $(patsubst src/%,$(BUILD_DIR)/obj/%,$(ASMSRC:.s=.o))
+ASMOBJ = $(patsubst src/%,$(BUILD_DIR)/obj/%,$(filter %.o,$(ASMSRC:.s=.o) $(ASMSRC:.S=.o)))
 
 OBJ    = $(COBJ) $(ASMOBJ)
 #
@@ -206,6 +207,9 @@ cleaner:
 flash: $(BUILD_DIR)/$(TARGET).bin
 	st-flash write $(BUILD_DIR)/$(TARGET).bin 0x8000000
 
+mdebug:
+	echo $(ASMOBJ)
+
 #Pull in dependency info for *existing* .o files
 -include $(OBJ:.o=.d)
 
@@ -247,4 +251,9 @@ $(BUILD_DIR)/obj/%.o: src/%.s
 	@mkdir -p $(dir $@)
 	@$(AS) $(CFLAGS) -c $< -o $@
 
-.PHONY: all clean cleaner flash
+lib/CMSIS/DSP\_Lib/Source/TransformFunctions/arm_bitreversal2.o:
+	@echo "AS\t$(notdir $<)"
+	@mkdir -p $(dir $@)
+	@$(AS) $(CFLAGS) -c lib/CMSIS/DSP\_Lib/Source/TransformFunctions/arm_bitreversal2.S -o $@
+
+.PHONY: all clean cleaner flash mdebug

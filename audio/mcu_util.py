@@ -2,6 +2,7 @@ from serial import Serial, SerialException
 from time import sleep
 import struct
 import numpy as np
+from tqdm import tqdm
 
 try:
   ser = Serial('/dev/tty.usbmodem1413303', 115200)  # open serial port
@@ -25,15 +26,26 @@ def waitForByte(b, timeout=1000):
       c = ser.read(1)
       if c == b:
         return 0
-    sleep(0.001)
+    sleep(0.0001)
     timeout = timeout - 1
   return -1
 
+def serWriteWrap(b):
+  """
+    wraps the serial write function
+  """
+  bytes_written = 0
+  while bytes_written != len(b):
+    sleep(0.01)
+    bytes_written += ser.write(b[bytes_written:])
+    # print(' w %5d/%d' % (bytes_written, len(b)))
 
 def receiveData():
   """
     Listens for incomming data streams
   """
+  ser.reset_input_buffer()
+  ser.reset_output_buffer()
   ret_data = None
   ret_tag = None
 
@@ -76,7 +88,7 @@ def receiveData():
     sleep(0.01)
     inWaiting = ser.in_waiting
     nRead = min(inWaiting, toRead)
-    buf = ser.read(nRead)
+    buf += ser.read(nRead)
     toRead = toRead - nRead
 
   # print('read %d bytes' % len(buf)) # DBG
@@ -121,6 +133,8 @@ def sendData(data, tag):
   """
     Send data, length and type is infered from data
   """
+  ser.reset_input_buffer()
+  ser.reset_output_buffer()
   if data.dtype in fmt_byte_to_dtype:
     fmt_byte = fmt_byte_to_dtype.index(data.dtype) + 0x30
   else:
@@ -140,13 +154,17 @@ def sendData(data, tag):
 
   # send data
   crc = np.dtype('uint16').type(CRC_SEED)
-  for element in data:
+  element_ctr = 1
+  for element in tqdm(data):
     # online crc calculation
     for i in range(fmt_byte_to_nbytes[fmt_byte-0x30]):
       data_byte = (element // (2**(8*i))) & 0xff
       crc = np.dtype('uint16').type(crc+data_byte)
     # actual send
-    ser.write(struct.pack(fmt_byte_to_upack_string[fmt_byte-0x30], element))
+    d = struct.pack(fmt_byte_to_upack_string[fmt_byte-0x30], element)
+    serWriteWrap(d)
+    # print(' total %5d/%d' % (element_ctr, length))
+    element_ctr += 1
 
   # send crc
   ser.write(struct.pack('<H', crc))
@@ -289,12 +307,41 @@ def pingpongtest():
   data, tag = receiveData()
   print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
 
+def vecToC(vec, prepad=3):
+  """
+    vector to c: [1,2,3] -> {1,2,3}
+  """
+  out = '{'
+  if vec.dtype == 'float32' or vec.dtype == 'float64':
+    fmtstring = '%'+str(prepad)+'d,'
+  else:
+    fmtstring = '%'+str(prepad)+'d,'
+  for el in vec:
+    out += fmtstring % (el)
+  out = out[:-1]
+  out += '}'
+  return out
+
+def mtxToC (matrix, prepad=3):
+  """
+    takes a matrix and writes c syntax
+  """
+  rows = []
+  for row in matrix:
+    rows.append(vecToC(row, prepad))
+  out = '{ \n'
+  for row in rows:
+    out += '  %s,\n' % (row)
+  out = out[:-2]
+  out += '\n}'
+  return out
+
 if __name__ == '__main__':
   import sys, os
   try:
-    # pingtest()
+    pingtest()
     # pongtest()
-    pingpongtest()
+    # pingpongtest()
   except KeyboardInterrupt:
     print('Interrupted')
     ser.close()

@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-20 17:16:05
+* @Last Modified time: 2020-04-20 20:31:15
 */
 
 #include "hostinterface.h"
@@ -219,11 +219,12 @@ uint32_t hiReceive(void * data, uint32_t maxlen, hiDataFormat_t fmt, uint8_t * t
   hiDataFormat_t inFmt;
 
   // wait for start byte
-  while(1)
-  {
-    HAL_UART_Receive(&huart1, &tmp[0], 1, HAL_MAX_DELAY);
-    if(tmp[0] == '<') break;
-  }
+  waitForByte('<', 0);
+  // while(1)
+  // {
+  //   HAL_UART_Receive(&huart1, &tmp[0], 1, HAL_MAX_DELAY);
+  //   if(tmp[0] == '<') break;
+  // }
 
   // receive header
   HAL_UART_Receive(&huart1, &tmp[0], 6, HAL_MAX_DELAY);
@@ -367,13 +368,31 @@ static int8_t checkSendAck(void)
 static int8_t waitForByte (uint8_t b, uint32_t timeout)
 {
   uint8_t tmp;
-  while(timeout--)
+
+  do
   {
-    if(HAL_UART_Receive(&huart1, &tmp, 1, 0) == HAL_OK)
-      if(tmp == b) return 0;
-    HAL_Delay(1);
-  }
-  return -1;
+    HAL_UART_Receive(&huart1, &tmp, 1, HAL_MAX_DELAY);
+  } while(tmp != b);
+
+  // if(timeout)
+  // {
+  //   while(timeout--)
+  //   {
+  //     if(HAL_UART_Receive(&huart1, &tmp, 1, 0) == HAL_OK)
+  //       if(tmp == b) return 0;
+  //     HAL_Delay(1);
+  //   }
+  //   return -1;
+  // }
+  // else
+  // {
+  //   while(true)
+  //   {
+  //     if(HAL_UART_Receive(&huart1, &tmp, 1, 0) == HAL_OK)
+  //       if(tmp == b) return 0;
+  //     HAL_Delay(1);
+  //   }
+  // }
 }
 
 /*------------------------------------------------------------------------------

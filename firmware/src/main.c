@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-20 17:17:38
+* @Last Modified time: 2020-04-20 20:37:02
 */
 
 #include "main.h"
@@ -10,6 +10,7 @@
 #include "version.h"
 #include "microphone.h"
 #include "hostinterface.h"
+#include "audioprocessing.h"
 
 /*------------------------------------------------------------------------------
  * Private data
@@ -82,15 +83,21 @@ int main(void)
   // }
 
   /* TESTS --------------------------------------------------------*/
-  for(int i = 0; i < 6; i++)
-  {
-    tmpu8[i] = i-2;
-    tmps8[i] = i-2;
-    tmpu16[i] = i-2;
-    tmps16[i] = i-2;
-    tmpu32[i] = i-2;
-    tmps32[i] = i-2;
-  }
+  audioInit();
+  audioDevelop();
+
+  /* Host interface --------------------------------------------------------*/
+
+
+  // for(int i = 0; i < 6; i++)
+  // {
+  //   tmpu8[i] = i-2;
+  //   tmps8[i] = i-2;
+  //   tmpu16[i] = i-2;
+  //   tmps16[i] = i-2;
+  //   tmpu32[i] = i-2;
+  //   tmps32[i] = i-2;
+  // }
 
   // hiSendU8(tmpu8, 6, 0xee);
   // hiSendS8(tmps8, 6, 0xee);

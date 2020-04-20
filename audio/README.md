@@ -8,6 +8,7 @@ A collection of scripts to test and train.
 | `fetch_mic_samples.py` | Interfaces with the microcontroller to fetch raw microphone data |
 | `mfcc.py` | Experiment with Mel Frequency cepstral coefficients |
 | `mfcc_utils.py` | Library to calculate MFCCs |
+| `mfcc_on_mcu.py` | Testing MFCC implementation on MCU |
 
 ## Environment
 Setup once:
