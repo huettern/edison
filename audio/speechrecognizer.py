@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-19 20:53:00
+# @Last Modified time: 2020-04-20 07:55:26
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -33,31 +33,37 @@ def get_model(inp_shape, num_classes):
     Build CNN model
   """
   print("Building model with input shape %s" % (inp_shape, ))
+  # model = Sequential()
+  # model.add(Conv2D(32, kernel_size=(2, 2), activation='relu', input_shape=inp_shape))
+  # model.add(Conv2D(48, kernel_size=(2, 2), activation='relu'))
+  # model.add(Conv2D(120, kernel_size=(2, 2), activation='relu'))
+  # model.add(MaxPooling2D(pool_size=(2, 2)))
+  # model.add(Dropout(0.25))
+  # model.add(Flatten())
+  # model.add(Dense(128, activation='relu'))
+  # model.add(Dropout(0.25))
+  # model.add(Dense(64, activation='relu'))
+  # model.add(Dropout(0.4))
+  # model.add(Dense(num_classes, activation='softmax'))
+  # model.compile(loss='binary_crossentropy',
+  #               optimizer=keras.optimizers.Adam(),
+  #               metrics=['accuracy'])
+
   model = Sequential()
-  model.add(Conv2D(32, kernel_size=(2, 2), activation='relu', input_shape=inp_shape))
-  model.add(Conv2D(48, kernel_size=(2, 2), activation='relu'))
-  model.add(Conv2D(120, kernel_size=(2, 2), activation='relu'))
+  num_classes = 2
+  model.add(Conv2D(4, kernel_size=(3, 3), activation='relu', padding='same', input_shape=inp_shape))
   model.add(MaxPooling2D(pool_size=(2, 2)))
   model.add(Dropout(0.25))
   model.add(Flatten())
-  model.add(Dense(128, activation='relu'))
-  model.add(Dropout(0.25))
-  model.add(Dense(64, activation='relu'))
-  model.add(Dropout(0.4))
-  model.add(Dense(num_classes, activation='softmax'))
-  model.compile(loss='binary_crossentropy',
-                optimizer=keras.optimizers.Adam(),
-                metrics=['accuracy'])
+  model.add(Dense(num_classes, activation='relu'))
+  model.compile(loss='sparse_categorical_crossentropy', 
+    optimizer='adam', 
+    metrics=['accuracy'])
   return model
 
 ##################################################
 # Training
 def train(model):
-  #config = ConfigProto()
-  #config.gpu_options.allow_growth = True
-  #session = InteractiveSession(config=config)
-  #tf.config.experimental.set_memory_growth(tf.config.experimental.list_physical_devices('GPU')[0], True)
-
   batchSize = 10
   epochs = 30
 
@@ -66,8 +72,14 @@ def train(model):
   test_set = x_test_mfcc
   test_labels = y_test
 
+  input_shape=(train_set[0].shape)
+  print (input_shape)
+  print(type(x_train_mfcc))
+
   model.fit(train_set, train_labels, batch_size=batchSize, epochs=epochs, 
     verbose=verbose, validation_data=(test_set, test_labels))
+
+  return train_set, train_labels, test_set, test_labels
 
 
 ##################################################
@@ -123,7 +135,7 @@ def load_data():
 
 def load_data2(max_len=11):
   """
-    Another method for loading and preprocessing data
+    Another method for loading and preprocessing data, taken from DeadSimpleSeechRecognizer
   """
   try:
     x_train_mfcc = np.load(cache_dir+'/x_train_mfcc_2.npy')
@@ -173,6 +185,50 @@ def load_data2(max_len=11):
   return x_train_mfcc, x_test_mfcc, y_train, y_test
 
 
+def load_data3(max_len=11):
+  """
+    Loading data as in the exercise
+  """
+  print('Loading data from source')
+  x_train, y_train, x_test, y_test = au.load_snips_data(trainsize = trainsize, testsize = testsize)
+
+  sample_rate = 16000.0
+  lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 80
+  frame_length = 1024
+  num_mfcc = 13
+  stfts = tf.signal.stft(tensor, frame_length=frame_length, frame_step=frame_length, fft_length=frame_length)
+  spectrograms = tf.abs(stfts)
+  spectrograms = tf.reshape(spectrograms, (spectrograms.shape[0],spectrograms.shape[1],-1))
+  num_spectrogram_bins = stfts.shape[-1]
+  linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
+    num_mel_bins, num_spectrogram_bins, sample_rate, lower_edge_hertz,
+    upper_edge_hertz)
+  mel_spectrograms = tf.tensordot(spectrograms, linear_to_mel_weight_matrix, 1)
+  log_mel_spectrograms = tf.math.log(mel_spectrograms + 1e-6)
+  mfccs = tf.signal.mfccs_from_log_mel_spectrograms(log_mel_spectrograms)[..., :num_mfcc]
+  x_train_mfcc = tf.reshape(mfccs, (mfccs.shape[0],mfccs.shape[1],mfccs.shape[2],-1))
+
+  sample_rate = 16000.0
+  lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 80
+  frame_length = 1024
+  num_mfcc = 13
+  stfts = tf.signal.stft(tensor, frame_length=frame_length, frame_step=frame_length, fft_length=frame_length)
+  spectrograms = tf.abs(stfts)
+  spectrograms = tf.reshape(spectrograms, (spectrograms.shape[0],spectrograms.shape[1],-1))
+  num_spectrogram_bins = stfts.shape[-1]
+  linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
+    num_mel_bins, num_spectrogram_bins, sample_rate, lower_edge_hertz,
+    upper_edge_hertz)
+  mel_spectrograms = tf.tensordot(spectrograms, linear_to_mel_weight_matrix, 1)
+  log_mel_spectrograms = tf.math.log(mel_spectrograms + 1e-6)
+  mfccs = tf.signal.mfccs_from_log_mel_spectrograms(log_mel_spectrograms)[..., :num_mfcc]
+  x_test_mfcc = tf.reshape(mfccs, (mfccs.shape[0],mfccs.shape[1],mfccs.shape[2],-1))
+
+  print(x_train_mfcc.shape)
+  print(x_test_mfcc.shape)
+  return x_train_mfcc, x_test_mfcc, y_train, y_test
+
+
 ##################################################
 # MAIN
 ##################################################
@@ -190,6 +246,8 @@ print(y_test)
 # Build model
 model = get_model(inp_shape=x_train_mfcc.shape[1:], num_classes = 1)
 model.summary()
-train(model)
+train_set, train_labels, test_set, test_labels = train(model)
 
-model.save(cache_dir+'/mfcc_model.h')
+model.summary()
+model.evaluate(test_set, y_test)
+model.save(cache_dir+'/mfcc_model.h5')
