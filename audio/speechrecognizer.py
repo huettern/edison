@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-20 10:40:20
+# @Last Modified time: 2020-04-20 10:42:05
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -316,15 +316,15 @@ def plotInputDifference(mfccs, names):
 # MAIN
 ##################################################
 
-x_train_mfcc, x_test_mfcc, y_train, y_test = load_data()
-x_train_mfcc2, x_test_mfcc2, y_train2, y_test2 = load_data2()
-x_train_mfcc3, x_test_mfcc3, y_train3, y_test3 = load_data3()
-x_test_mfcc2 = x_test_mfcc2.transpose((0,2,1,3))
-print(x_test_mfcc.shape)
-print(x_test_mfcc2.shape)
-print(x_test_mfcc3.shape)
-plotInputDifference([x_test_mfcc, x_test_mfcc2, x_test_mfcc3], ['custom implemetation', 'librosa', 'tensorflow'])
-exit()
+# x_train_mfcc, x_test_mfcc, y_train, y_test = load_data()
+# x_train_mfcc2, x_test_mfcc2, y_train2, y_test2 = load_data2()
+# x_train_mfcc3, x_test_mfcc3, y_train3, y_test3 = load_data3()
+# x_test_mfcc2 = x_test_mfcc2.transpose((0,2,1,3))
+# print(x_test_mfcc.shape)
+# print(x_test_mfcc2.shape)
+# print(x_test_mfcc3.shape)
+# plotInputDifference([x_test_mfcc, x_test_mfcc2, x_test_mfcc3], ['custom implemetation', 'librosa', 'tensorflow'])
+# exit()
 
 
 x_train_mfcc, x_test_mfcc, y_train, y_test = load_data()
