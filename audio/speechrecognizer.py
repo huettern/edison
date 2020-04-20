@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-20 07:55:26
+# @Last Modified time: 2020-04-20 08:21:49
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -189,14 +189,14 @@ def load_data3(max_len=11):
   """
     Loading data as in the exercise
   """
-  print('Loading data from source')
+  print('Loading data from source using Tensorflow MFCCs')
   x_train, y_train, x_test, y_test = au.load_snips_data(trainsize = trainsize, testsize = testsize)
 
   sample_rate = 16000.0
   lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 80
   frame_length = 1024
   num_mfcc = 13
-  stfts = tf.signal.stft(tensor, frame_length=frame_length, frame_step=frame_length, fft_length=frame_length)
+  stfts = tf.signal.stft(x_train, frame_length=frame_length, frame_step=frame_length, fft_length=frame_length)
   spectrograms = tf.abs(stfts)
   spectrograms = tf.reshape(spectrograms, (spectrograms.shape[0],spectrograms.shape[1],-1))
   num_spectrogram_bins = stfts.shape[-1]
@@ -212,7 +212,7 @@ def load_data3(max_len=11):
   lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 80
   frame_length = 1024
   num_mfcc = 13
-  stfts = tf.signal.stft(tensor, frame_length=frame_length, frame_step=frame_length, fft_length=frame_length)
+  stfts = tf.signal.stft(x_test, frame_length=frame_length, frame_step=frame_length, fft_length=frame_length)
   spectrograms = tf.abs(stfts)
   spectrograms = tf.reshape(spectrograms, (spectrograms.shape[0],spectrograms.shape[1],-1))
   num_spectrogram_bins = stfts.shape[-1]
@@ -226,14 +226,15 @@ def load_data3(max_len=11):
 
   print(x_train_mfcc.shape)
   print(x_test_mfcc.shape)
-  return x_train_mfcc, x_test_mfcc, y_train, y_test
+  # return as array
+  return x_train_mfcc.numpy(), x_test_mfcc.numpy(), y_train, y_test
 
 
 ##################################################
 # MAIN
 ##################################################
 
-x_train_mfcc, x_test_mfcc, y_train, y_test = load_data()
+x_train_mfcc, x_test_mfcc, y_train, y_test = load_data3()
 
 assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
 print(x_train_mfcc.shape)
