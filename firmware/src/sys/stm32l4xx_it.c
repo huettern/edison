@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:51:28
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-13 16:46:44
+* @Last Modified time: 2020-04-20 14:32:03
 */
 
 #include "main.h"
@@ -92,6 +92,11 @@ void SysTick_Handler(void)
 /*------------------------------------------------------------------------------
  * STM32L4xx Peripheral Interrupt Handlers 
  * ---------------------------------------------------------------------------*/
+
+void USART1_IRQHandler(void)
+{
+  HAL_UART_IRQHandler(&huart1);
+}
 
 /**
   * @brief This function handles DMA1 channel4 global interrupt.

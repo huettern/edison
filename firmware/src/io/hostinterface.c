@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-20 11:57:38
+* @Last Modified time: 2020-04-20 15:34:56
 */
 
 #include "hostinterface.h"
@@ -19,11 +19,12 @@
  * To transfer data, the hiSend* routines are used. A transfer to the host contains of
  *  '>'+format+tag+len+data+crc
  *    '>' indicates mcu to host transfer
- *    format: 0 u8, 1 s8, 2 u16, 3 ..., see dataFormat_t
+ *    format: 0 u8, 1 s8, 2 u16, 3 ..., see hiDataFormat_t
  *    tag 1 byte user tag
  *    len 4 byte little-endian number of data elements (not bytes)
  *    data little-endian data
  *    crc 2 byte crc which is the byte-wise sum of all data elements to a uint16, little-endian
+ *  A transfer is acknowledged by the character '^'
  */
 
 /*------------------------------------------------------------------------------
@@ -50,15 +51,6 @@ typedef enum
   RET_CMD_TOO_FEW_ARGUMENTS = 2,
 } returnCommands_t;
 
-typedef enum
-{
-  DATA_FORMAT_U8 = '0',
-  DATA_FORMAT_S8 = '1',
-  DATA_FORMAT_U16 = '2',
-  DATA_FORMAT_S16 = '3',
-  DATA_FORMAT_U32 = '4',
-  DATA_FORMAT_S32 = '5',
-} dataFormat_t;
 
 /*------------------------------------------------------------------------------
  * Settings
@@ -81,12 +73,15 @@ static const hostCommands_t commands [] = {
   {CMD_MIC_SAMPLE_PREPROCESSED_MANUAL, 0}
 };
 
+static const uint8_t fmtToNbytes[] = {1,1,2,2,4,4};
+
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
 static void runCommand(const hostCommands_t* cmd, uint8_t* args);
-static void sendDataTransferHeader(dataFormat_t fmt, uint8_t tag, uint32_t len);
+static void sendDataTransferHeader(hiDataFormat_t fmt, uint8_t tag, uint32_t len);
 static uint16_t calcCcrSum(void * data, uint32_t len);
+static uint8_t checkSendAck(void);
 
 /*------------------------------------------------------------------------------
  * Publics
@@ -151,6 +146,7 @@ void hiSendU8(uint8_t * data, uint32_t len, uint8_t tag)
   sendDataTransferHeader(DATA_FORMAT_U8, tag, len);
   HAL_UART_Transmit(&huart1, data, len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
+  checkSendAck();
 }
 
 void hiSendS8(int8_t * data, uint32_t len, uint8_t tag)
@@ -159,6 +155,7 @@ void hiSendS8(int8_t * data, uint32_t len, uint8_t tag)
   sendDataTransferHeader(DATA_FORMAT_S8, tag, len);
   HAL_UART_Transmit(&huart1, (uint8_t*)data, len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
+  checkSendAck();
 }
 
 void hiSendU16(uint16_t * data, uint32_t len, uint8_t tag)
@@ -167,6 +164,7 @@ void hiSendU16(uint16_t * data, uint32_t len, uint8_t tag)
   sendDataTransferHeader(DATA_FORMAT_U16, tag, len);
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 2*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
+  checkSendAck();
 }
 
 void hiSendS16(int16_t * data, uint32_t len, uint8_t tag)
@@ -175,6 +173,7 @@ void hiSendS16(int16_t * data, uint32_t len, uint8_t tag)
   sendDataTransferHeader(DATA_FORMAT_S16, tag, len);
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 2*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
+  checkSendAck();
 }
 
 void hiSendU32(uint32_t * data, uint32_t len, uint8_t tag)
@@ -183,6 +182,7 @@ void hiSendU32(uint32_t * data, uint32_t len, uint8_t tag)
   sendDataTransferHeader(DATA_FORMAT_U32, tag, len);
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 4*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
+  checkSendAck();
 }
 
 void hiSendS32(int32_t * data, uint32_t len, uint8_t tag)
@@ -191,8 +191,65 @@ void hiSendS32(int32_t * data, uint32_t len, uint8_t tag)
   sendDataTransferHeader(DATA_FORMAT_S32, tag, len);
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 4*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
+  checkSendAck();
 }
 
+/**
+ * @brief Receive data from host
+ * @details 
+ * 
+ * @param data pointer to data buffer to store data
+ * @param fmt data format to filter. if = 0, is ignored
+ * @param maxlen maximum size of received data, in bytes
+ * @param tag received tag
+ * @return number of elements received and stored. 0 on error
+ */
+uint32_t hiReceive(void * data, uint32_t maxlen, hiDataFormat_t fmt, uint8_t * tag)
+{
+  uint32_t i, nBytes, length, crc_in, crc_out;
+  uint8_t tmp[7]; 
+  hiDataFormat_t inFmt;
+
+  // wait for start byte
+  while(1)
+  {
+    HAL_UART_Receive(&huart1, &tmp[0], 1, HAL_MAX_DELAY);
+    if(tmp[0] == '<') break;
+  }
+
+  // receive header
+  HAL_UART_Receive(&huart1, &tmp[0], 6, HAL_MAX_DELAY);
+
+  // calculate size
+  inFmt = tmp[0];
+  *tag = tmp[1];
+  length = tmp[2] | (tmp[3]<<8) | (tmp[4]<<16) | (tmp[5]<<24);
+  nBytes = fmtToNbytes[inFmt-0x30]*length;
+
+  // assert data type
+  if(fmt && (fmt != inFmt)) return 0;
+
+  // read data
+  nBytes = (nBytes > maxlen) ? maxlen : nBytes;
+  HAL_UART_Receive(&huart1, (uint8_t*)data, nBytes, HAL_MAX_DELAY);
+
+  // receive CRC
+  HAL_UART_Receive(&huart1, (uint8_t*)&crc_in, 2, HAL_MAX_DELAY);
+
+  // validate crc
+  crc_out = calcCcrSum(data, nBytes);
+  // 
+  if(crc_in != crc_out)
+  {
+    printf("crc in %d crc out %d\n", crc_in, crc_out);
+    return 0;
+  } 
+
+  // success, return number of elements received
+  tmp[0] = '^';
+  HAL_UART_Transmit(&huart1, (uint8_t*)tmp, 1, HAL_MAX_DELAY);
+  return length;
+}
 
 /*------------------------------------------------------------------------------
  * Privates
@@ -242,7 +299,7 @@ static void runCommand(const hostCommands_t* cmd, uint8_t* args)
  * @param tag 
  * @param len 
  */
-static void sendDataTransferHeader(dataFormat_t fmt, uint8_t tag, uint32_t len)
+static void sendDataTransferHeader(hiDataFormat_t fmt, uint8_t tag, uint32_t len)
 {
   uint8_t tmp[7];
 
@@ -261,8 +318,8 @@ static void sendDataTransferHeader(dataFormat_t fmt, uint8_t tag, uint32_t len)
  * @brief Calculate simple crc by summing up all elements and storing them in 16bit unsigned
  * @details 
  * 
- * @param data 
- * @param len 
+ * @param data pointer to data
+ * @param len data length in bytes
  * 
  * @return 
  */
@@ -272,6 +329,20 @@ static uint16_t calcCcrSum(void * data, uint32_t len)
   uint32_t i = 0;
   while(len--) crc = crc + (uint16_t)((uint8_t*)data)[i++];
   return crc;
+}
+
+/**
+ * @brief Checks for ack byte after sending data
+ * @details 
+ * @return 
+ */
+static uint8_t checkSendAck(void)
+{
+  uint8_t tmp[1];
+  // wait for start byte
+  HAL_UART_Receive(&huart1, &tmp[0], 1, 1000);
+  if(tmp[0] == '^') return 0;
+  return 1;
 }
 
 /*------------------------------------------------------------------------------

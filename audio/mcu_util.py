@@ -16,6 +16,7 @@ fmt_byte_to_nbytes = [1,1,2,2,4,4]
 fmt_byte_to_upack_string = ['<B', '<b', '<H', '<h', '<I', '<i']
 fmt_byte_to_dtype = ['uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32']
 
+
 def receiveData():
   """
     Listens for incomming data streams
@@ -30,7 +31,7 @@ def receiveData():
     if c == b'>':
       break
 
-  print("> received") # DBG
+  # print("> received") # DBG
 
   # Wait for header arrived
   while(1):
@@ -40,7 +41,7 @@ def receiveData():
       break
   fmt, tag, length = struct.unpack('<BBI', buf)
 
-  print("fmt = %d tag = 0x%02x length = %d" % (fmt, tag, length)) # DBG
+  # print("fmt = %d tag = 0x%02x length = %d" % (fmt, tag, length)) # DBG
 
   # convert fmt byte to usable index
   fmt = fmt & (~0x30)
@@ -53,7 +54,7 @@ def receiveData():
   # receive data
   toRead = fmt_byte_to_nbytes[fmt]*length
   buf = b''
-  print('start receiving %d bytes' % (toRead)) # DBG
+  # print('start receiving %d bytes' % (toRead)) # DBG
   while(toRead):
     sleep(0.01)
     inWaiting = ser.in_waiting
@@ -61,7 +62,7 @@ def receiveData():
     buf = ser.read(nRead)
     toRead = toRead - nRead
 
-  print('read %d bytes' % len(buf)) # DBG
+  # print('read %d bytes' % len(buf)) # DBG
   
   # receive CRC
   while(1):
@@ -86,18 +87,204 @@ def receiveData():
     print('CRC mismatch! Aborting')
     return ret_data, ret_tag
 
-  print('Unpacked data:') # DBG
-  print(data) # DBG
+  # print('Unpacked data:') # DBG
+  # print(data) # DBG
   ret_data = np.asarray(data, dtype=fmt_byte_to_dtype[fmt])
   ret_tag = tag
 
-  print('crc_in = %d crc_out = %d' % (crc_in, crc_out))
+  # print('crc_in = %d crc_out = %d' % (crc_in, crc_out)) # DBG
+  
+  # Ack the transfer
+  ser.write(b'^')
+  ser.flush()
   return ret_data, ret_tag
 
-while(1):
-  print('------------------------------------')
+
+def sendData(data, tag):
+  """
+    Send data, length and type is infered from data
+  """
+  if data.dtype in fmt_byte_to_dtype:
+    fmt_byte = fmt_byte_to_dtype.index(data.dtype) + 0x30
+  else:
+    print('Unsupported datatype, aborting')
+
+  length = len(data)
+  ser.flush()
+
+  # assemble and send header
+  hdr = struct.pack('<cBBL', b'<', fmt_byte, tag, length)
+  ser.write(hdr)
+  ser.flush()
+
+  # send data
+  crc = np.dtype('uint16').type(CRC_SEED)
+  for element in data:
+    # online crc calculation
+    for i in range(fmt_byte_to_nbytes[fmt_byte-0x30]):
+      data_byte = (element // (2**(8*i))) & 0xff
+      crc = np.dtype('uint16').type(crc+data_byte)
+    # actual send
+    ser.write(struct.pack(fmt_byte_to_upack_string[fmt_byte-0x30], element))
+
+  # send crc
+  ser.write(struct.pack('<H', crc))
+
+  # Read ack
+  timeout = 500
+  while timeout:
+    sleep(0.01)
+    timeout -= 1
+    if(ser.in_waiting):
+      ret = ser.read(1)
+      if ret == b'^':
+        print('Transfer acknowledged')
+        return
+
+  print('Error: Transfer not acknowledged!')
+  print(ser.readline())
+
+
+def pingtest():
+
+  sleep(1)
+  print('--- Transferring uint8 -----------------------')
+  dat = np.array([-2,-1,0,1,2,3], dtype='uint8')
+  sendData(dat, 1)
+  print(ser.readline())
+  print(ser.readline())
+
+  sleep(1)
+  print('--- Transferring int8 -----------------------')
+  dat = np.array([-2,-1,0,1,2,3], dtype='int8')
+  sendData(dat, 2)
+  print(ser.readline())
+  print(ser.readline())
+  
+  sleep(1)
+  print('--- Transferring uint16 -----------------------')
+  dat = np.array([-2,-1,0,1,2,3], dtype='uint16')
+  sendData(dat, 3)
+  print(ser.readline())
+  print(ser.readline())
+  
+  sleep(1)
+  print('--- Transferring int16 -----------------------')
+  dat = np.array([-2,-1,0,1,2,3], dtype='int16')
+  sendData(dat, 4)
+  print(ser.readline())
+  print(ser.readline())
+  
+  sleep(1)
+  print('--- Transferring uint32 -----------------------')
+  dat = np.array([-2,-1,0,1,2,3], dtype='uint32')
+  sendData(dat, 5)
+  print(ser.readline())
+  print(ser.readline())
+  
+  sleep(1)
+  print('--- Transferring int32 -----------------------')
+  dat = np.array([-2,-1,0,1,2,3], dtype='int32')
+  sendData(dat, 6)
+  print(ser.readline())
+  print(ser.readline())
+
+def pongtest():
   data, tag = receiveData()
-  print(tag)
-  print(data)
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
+  data, tag = receiveData()
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
+  data, tag = receiveData()
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
+  data, tag = receiveData()
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
+  data, tag = receiveData()
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
+  data, tag = receiveData()
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
+
+def pingpongtest():
+
+  # while(1):
+  #   print('------------------------------------')
+  #   data, tag = receiveData()
+  #   print(tag)
+  #   print(data)
+  #   print(type(data))
+  #   print(data.dtype)
+
+  sleep(1)
+  print('--- Transferring uint8 -----------------------')
+  dat = np.array([-2,-1,0,1,2,3], dtype='uint8')
+  sendData(dat, 1)
+  print(ser.readline())
+  print(ser.readline())
+  data, tag = receiveData()
   print(type(data))
   print(data.dtype)
+
+  sleep(1)
+  print('--- Transferring int8 -----------------------')
+  dat = np.array([-2,-1,0,1,2,3], dtype='int8')
+  sendData(dat, 2)
+  print(ser.readline())
+  print(ser.readline())
+  data, tag = receiveData()
+  print(type(data))
+  print(data.dtype)
+  
+  sleep(1)
+  print('--- Transferring uint16 -----------------------')
+  dat = np.array([-2,-1,0,1,2,3], dtype='uint16')
+  sendData(dat, 3)
+  print(ser.readline())
+  print(ser.readline())
+  data, tag = receiveData()
+  print(type(data))
+  print(data.dtype)
+  
+  sleep(1)
+  print('--- Transferring int16 -----------------------')
+  dat = np.array([-2,-1,0,1,2,3], dtype='int16')
+  sendData(dat, 4)
+  print(ser.readline())
+  print(ser.readline())
+  data, tag = receiveData()
+  print(type(data))
+  print(data.dtype)
+  
+  sleep(1)
+  print('--- Transferring uint32 -----------------------')
+  dat = np.array([-2,-1,0,1,2,3], dtype='uint32')
+  sendData(dat, 5)
+  print(ser.readline())
+  print(ser.readline())
+  data, tag = receiveData()
+  print(type(data))
+  print(data.dtype)
+  
+  sleep(1)
+  print('--- Transferring int32 -----------------------')
+  dat = np.array([-2,-1,0,1,2,3], dtype='int32')
+  sendData(dat, 6)
+  print(ser.readline())
+  print(ser.readline())
+  data, tag = receiveData()
+  print(type(data))
+  print(data.dtype)
+
+if __name__ == '__main__':
+  import sys, os
+  try:
+    pingpongtest()
+    # pingtest()
+    # pongtest()
+  except KeyboardInterrupt:
+    print('Interrupted')
+    ser.close()
+    try:
+      sys.exit(0)
+    except SystemExit:
+      os._exit(0)
+
+

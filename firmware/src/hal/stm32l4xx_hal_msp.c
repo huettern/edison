@@ -178,7 +178,8 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-
+    HAL_NVIC_SetPriority(USART1_IRQn, 8, 0);
+    HAL_NVIC_EnableIRQ(USART1_IRQn);
   }
 }
 
@@ -200,5 +201,7 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
     PB7     ------> USART1_RX 
     */
     HAL_GPIO_DeInit(GPIOB, ST_LINK_UART1_TX_Pin|ST_LINK_UART1_RX_Pin);
+    
+    HAL_NVIC_DisableIRQ(USART1_IRQn);
   }
 }
