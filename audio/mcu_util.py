@@ -16,6 +16,19 @@ fmt_byte_to_nbytes = [1,1,2,2,4,4]
 fmt_byte_to_upack_string = ['<B', '<b', '<H', '<h', '<I', '<i']
 fmt_byte_to_dtype = ['uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32']
 
+def waitForByte(b, timeout=1000):
+  """
+    wait for byte b to be received. timeout in ms
+  """
+  while(timeout):
+    if ser.in_waiting:
+      c = ser.read(1)
+      if c == b:
+        return 0
+    sleep(0.001)
+    timeout = timeout - 1
+  return -1
+
 
 def receiveData():
   """
@@ -50,6 +63,10 @@ def receiveData():
   if fmt not in valid_fmt_bytes:
     print('Invalid format byte received. Aborting')
     return ret_data, ret_tag
+
+  # signal ready for data
+  ser.write(b'a')
+  ser.flush()
 
   # receive data
   toRead = fmt_byte_to_nbytes[fmt]*length
@@ -117,6 +134,10 @@ def sendData(data, tag):
   ser.write(hdr)
   ser.flush()
 
+  if waitForByte(b'a') < 0:
+    print('mcu not ready for data, aborting')
+    return
+
   # send data
   crc = np.dtype('uint16').type(CRC_SEED)
   for element in data:
@@ -132,18 +153,11 @@ def sendData(data, tag):
 
   # Read ack
   timeout = 500
-  while timeout:
-    sleep(0.01)
-    timeout -= 1
-    if(ser.in_waiting):
-      ret = ser.read(1)
-      if ret == b'^':
-        print('Transfer acknowledged')
-        return
-
-  print('Error: Transfer not acknowledged!')
-  print(ser.readline())
-
+  if waitForByte(b'^') < 0:
+    print('Error: Transfer not acknowledged!')
+    return
+  print('Transfer acknowledged')
+  
 
 def pingtest():
 
@@ -189,6 +203,10 @@ def pingtest():
   print(ser.readline())
   print(ser.readline())
 
+  print('----------------------------------------------')
+  print(' ping test passed')
+  print('----------------------------------------------')
+
 def pongtest():
   data, tag = receiveData()
   print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
@@ -202,6 +220,10 @@ def pongtest():
   print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
   data, tag = receiveData()
   print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
+
+  print('----------------------------------------------')
+  print(' pong test passed')
+  print('----------------------------------------------')
 
 def pingpongtest():
 
@@ -220,8 +242,7 @@ def pingpongtest():
   print(ser.readline())
   print(ser.readline())
   data, tag = receiveData()
-  print(type(data))
-  print(data.dtype)
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
 
   sleep(1)
   print('--- Transferring int8 -----------------------')
@@ -230,8 +251,7 @@ def pingpongtest():
   print(ser.readline())
   print(ser.readline())
   data, tag = receiveData()
-  print(type(data))
-  print(data.dtype)
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
   
   sleep(1)
   print('--- Transferring uint16 -----------------------')
@@ -240,8 +260,7 @@ def pingpongtest():
   print(ser.readline())
   print(ser.readline())
   data, tag = receiveData()
-  print(type(data))
-  print(data.dtype)
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
   
   sleep(1)
   print('--- Transferring int16 -----------------------')
@@ -250,8 +269,7 @@ def pingpongtest():
   print(ser.readline())
   print(ser.readline())
   data, tag = receiveData()
-  print(type(data))
-  print(data.dtype)
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
   
   sleep(1)
   print('--- Transferring uint32 -----------------------')
@@ -260,8 +278,7 @@ def pingpongtest():
   print(ser.readline())
   print(ser.readline())
   data, tag = receiveData()
-  print(type(data))
-  print(data.dtype)
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
   
   sleep(1)
   print('--- Transferring int32 -----------------------')
@@ -270,15 +287,14 @@ def pingpongtest():
   print(ser.readline())
   print(ser.readline())
   data, tag = receiveData()
-  print(type(data))
-  print(data.dtype)
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
 
 if __name__ == '__main__':
   import sys, os
   try:
-    pingpongtest()
     # pingtest()
     # pongtest()
+    pingpongtest()
   except KeyboardInterrupt:
     print('Interrupted')
     ser.close()

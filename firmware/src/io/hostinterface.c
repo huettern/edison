@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-20 15:34:56
+* @Last Modified time: 2020-04-20 17:16:05
 */
 
 #include "hostinterface.h"
@@ -17,11 +17,12 @@
  * command RET_CMD_OK is sent, else the corresponding error code.
  * 
  * To transfer data, the hiSend* routines are used. A transfer to the host contains of
- *  '>'+format+tag+len+data+crc
+ *  '>'+format+tag+len <'a' from other side> data+crc
  *    '>' indicates mcu to host transfer
  *    format: 0 u8, 1 s8, 2 u16, 3 ..., see hiDataFormat_t
  *    tag 1 byte user tag
  *    len 4 byte little-endian number of data elements (not bytes)
+ *    receiver acknowledges transfer by sending byte 'a'
  *    data little-endian data
  *    crc 2 byte crc which is the byte-wise sum of all data elements to a uint16, little-endian
  *  A transfer is acknowledged by the character '^'
@@ -81,7 +82,8 @@ static const uint8_t fmtToNbytes[] = {1,1,2,2,4,4};
 static void runCommand(const hostCommands_t* cmd, uint8_t* args);
 static void sendDataTransferHeader(hiDataFormat_t fmt, uint8_t tag, uint32_t len);
 static uint16_t calcCcrSum(void * data, uint32_t len);
-static uint8_t checkSendAck(void);
+static int8_t checkSendAck(void);
+static int8_t waitForByte (uint8_t b, uint32_t timeout);
 
 /*------------------------------------------------------------------------------
  * Publics
@@ -144,6 +146,7 @@ void hiSendU8(uint8_t * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, len);
   sendDataTransferHeader(DATA_FORMAT_U8, tag, len);
+  if(waitForByte('a', 1000) < 0) return;
   HAL_UART_Transmit(&huart1, data, len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
   checkSendAck();
@@ -153,6 +156,7 @@ void hiSendS8(int8_t * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, len);
   sendDataTransferHeader(DATA_FORMAT_S8, tag, len);
+  if(waitForByte('a', 1000) < 0) return;
   HAL_UART_Transmit(&huart1, (uint8_t*)data, len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
   checkSendAck();
@@ -162,6 +166,7 @@ void hiSendU16(uint16_t * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, 2*len);
   sendDataTransferHeader(DATA_FORMAT_U16, tag, len);
+  if(waitForByte('a', 1000) < 0) return;
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 2*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
   checkSendAck();
@@ -171,6 +176,7 @@ void hiSendS16(int16_t * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, 2*len);
   sendDataTransferHeader(DATA_FORMAT_S16, tag, len);
+  if(waitForByte('a', 1000) < 0) return;
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 2*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
   checkSendAck();
@@ -180,6 +186,7 @@ void hiSendU32(uint32_t * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, 4*len);
   sendDataTransferHeader(DATA_FORMAT_U32, tag, len);
+  if(waitForByte('a', 1000) < 0) return;
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 4*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
   checkSendAck();
@@ -189,6 +196,7 @@ void hiSendS32(int32_t * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, 4*len);
   sendDataTransferHeader(DATA_FORMAT_S32, tag, len);
+  if(waitForByte('a', 1000) < 0) return;
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 4*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
   checkSendAck();
@@ -206,7 +214,7 @@ void hiSendS32(int32_t * data, uint32_t len, uint8_t tag)
  */
 uint32_t hiReceive(void * data, uint32_t maxlen, hiDataFormat_t fmt, uint8_t * tag)
 {
-  uint32_t i, nBytes, length, crc_in, crc_out;
+  uint32_t nBytes, length, crc_in, crc_out;
   uint8_t tmp[7]; 
   hiDataFormat_t inFmt;
 
@@ -228,6 +236,10 @@ uint32_t hiReceive(void * data, uint32_t maxlen, hiDataFormat_t fmt, uint8_t * t
 
   // assert data type
   if(fmt && (fmt != inFmt)) return 0;
+
+  // send byte to ack transfer
+  tmp[0] = 'a';
+  HAL_UART_Transmit(&huart1, (uint8_t*)tmp, 1, HAL_MAX_DELAY);
 
   // read data
   nBytes = (nBytes > maxlen) ? maxlen : nBytes;
@@ -311,7 +323,7 @@ static void sendDataTransferHeader(hiDataFormat_t fmt, uint8_t tag, uint32_t len
   tmp[4] = ((len >>  8) & 0x000000ff);
   tmp[5] = ((len >> 16) & 0x000000ff);
   tmp[6] = ((len >> 24) & 0x000000ff);
-  HAL_UART_Transmit(&huart1, &tmp, 7, HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, tmp, 7, HAL_MAX_DELAY);
 }
 
 /**
@@ -336,13 +348,32 @@ static uint16_t calcCcrSum(void * data, uint32_t len)
  * @details 
  * @return 
  */
-static uint8_t checkSendAck(void)
+static int8_t checkSendAck(void)
 {
   uint8_t tmp[1];
   // wait for start byte
-  HAL_UART_Receive(&huart1, &tmp[0], 1, 1000);
-  if(tmp[0] == '^') return 0;
-  return 1;
+  return waitForByte('^', 1000);
+}
+
+/**
+ * @brief Listen on serial port for byte
+ * @details 
+ * 
+ * @param b listen for this byte
+ * @param timeout timeout in ms
+ * 
+ * @return 0 on success, -1 on fail
+ */
+static int8_t waitForByte (uint8_t b, uint32_t timeout)
+{
+  uint8_t tmp;
+  while(timeout--)
+  {
+    if(HAL_UART_Receive(&huart1, &tmp, 1, 0) == HAL_OK)
+      if(tmp == b) return 0;
+    HAL_Delay(1);
+  }
+  return -1;
 }
 
 /*------------------------------------------------------------------------------

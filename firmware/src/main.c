@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-20 15:50:28
+* @Last Modified time: 2020-04-20 17:17:38
 */
 
 #include "main.h"
@@ -163,52 +163,40 @@ int main(void)
 
   while(1)
   {
-    HAL_Delay(1000);
     length = hiReceive(tmpu8, 8, DATA_FORMAT_U8, &tag);
     printf("Received %d elements with tag %d\n[ ", length, tag);
     for(int i = 0; i < length; i++) printf("%d ", tmpu8[i]);
     printf("]\n");
-    // HAL_Delay(10);
     hiSendU8(tmpu8, 6, 0xee);
 
-    HAL_Delay(1000);
     length = hiReceive(tmps8, 8, DATA_FORMAT_S8, &tag);
     printf("Received %d elements with tag %d\n[ ", length, tag);
     for(int i = 0; i < length; i++) printf("%d ", tmps8[i]);
     printf("]\n");
-    // HAL_Delay(10);
     hiSendS8(tmps8, 6, 0xee);
 
-    HAL_Delay(1000);
     length = hiReceive(tmpu16, 16, DATA_FORMAT_U16, &tag);
     printf("Received %d elements with tag %d\n[ ", length, tag);
     for(int i = 0; i < length; i++) printf("%d ", tmpu16[i]);
     printf("]\n");
-    // HAL_Delay(10);
     hiSendU16(tmpu16, 6, 0xee);
 
-    HAL_Delay(1000);
     length = hiReceive(tmps16, 16, DATA_FORMAT_S16, &tag);
     printf("Received %d elements with tag %d\n[ ", length, tag);
     for(int i = 0; i < length; i++) printf("%d ", tmps16[i]);
     printf("]\n");
-    // HAL_Delay(10);
     hiSendS16(tmps16, 6, 0xee);
 
-    HAL_Delay(1000);
     length = hiReceive(tmpu32, 32, DATA_FORMAT_U32, &tag);
     printf("Received %d elements with tag %d\n[ ", length, tag);
     for(int i = 0; i < length; i++) printf("%u ", tmpu32[i]);
     printf("]\n");
-    // HAL_Delay(10);
     hiSendU32(tmpu32, 6, 0xee);
 
-    HAL_Delay(1000);
     length = hiReceive(tmps32, 32, DATA_FORMAT_S32, &tag);
     printf("Received %d elements with tag %d\n[ ", length, tag);
     for(int i = 0; i < length; i++) printf("%d ", tmps32[i]);
     printf("]\n");
-    // HAL_Delay(10);
     hiSendS32(tmps32, 6, 0xee);
   }
 
