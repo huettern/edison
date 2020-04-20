@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-20 08:21:49
+# @Last Modified time: 2020-04-20 09:20:39
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -14,6 +14,7 @@ import os
 import pathlib
 import librosa
 from tqdm import tqdm
+from sklearn.metrics import confusion_matrix
 import tensorflow as tf
 try:
   tf.config.experimental.set_memory_growth(tf.config.experimental.list_physical_devices('GPU')[0], True)
@@ -50,23 +51,19 @@ def get_model(inp_shape, num_classes):
   #               metrics=['accuracy'])
 
   model = Sequential()
-  num_classes = 2
   model.add(Conv2D(4, kernel_size=(3, 3), activation='relu', padding='same', input_shape=inp_shape))
   model.add(MaxPooling2D(pool_size=(2, 2)))
   model.add(Dropout(0.25))
   model.add(Flatten())
-  model.add(Dense(num_classes, activation='relu'))
-  model.compile(loss='sparse_categorical_crossentropy', 
+  model.add(Dense(num_classes, activation='sigmoid'))
+  model.compile(loss='binary_crossentropy', 
     optimizer='adam', 
     metrics=['accuracy'])
   return model
 
 ##################################################
 # Training
-def train(model):
-  batchSize = 10
-  epochs = 30
-
+def train(model, batchSize = 10, epochs = 30):
   train_set = x_train_mfcc
   train_labels = y_train
   test_set = x_test_mfcc
@@ -189,52 +186,100 @@ def load_data3(max_len=11):
   """
     Loading data as in the exercise
   """
-  print('Loading data from source using Tensorflow MFCCs')
-  x_train, y_train, x_test, y_test = au.load_snips_data(trainsize = trainsize, testsize = testsize)
+  try:
+    x_train_mfcc = np.load(cache_dir+'/x_train_mfcc_3.npy')
+    x_test_mfcc = np.load(cache_dir+'/x_test_mfcc_3.npy')
+    y_train = np.load(cache_dir+'/y_train_3.npy')
+    y_test = np.load(cache_dir+'/y_test_3.npy')
+    assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
+    print('Load data from cache success!')
 
-  sample_rate = 16000.0
-  lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 80
-  frame_length = 1024
-  num_mfcc = 13
-  stfts = tf.signal.stft(x_train, frame_length=frame_length, frame_step=frame_length, fft_length=frame_length)
-  spectrograms = tf.abs(stfts)
-  spectrograms = tf.reshape(spectrograms, (spectrograms.shape[0],spectrograms.shape[1],-1))
-  num_spectrogram_bins = stfts.shape[-1]
-  linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
-    num_mel_bins, num_spectrogram_bins, sample_rate, lower_edge_hertz,
-    upper_edge_hertz)
-  mel_spectrograms = tf.tensordot(spectrograms, linear_to_mel_weight_matrix, 1)
-  log_mel_spectrograms = tf.math.log(mel_spectrograms + 1e-6)
-  mfccs = tf.signal.mfccs_from_log_mel_spectrograms(log_mel_spectrograms)[..., :num_mfcc]
-  x_train_mfcc = tf.reshape(mfccs, (mfccs.shape[0],mfccs.shape[1],mfccs.shape[2],-1))
+  except:
+    print('Loading data from source using Tensorflow MFCCs')
+    x_train, y_train, x_test, y_test = au.load_snips_data(sample_len=4*16000, trainsize = trainsize, testsize = testsize)
 
-  sample_rate = 16000.0
-  lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 80
-  frame_length = 1024
-  num_mfcc = 13
-  stfts = tf.signal.stft(x_test, frame_length=frame_length, frame_step=frame_length, fft_length=frame_length)
-  spectrograms = tf.abs(stfts)
-  spectrograms = tf.reshape(spectrograms, (spectrograms.shape[0],spectrograms.shape[1],-1))
-  num_spectrogram_bins = stfts.shape[-1]
-  linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
-    num_mel_bins, num_spectrogram_bins, sample_rate, lower_edge_hertz,
-    upper_edge_hertz)
-  mel_spectrograms = tf.tensordot(spectrograms, linear_to_mel_weight_matrix, 1)
-  log_mel_spectrograms = tf.math.log(mel_spectrograms + 1e-6)
-  mfccs = tf.signal.mfccs_from_log_mel_spectrograms(log_mel_spectrograms)[..., :num_mfcc]
-  x_test_mfcc = tf.reshape(mfccs, (mfccs.shape[0],mfccs.shape[1],mfccs.shape[2],-1))
+    sample_rate = 16000.0
+    lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 80
+    frame_length = 1024
+    num_mfcc = 13
+    stfts = tf.signal.stft(x_train, frame_length=frame_length, frame_step=frame_length, fft_length=frame_length)
+    spectrograms = tf.abs(stfts)
+    spectrograms = tf.reshape(spectrograms, (spectrograms.shape[0],spectrograms.shape[1],-1))
+    num_spectrogram_bins = stfts.shape[-1]
+    linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
+      num_mel_bins, num_spectrogram_bins, sample_rate, lower_edge_hertz,
+      upper_edge_hertz)
+    mel_spectrograms = tf.tensordot(spectrograms, linear_to_mel_weight_matrix, 1)
+    log_mel_spectrograms = tf.math.log(mel_spectrograms + 1e-6)
+    mfccs = tf.signal.mfccs_from_log_mel_spectrograms(log_mel_spectrograms)[..., :num_mfcc]
+    x_train_mfcc = tf.reshape(mfccs, (mfccs.shape[0],mfccs.shape[1],mfccs.shape[2],-1))
 
-  print(x_train_mfcc.shape)
-  print(x_test_mfcc.shape)
-  # return as array
-  return x_train_mfcc.numpy(), x_test_mfcc.numpy(), y_train, y_test
+    sample_rate = 16000.0
+    lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 80
+    frame_length = 1024
+    num_mfcc = 13
+    stfts = tf.signal.stft(x_test, frame_length=frame_length, frame_step=frame_length, fft_length=frame_length)
+    spectrograms = tf.abs(stfts)
+    spectrograms = tf.reshape(spectrograms, (spectrograms.shape[0],spectrograms.shape[1],-1))
+    num_spectrogram_bins = stfts.shape[-1]
+    linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
+      num_mel_bins, num_spectrogram_bins, sample_rate, lower_edge_hertz,
+      upper_edge_hertz)
+    mel_spectrograms = tf.tensordot(spectrograms, linear_to_mel_weight_matrix, 1)
+    log_mel_spectrograms = tf.math.log(mel_spectrograms + 1e-6)
+    mfccs = tf.signal.mfccs_from_log_mel_spectrograms(log_mel_spectrograms)[..., :num_mfcc]
+    x_test_mfcc = tf.reshape(mfccs, (mfccs.shape[0],mfccs.shape[1],mfccs.shape[2],-1))
+
+    x_train_mfcc = x_train_mfcc.numpy()
+    x_test_mfcc = x_test_mfcc.numpy()
+    
+    # store data
+    print('Store mfcc data')
+    pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
+    np.save(cache_dir+'/x_train_mfcc_3.npy', x_train_mfcc)
+    np.save(cache_dir+'/x_test_mfcc_3.npy', x_test_mfcc)
+    np.save(cache_dir+'/y_train_3.npy', y_train)
+    np.save(cache_dir+'/y_test_3.npy', y_test)
+
+  # return
+  return x_train_mfcc, x_test_mfcc, y_train, y_test
+
+##################################################
+# plottery
+def plotInputDifference(mfcc_a, mfcc_b):
+  """
+    Plot different mfcc inputs
+  """
+  import matplotlib.pyplot as plt
+  plt.style.use('seaborn-bright')
+  # t = np.linspace(0, nSamples/fs, num=nSamples)
+  # f = np.linspace(0.0, fs/2.0, fft_len/2)
+  fig, axs = plt.subplots(2, 2)
+  ax=axs[0,0]
+  ax.plot(mfcc_a[0].reshape((-1,)), label='a')
+  ax.plot(mfcc_b[0].reshape((-1,)), label='b')
+  ax.set_xlabel('mel bin')
+  ax.set_ylabel('mel coefficient')
+  # ax.set_xlim(0,nSamples/fs)
+  # ax.set_ylim(-25000,25000)
+  ax.grid(True)
+  ax.legend()
+
+  plt.show()
+
 
 
 ##################################################
 # MAIN
 ##################################################
 
-x_train_mfcc, x_test_mfcc, y_train, y_test = load_data3()
+# x_train_mfcc, _, _, _ = load_data()
+# x_train_mfcc3, _, _, _ = load_data3()
+# plotInputDifference(x_train_mfcc, x_train_mfcc3)
+# exit()
+
+
+x_train_mfcc, x_test_mfcc, y_train, y_test = load_data()
 
 assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
 print(x_train_mfcc.shape)
@@ -247,8 +292,17 @@ print(y_test)
 # Build model
 model = get_model(inp_shape=x_train_mfcc.shape[1:], num_classes = 1)
 model.summary()
-train_set, train_labels, test_set, test_labels = train(model)
+train_set, train_labels, test_set, test_labels = train(model, batchSize = 10, epochs = 500)
 
 model.summary()
-model.evaluate(test_set, y_test)
+print(x_test_mfcc.shape)
+y_pred = np.rint(model.predict(x_test_mfcc).reshape((-1,))).astype(int)
+
+print('Prediction:')
+print(y_pred)
+print('True:')
+print(y_test)
+
+print(confusion_matrix(y_test, y_pred))
+# model.evaluate(test_set, y_test)
 model.save(cache_dir+'/mfcc_model.h5')
