@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-14 18:09:26
+* @Last Modified time: 2020-04-20 11:56:23
 */
 
 #include "main.h"
@@ -47,6 +47,12 @@ int main(void)
   int32_t* data;
   int8_t* data8;
   int32_t databuf[256];
+  uint8_t tmpu8[8];
+  int8_t tmps8[8];
+  uint16_t tmpu16[8];
+  int16_t tmps16[8];
+  uint32_t tmpu32[8];
+  int32_t tmps32[8];
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -63,8 +69,36 @@ int main(void)
   printf("%s / %s / %s / %s\n",
              verProgName, verVersion,
              verBuildDate, verGitSha);
-
   micInit();
+
+
+  // while(1)
+  // {
+  //   hifRun();
+  // }
+
+  /* TESTS --------------------------------------------------------*/
+  for(int i = 0; i < 6; i++)
+  {
+    tmpu8[i] = i-2;
+    tmps8[i] = i-2;
+    tmpu16[i] = i-2;
+    tmps16[i] = i-2;
+    tmpu32[i] = i-2;
+    tmps32[i] = i-2;
+  }
+
+  hiSendU8(tmpu8, 6, 0xee);
+  hiSendS8(tmps8, 6, 0xee);
+  hiSendU16(tmpu16, 6, 0xee);
+  hiSendS16(tmps16, 6, 0xee);
+  hiSendU32(tmpu32, 6, 0xee);
+  hiSendS32(tmps32, 6, 0xee);
+  while(1)
+  {
+    HAL_Delay(1000);
+    // hiSendU8(tmpu8, 6, 0xee);
+  }
 
   // micEndlessStream();
   // micReqSampling();
@@ -74,11 +108,6 @@ int main(void)
   // {
   //   printf("%d\r\n", data8[i]);
   // }
-
-  while(1)
-  {
-    hifRun();
-  }
 
   /* Infinite loop */
   while (1)

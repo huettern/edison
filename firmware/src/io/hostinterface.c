@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-15 10:35:30
+* @Last Modified time: 2020-04-20 11:57:38
 */
 
 #include "hostinterface.h"
@@ -15,6 +15,15 @@
  * a single-byte command followed by a variable number of arguments. If the command
  * byte is recognized and the correct number of arguments are passed, a return
  * command RET_CMD_OK is sent, else the corresponding error code.
+ * 
+ * To transfer data, the hiSend* routines are used. A transfer to the host contains of
+ *  '>'+format+tag+len+data+crc
+ *    '>' indicates mcu to host transfer
+ *    format: 0 u8, 1 s8, 2 u16, 3 ..., see dataFormat_t
+ *    tag 1 byte user tag
+ *    len 4 byte little-endian number of data elements (not bytes)
+ *    data little-endian data
+ *    crc 2 byte crc which is the byte-wise sum of all data elements to a uint16, little-endian
  */
 
 /*------------------------------------------------------------------------------
@@ -41,6 +50,16 @@ typedef enum
   RET_CMD_TOO_FEW_ARGUMENTS = 2,
 } returnCommands_t;
 
+typedef enum
+{
+  DATA_FORMAT_U8 = '0',
+  DATA_FORMAT_S8 = '1',
+  DATA_FORMAT_U16 = '2',
+  DATA_FORMAT_S16 = '3',
+  DATA_FORMAT_U32 = '4',
+  DATA_FORMAT_S32 = '5',
+} dataFormat_t;
+
 /*------------------------------------------------------------------------------
  * Settings
  * ---------------------------------------------------------------------------*/
@@ -48,6 +67,8 @@ typedef enum
  * time to wait for command arguments to arrive before exiting
  */
 #define ARGUMENT_LISTEN_DELAY 100
+
+#define CRC_SEED 0x1234
 
 /*------------------------------------------------------------------------------
  * Private data
@@ -64,6 +85,8 @@ static const hostCommands_t commands [] = {
  * Prototypes
  * ---------------------------------------------------------------------------*/
 static void runCommand(const hostCommands_t* cmd, uint8_t* args);
+static void sendDataTransferHeader(dataFormat_t fmt, uint8_t tag, uint32_t len);
+static uint16_t calcCcrSum(void * data, uint32_t len);
 
 /*------------------------------------------------------------------------------
  * Publics
@@ -114,6 +137,63 @@ void hifRun(void)
   runCommand(cmd, rxData);
 }
 
+/**
+ * @brief Transfer 8 bit unsigned data to host
+ * @details 
+ * 
+ * @param data data pointer
+ * @param len number of elements
+ * @param tag tag to send
+ */
+void hiSendU8(uint8_t * data, uint32_t len, uint8_t tag)
+{
+  uint16_t crc = calcCcrSum((void*)data, len);
+  sendDataTransferHeader(DATA_FORMAT_U8, tag, len);
+  HAL_UART_Transmit(&huart1, data, len, HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
+}
+
+void hiSendS8(int8_t * data, uint32_t len, uint8_t tag)
+{
+  uint16_t crc = calcCcrSum((void*)data, len);
+  sendDataTransferHeader(DATA_FORMAT_S8, tag, len);
+  HAL_UART_Transmit(&huart1, (uint8_t*)data, len, HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
+}
+
+void hiSendU16(uint16_t * data, uint32_t len, uint8_t tag)
+{
+  uint16_t crc = calcCcrSum((void*)data, 2*len);
+  sendDataTransferHeader(DATA_FORMAT_U16, tag, len);
+  HAL_UART_Transmit(&huart1, (uint8_t*)data, 2*len, HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
+}
+
+void hiSendS16(int16_t * data, uint32_t len, uint8_t tag)
+{
+  uint16_t crc = calcCcrSum((void*)data, 2*len);
+  sendDataTransferHeader(DATA_FORMAT_S16, tag, len);
+  HAL_UART_Transmit(&huart1, (uint8_t*)data, 2*len, HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
+}
+
+void hiSendU32(uint32_t * data, uint32_t len, uint8_t tag)
+{
+  uint16_t crc = calcCcrSum((void*)data, 4*len);
+  sendDataTransferHeader(DATA_FORMAT_U32, tag, len);
+  HAL_UART_Transmit(&huart1, (uint8_t*)data, 4*len, HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
+}
+
+void hiSendS32(int32_t * data, uint32_t len, uint8_t tag)
+{
+  uint16_t crc = calcCcrSum((void*)data, 4*len);
+  sendDataTransferHeader(DATA_FORMAT_S32, tag, len);
+  HAL_UART_Transmit(&huart1, (uint8_t*)data, 4*len, HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
+}
+
+
 /*------------------------------------------------------------------------------
  * Privates
  * ---------------------------------------------------------------------------*/
@@ -152,6 +232,46 @@ static void runCommand(const hostCommands_t* cmd, uint8_t* args)
       // invalid command
       return;
   }
+}
+
+/**
+ * @brief Send header of a datat ransmission MCU to host
+ * @details 
+ * 
+ * @param fmt 
+ * @param tag 
+ * @param len 
+ */
+static void sendDataTransferHeader(dataFormat_t fmt, uint8_t tag, uint32_t len)
+{
+  uint8_t tmp[7];
+
+  // assemble header
+  tmp[0] = '>';
+  tmp[1] = fmt;
+  tmp[2] = tag;
+  tmp[3] = ((len >>  0) & 0x000000ff);
+  tmp[4] = ((len >>  8) & 0x000000ff);
+  tmp[5] = ((len >> 16) & 0x000000ff);
+  tmp[6] = ((len >> 24) & 0x000000ff);
+  HAL_UART_Transmit(&huart1, &tmp, 7, HAL_MAX_DELAY);
+}
+
+/**
+ * @brief Calculate simple crc by summing up all elements and storing them in 16bit unsigned
+ * @details 
+ * 
+ * @param data 
+ * @param len 
+ * 
+ * @return 
+ */
+static uint16_t calcCcrSum(void * data, uint32_t len)
+{
+  uint16_t crc = CRC_SEED;
+  uint32_t i = 0;
+  while(len--) crc = crc + (uint16_t)((uint8_t*)data)[i++];
+  return crc;
 }
 
 /*------------------------------------------------------------------------------

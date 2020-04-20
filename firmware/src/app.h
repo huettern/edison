@@ -6,4 +6,4 @@
  * Publics
  * ---------------------------------------------------------------------------*/
 
-void appHostAudioProcess(uint32_t nSamples, uint8_t bits)
+void appHostAudioProcess(uint32_t nSamples, uint8_t bits);
