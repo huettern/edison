@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-21 17:16:03
+* @Last Modified time: 2020-04-21 17:44:03
 */
 
 #include "main.h"
@@ -83,8 +83,8 @@ int main(void)
   // }
 
   /* TESTS --------------------------------------------------------*/
-  // audioInit();
-  // audioDevelop();
+  audioInit();
+  audioDevelop();
 
   /* Host interface --------------------------------------------------------*/
 
@@ -113,38 +113,38 @@ int main(void)
 
   /* ping test --------------------------------------------------------*/
 
-  while(1)
-  {
-    length = hiReceive(tmpu8, 8, DATA_FORMAT_U8, &tag);
-    printf("Received %d elements with tag %d\n[ ", length, tag);
-    for(int i = 0; i < length; i++) printf("%d ", tmpu8[i]);
-    printf("]\n");
+  // while(1)
+  // {
+  //   length = hiReceive(tmpu8, 8, DATA_FORMAT_U8, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%d ", tmpu8[i]);
+  //   printf("]\n");
 
-    length = hiReceive(tmps8, 8, DATA_FORMAT_S8, &tag);
-    printf("Received %d elements with tag %d\n[ ", length, tag);
-    for(int i = 0; i < length; i++) printf("%d ", tmps8[i]);
-    printf("]\n");
+  //   length = hiReceive(tmps8, 8, DATA_FORMAT_S8, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%d ", tmps8[i]);
+  //   printf("]\n");
 
-    length = hiReceive(tmpu16, 16, DATA_FORMAT_U16, &tag);
-    printf("Received %d elements with tag %d\n[ ", length, tag);
-    for(int i = 0; i < length; i++) printf("%d ", tmpu16[i]);
-    printf("]\n");
+  //   length = hiReceive(tmpu16, 16, DATA_FORMAT_U16, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%d ", tmpu16[i]);
+  //   printf("]\n");
 
-    length = hiReceive(tmps16, 16, DATA_FORMAT_S16, &tag);
-    printf("Received %d elements with tag %d\n[ ", length, tag);
-    for(int i = 0; i < length; i++) printf("%d ", tmps16[i]);
-    printf("]\n");
+  //   length = hiReceive(tmps16, 16, DATA_FORMAT_S16, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%d ", tmps16[i]);
+  //   printf("]\n");
 
-    length = hiReceive(tmpu32, 32, DATA_FORMAT_U32, &tag);
-    printf("Received %d elements with tag %d\n[ ", length, tag);
-    for(int i = 0; i < length; i++) printf("%u ", tmpu32[i]);
-    printf("]\n");
+  //   length = hiReceive(tmpu32, 32, DATA_FORMAT_U32, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%u ", tmpu32[i]);
+  //   printf("]\n");
 
-    length = hiReceive(tmps32, 32, DATA_FORMAT_S32, &tag);
-    printf("Received %d elements with tag %d\n[ ", length, tag);
-    for(int i = 0; i < length; i++) printf("%d ", tmps32[i]);
-    printf("]\n");
-  }
+  //   length = hiReceive(tmps32, 32, DATA_FORMAT_S32, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%d ", tmps32[i]);
+  //   printf("]\n");
+  // }
 
   /* pont test --------------------------------------------------------*/
 

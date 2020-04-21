@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-20 21:31:37
+* @Last Modified time: 2020-04-21 19:29:15
 */
 #include "audioprocessing.h"
 
@@ -18,17 +18,25 @@
 /*------------------------------------------------------------------------------
  * Settings
  * ---------------------------------------------------------------------------*/
+
+/**
+ * Uncomment to use real FFT functions. They dont produce the same clean results
+ * as the complex FFT
+ */
+// #define USE_REAL_FFT 1
+
 /*------------------------------------------------------------------------------
  * Private data
  * ---------------------------------------------------------------------------*/
-
+#ifdef USE_REAL_FFT
 static arm_rfft_instance_q15 rfft_q15_i;
+#endif
 
 /**
  * Room for FFT and spectrogram
  */
 static q15_t bufFft[2*MEL_SAMPLE_SIZE];
-static q15_t bufSpect[MEL_SAMPLE_SIZE];
+static q15_t bufSpect[2*MEL_SAMPLE_SIZE];
 
 /*------------------------------------------------------------------------------
  * Prototypes
@@ -44,10 +52,12 @@ static q15_t bufSpect[MEL_SAMPLE_SIZE];
 void audioInit(void)
 {
   // initialize fft
+  #ifdef USE_REAL_FFT
   if(arm_rfft_init_q15(&rfft_q15_i, (uint32_t)MEL_SAMPLE_SIZE, 0, 0 ) != ARM_MATH_SUCCESS)
   {
     Error_Handler();
   }   
+  #endif
 }
 
 /**
@@ -60,14 +70,25 @@ void audioCalcMFCCs(int16_t * inp, int16_t * oup)
 {
   // ---------------------------------------------------------------
   // [1.] Calculate FFT
-
+#ifdef USE_REAL_FFT
   // perform real fft
+  // for 1024 size, output is downscaled 9 bits to avoid saturation
   arm_rfft_q15(&rfft_q15_i, inp, bufFft);
+  // shift back a bit..
+  arm_shift_q15(bufFft, 4, bufFft, 2*MEL_SAMPLE_SIZE);
+#else
+  // empty buffer and copy input to real samples
+  for(int i = 0; i < 2*MEL_SAMPLE_SIZE; i++)
+    bufFft[i] = 0;
+  for(int i = 0; i < 2*MEL_SAMPLE_SIZE; i+=2)
+    bufFft[i] = inp[i/2];
+  arm_cfft_q15(&arm_cfft_sR_q15_len1024, bufFft, 0, 1);
+#endif
 
   // ---------------------------------------------------------------
   // [2.] Perform magnitude value for spectrum
-
-  arm_cmplx_mag_q15(bufFft, bufSpect, MEL_SAMPLE_SIZE);
+  arm_cmplx_mag_q15(bufFft, bufSpect, 2*MEL_SAMPLE_SIZE);
+  // arm_shift_q15(bufSpect, -1, bufSpect, 2*MEL_SAMPLE_SIZE);
 }
 
 /**
@@ -77,7 +98,7 @@ void audioCalcMFCCs(int16_t * inp, int16_t * oup)
 void audioDumpToHost(void)
 {
   hiSendS16(bufFft, 2*MEL_SAMPLE_SIZE, 0);
-  hiSendS16(bufSpect, MEL_SAMPLE_SIZE/2+1, 1);
+  hiSendS16(bufSpect, MEL_SAMPLE_SIZE, 1);
 }
 
 /**

@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-20 21:28:50
+# @Last Modified time: 2020-04-21 19:27:18
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -90,29 +90,32 @@ def plotCompare():
   ax.set_title('input')
 
   ax = fig.add_subplot(gs[1, 0])
-  # ax.plot(t, y, label='y')
+  n = host_fft.shape[0]
+  ax.plot(f2, np.real(np.concatenate((host_fft[-n//2:], host_fft[0:n//2]))), label='real')
+  ax.plot(f2, np.imag(np.concatenate((host_fft[-n//2:], host_fft[0:n//2]))), label='imag')
   ax.grid(True)
-  # ax.legend()
+  ax.legend()
   ax.set_title('host FFT')
 
   ax = fig.add_subplot(gs[1, 1])
-  ax.plot(f2, mcu_fft[0::2], label='real')
-  ax.plot(f2, mcu_fft[1::2], label='imag')
+  real_part = mcu_fft[0::2]
+  ax.plot(f2, np.concatenate((real_part[-n//2:], real_part[0:n//2])), label='real')
+  imag_part = mcu_fft[1::2]
+  ax.plot(f2, np.concatenate((imag_part[-n//2:], imag_part[0:n//2])), label='imag')
   ax.grid(True)
-  # ax.legend()
+  ax.legend()
   ax.set_title('MCU FFT')
 
   ax = fig.add_subplot(gs[2, 0])
-  # ax.plot(t, y, label='y')
+  ax.plot(f2, np.concatenate((host_spec[-n//2:], host_spec[0:n//2])), label='y')
   ax.grid(True)
-  # ax.legend()
+  ax.legend()
   ax.set_title('host spectrum')
 
   ax = fig.add_subplot(gs[2, 1])
-  print(mcu_spec.shape)
-  ax.plot(mcu_spec, label='y')
+  ax.plot(f2, np.concatenate((mcu_spec[-n//2:], mcu_spec[0:n//2])), label='y')
   ax.grid(True)
-  # ax.legend()
+  ax.legend()
   ax.set_title('MCU spectrum')
 
   return fig
@@ -128,7 +131,11 @@ def plotCompare():
 fs = sample_rate
 t = np.linspace(0,sample_size/fs, sample_size)
 y = np.array(1000*np.cos(2*np.pi*(fs/16)*t)+500*np.cos(2*np.pi*(fs/128)*t), dtype='int16')
-  
+# y = np.array((2**15-1)*np.cos(2*np.pi*(fs/80)*t), dtype='int16')
+# y = np.array((2**15-1)*np.cos(2*np.pi*(0)*t), dtype='int16')
+# y = np.array((2**15-1)*np.cos(2*np.pi*(2*fs/1024)*t), dtype='int16')
+
+
 if not from_files:
   # Exchange some data
   print('Upload sample')
@@ -140,18 +147,28 @@ if not from_files:
   mcu_spec, tag = mcu.receiveData()
   print('Received %s type with tag 0x%x len %d' % (mcu_spec.dtype, tag, mcu_fft.shape[0]))
 
+  # store this valuable data!
+  import pathlib
+  pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
+  np.save(cache_dir+'/mcu_fft.npy', mcu_fft)
+  np.save(cache_dir+'/mcu_spec.npy', mcu_spec)
+
 else:
   mcu_fft = np.load(cache_dir+'/mcu_fft.npy')
   mcu_spec = np.load(cache_dir+'/mcu_spec.npy')
 
 
-# store this valuable data!
-import pathlib
-pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
-np.save(cache_dir+'/mcu_fft.npy', mcu_fft)
-np.save(cache_dir+'/mcu_spec.npy', mcu_spec)
+######################################################################
+# Same calculations on host
+# compensate same bit shift as on MCU
+host_fft = np.fft.fft(y) / 2**(9-4)
+host_spec = np.abs(host_fft)
 
+
+
+######################################################################
 # plot
+
 fig = plotCompare()
 plt.show()
 

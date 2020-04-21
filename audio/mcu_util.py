@@ -44,16 +44,16 @@ def serWriteWrap(b):
   bytes_written = 0
   pbar = tqdm(total=len(b))
   while bytes_written != len(b):
-    sleep(0.01)
+    sleep(0.001)
     remaining = len(b) - bytes_written
     nBytes = SEND_CHUNK_SIZE if remaining > SEND_CHUNK_SIZE else remaining
     chunk = b[bytes_written:bytes_written+nBytes]
-    bytes_written += ser.write(chunk)
+    bytes_now = ser.write(chunk)
+    bytes_written += bytes_now
     ser.flush()
-    # print('total %d %s' % (bytes_written, chunk))
-    sleep(.01)
-    pbar.update(bytes_written)
-  # pbar.close()
+    pbar.update(bytes_now)
+    # input("Sent %d, press Enter to send next byte..." % (struct.unpack('<B',chunk)[0]))
+  pbar.close()
 
 def receiveData():
   """
@@ -128,8 +128,8 @@ def receiveData():
     crc_out = np.dtype('uint16').type(crc_out+struct.unpack('<B',buf[i:i+1])[0])
 
   if crc_out != crc_in:
-    print('CRC mismatch! Aborting')
-    return ret_data, ret_tag
+    print('CRC mismatch!')
+    # return ret_data, ret_tag
 
   # print('Unpacked data:') # DBG
   # print(data) # DBG
