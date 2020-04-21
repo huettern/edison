@@ -1,3 +1,4 @@
+import serial
 from serial import Serial, SerialException
 from time import sleep
 import struct
@@ -5,12 +6,18 @@ import numpy as np
 from tqdm import tqdm
 
 try:
-  ser = Serial('/dev/tty.usbmodem1413303', 115200)  # open serial port
+  ser = Serial('/dev/tty.usbmodem1413303', 115200, bytesize=serial.EIGHTBITS,
+    parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, write_timeout=None, inter_byte_timeout=None,
+    xonxoff=False, rtscts=False, dsrdtr=False)  # open serial port
+  if(ser.is_open):
+    ser.close()
+  ser.open()
 except SerialException:
   print("coult not open serial port")
   exit()
 
 CRC_SEED = 0x1234
+SEND_CHUNK_SIZE = 8
 
 valid_fmt_bytes = [0,1,2,3,4,5]
 fmt_byte_to_nbytes = [1,1,2,2,4,4]
@@ -26,7 +33,7 @@ def waitForByte(b, timeout=1000):
       c = ser.read(1)
       if c == b:
         return 0
-    sleep(0.0001)
+    sleep(0.001)
     timeout = timeout - 1
   return -1
 
@@ -35,10 +42,18 @@ def serWriteWrap(b):
     wraps the serial write function
   """
   bytes_written = 0
+  pbar = tqdm(total=len(b))
   while bytes_written != len(b):
     sleep(0.01)
-    bytes_written += ser.write(b[bytes_written:])
-    # print(' w %5d/%d' % (bytes_written, len(b)))
+    remaining = len(b) - bytes_written
+    nBytes = SEND_CHUNK_SIZE if remaining > SEND_CHUNK_SIZE else remaining
+    chunk = b[bytes_written:bytes_written+nBytes]
+    bytes_written += ser.write(chunk)
+    ser.flush()
+    # print('total %d %s' % (bytes_written, chunk))
+    sleep(.01)
+    pbar.update(bytes_written)
+  # pbar.close()
 
 def receiveData():
   """
@@ -155,16 +170,21 @@ def sendData(data, tag):
   # send data
   crc = np.dtype('uint16').type(CRC_SEED)
   element_ctr = 1
-  for element in tqdm(data):
+  send_payload = b''
+  for element in data:
     # online crc calculation
     for i in range(fmt_byte_to_nbytes[fmt_byte-0x30]):
       data_byte = (element // (2**(8*i))) & 0xff
       crc = np.dtype('uint16').type(crc+data_byte)
-    # actual send
-    d = struct.pack(fmt_byte_to_upack_string[fmt_byte-0x30], element)
-    serWriteWrap(d)
+    # aassemble byte array to send
+    send_payload += struct.pack(fmt_byte_to_upack_string[fmt_byte-0x30], element)
     # print(' total %5d/%d' % (element_ctr, length))
     element_ctr += 1
+
+  # actual send
+  serWriteWrap(send_payload)
+  while(ser.out_waiting):
+    ser.flush()
 
   # send crc
   ser.write(struct.pack('<H', crc))
