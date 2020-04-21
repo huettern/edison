@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-21 19:29:15
+* @Last Modified time: 2020-04-21 19:32:48
 */
 #include "audioprocessing.h"
 
@@ -23,7 +23,7 @@
  * Uncomment to use real FFT functions. They dont produce the same clean results
  * as the complex FFT
  */
-// #define USE_REAL_FFT 1
+#define USE_REAL_FFT
 
 /*------------------------------------------------------------------------------
  * Private data
@@ -53,7 +53,7 @@ void audioInit(void)
 {
   // initialize fft
   #ifdef USE_REAL_FFT
-  if(arm_rfft_init_q15(&rfft_q15_i, (uint32_t)MEL_SAMPLE_SIZE, 0, 0 ) != ARM_MATH_SUCCESS)
+  if(arm_rfft_init_q15(&rfft_q15_i, (uint32_t)MEL_SAMPLE_SIZE, 0, 1) != ARM_MATH_SUCCESS)
   {
     Error_Handler();
   }   
