@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-22 20:48:41
+# @Last Modified time: 2020-04-22 21:25:56
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ import mcu_util as mcu
 
 fname = '.cache/mel_constants.h'
 cache_dir = '.cache/mfcc_mcu'
-from_files = 1
+from_files = 0
 
 # costant frame size
 sample_size = 1024#1024
@@ -56,7 +56,13 @@ def calcCConstants():
   # write mel matrix
   mel_str = 'const int16_t melMtx[%d][%d] = \n' % (mel_mtx_s16.shape[0],mel_mtx_s16.shape[1])
   mel_str += mcu.mtxToC(mel_mtx_s16, prepad=4)
-  mel_str += ';'
+  mel_str += ';\n'
+
+  # calculate LUT for ln(x) for x in [0,32766]
+  log_lut = np.array(np.log(np.linspace(1e-6,32766,32767)), dtype='int16')
+  log_lug_str = 'const q15_t logLutq15[%d] = \n' % (32767)
+  log_lug_str += mcu.vecToC(log_lut, prepad = 4)
+  log_lug_str += ';\n'
 
   f = open(fname, 'w')
   f.write('#define MEL_SAMPLE_SIZE         %5d\n' % sample_size)
@@ -69,6 +75,8 @@ def calcCConstants():
   f.write('#define MEL_MTX_ROWS            %5d\n' % mel_mtx_s16.shape[0])
   f.write('#define MEL_MTX_COLS            %5d\n' % mel_mtx_s16.shape[1])
   f.write(mel_str)
+  f.write('#define MEL_LOG_LUT_SIZE        %5d\n' % log_lut.shape[0])
+  f.write(log_lug_str)
   f.close()
 
 ######################################################################
@@ -82,7 +90,7 @@ def plotCompare():
   fmel = np.linspace(0,num_mel_bins,num_mel_bins)
 
   fig = plt.figure(constrained_layout=True)
-  gs = fig.add_gridspec(4, 2)
+  gs = fig.add_gridspec(5, 2)
 
   ax = fig.add_subplot(gs[0, :])
   ax.plot(t, y, label='y')
@@ -135,6 +143,18 @@ def plotCompare():
   ax.legend()
   ax.set_title('MCU mel spectrum')
 
+  ax = fig.add_subplot(gs[4, 0])
+  # ax.plot(fmel, host_dct, label='mel dct')
+  ax.grid(True)
+  ax.legend()
+  ax.set_title('host mel DCT-II')
+
+  ax = fig.add_subplot(gs[4, 1])
+  ax.plot(fmel, mcu_dct, label='mel dct')
+  ax.grid(True)
+  ax.legend()
+  ax.set_title('MCU mel DCT-II')
+
   return fig
 
 
@@ -143,6 +163,7 @@ def plotCompare():
 ######################################################################
 
 # calcCConstants()
+# exit()
 
 # Create synthetic sample
 fs = sample_rate
@@ -167,6 +188,8 @@ if not from_files:
   print('Received %s type with tag 0x%x len %d' % (mcu_melspec.dtype, tag, mcu_melspec.shape[0]))
   # mcu_melspec_manual, tag = mcu.receiveData()
   # print('Received %s type with tag 0x%x len %d' % (mcu_melspec_manual.dtype, tag, mcu_melspec_manual.shape[0]))
+  mcu_dct, tag = mcu.receiveData()
+  print('Received %s type with tag 0x%x len %d' % (mcu_dct.dtype, tag, mcu_dct.shape[0]))
 
   # store this valuable data!
   import pathlib
@@ -174,11 +197,13 @@ if not from_files:
   np.save(cache_dir+'/mcu_fft.npy', mcu_fft)
   np.save(cache_dir+'/mcu_spec.npy', mcu_spec)
   np.save(cache_dir+'/mcu_melspec.npy', mcu_melspec)
+  np.save(cache_dir+'/mcu_dct.npy', mcu_dct)
 
 else:
   mcu_fft = np.load(cache_dir+'/mcu_fft.npy')
   mcu_spec = np.load(cache_dir+'/mcu_spec.npy')
   mcu_melspec = np.load(cache_dir+'/mcu_melspec.npy')
+  mcu_dct = np.load(cache_dir+'/mcu_dct.npy')
 
 
 ######################################################################

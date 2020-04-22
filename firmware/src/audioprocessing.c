@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-22 20:42:47
+* @Last Modified time: 2020-04-22 21:25:26
 */
 #include "audioprocessing.h"
 
@@ -15,6 +15,16 @@
 /*------------------------------------------------------------------------------
  * Types
  * ---------------------------------------------------------------------------*/
+
+  typedef struct
+  {
+    uint16_t N;                         /**< length of the DCT2. */
+    uint16_t Nby2;                      /**< half of the length of the DCT2. */
+    q15_t *pTwiddle;                    /**< points to the twiddle factor table. */
+    arm_rfft_instance_q15 *pRfft;        /**< points to the real FFT instance. */
+  } dct2_instance_q15;
+
+
 /*------------------------------------------------------------------------------
  * Settings
  * ---------------------------------------------------------------------------*/
@@ -32,6 +42,9 @@
 static arm_rfft_instance_q15 rfft_q15_i;
 #endif
 
+static dct2_instance_q15 dct2_q15_i;
+static arm_rfft_instance_q15 dct2_rfft_q15_i;
+
 /**
  * Room for FFT and spectrogram
  */
@@ -39,13 +52,15 @@ static q15_t bufFft[2*MEL_SAMPLE_SIZE];
 static q15_t bufSpect[2*MEL_SAMPLE_SIZE];
 // static q31_t bufMelSpectManual[MEL_N_MEL_BINS];
 static q15_t bufMelSpect[MEL_N_MEL_BINS];
-
+static q15_t pDctState[MEL_N_MEL_BINS];
+static q15_t bufDct[MEL_N_MEL_BINS];
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
 
 static void cmpl_mag_sqd_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize);
 static void cmpl_mag_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize);
+static void dct2_q15 (const dct2_instance_q15 * S, q15_t * pState, q15_t * pInlineBuffer);
 
 /*------------------------------------------------------------------------------
  * Publics
@@ -118,6 +133,23 @@ void audioCalcMFCCs(int16_t * inp, int16_t * oup)
     bufMelSpect[mel] = (q15_t)(tmpq31>>6);
   }
   
+  // ---------------------------------------------------------------
+  // [4.] Here would the log(x) calculation come, let's leave it out for now..
+
+
+  // ---------------------------------------------------------------
+  // [5.] DCT-2
+  // calc is inplace, so copy to buffer
+  arm_copy_q15(bufMelSpect, bufDct,MEL_N_MEL_BINS);
+  // if(arm_rfft_init_q15(&dct2_rfft_q15_i, (uint32_t)MEL_N_MEL_BINS, 0, 1) != ARM_MATH_SUCCESS)
+  // {
+  //   // Error_Handler();
+  // } 
+  // dct2_q15_i.N = MEL_N_MEL_BINS;
+  // dct2_q15_i.Nby2 = MEL_N_MEL_BINS/2;
+  // dct2_q15_i.pTwiddle = &dct2_rfft_q15_i.pTwiddleAReal; // TODO: this is just a guess
+  // dct2_q15_i.pRfft = &dct2_rfft_q15_i;
+  // dct2_q15(&dct2_q15_i, pDctState, bufDct);
 }
 
 /**
@@ -130,6 +162,7 @@ void audioDumpToHost(void)
   hiSendS16(bufSpect, MEL_SAMPLE_SIZE, 1);
   hiSendS16(bufMelSpect, sizeof(bufMelSpect)/sizeof(q15_t), 2);
   // hiSendS32(bufMelSpectManual, sizeof(bufMelSpectManual)/sizeof(q31_t), 3);
+  hiSendS16(bufDct, sizeof(bufDct)/sizeof(q15_t), 4);
 
 }
 
@@ -202,6 +235,123 @@ static void cmpl_mag_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize)
     *pDst++ = (q15_t)(sum>>16);
   }
 }
+
+
+/**    
+ * @brief Processing function for the Q15 DCT2
+ * @param[in]       *S             points to an instance of the Q15 DCT2 structure.   
+ * @param[in]       *pState        points to state buffer.   
+ * @param[in,out]   *pInlineBuffer points to the in-place input and output buffer.   
+ * @return none.   
+ *     
+ * \par Input an output formats:    
+ * Internally inputs are downscaled in the RFFT process function to avoid overflows.    
+ * Number of bits downscaled, depends on the size of the transform.    
+ * The input and output formats for different DCT sizes and number of bits to upscale are mentioned in the table below:     
+ *    
+ * \image html dct4FormatsQ15Table.gif    
+ */
+static void dct2_q15(
+  const dct2_instance_q15 * S,
+  q15_t * pState,
+  q15_t * pInlineBuffer)
+{
+  uint32_t i;                                    /* Loop counter */
+  q15_t *weights = S->pTwiddle;                  /* Pointer to the Weights table */
+  q15_t *pS1, *pS2, *pbuff;                      /* Temporary pointers for input buffer and pState buffer */
+  q15_t in;                                      /* Temporary variable */
+
+
+  /* DCT4 computation involves DCT2 (which is calculated using RFFT)    
+   * along with some pre-processing and post-processing.    
+   * Computational procedure is explained as follows:    
+   * (b) Calculation of DCT2 using FFT is divided into three steps:    
+   *                  Step1: Re-ordering of even and odd elements of input.    
+   *                  Step2: Calculating FFT of the re-ordered input.    
+   *                  Step3: Taking the real part of the product of FFT output and weights.    
+   */
+
+  /* ----------------------------------------------------------------    
+   * Step1: Re-ordering of even and odd elements as    
+   *             pState[i] =  pInlineBuffer[2*i] and    
+   *             pState[N-i-1] = pInlineBuffer[2*i+1] where i = 0 to N/2    
+   ---------------------------------------------------------------------*/
+
+  /* pS1 initialized to pState */
+  pS1 = pState;
+
+  /* pS2 initialized to pState+N-1, so that it points to the end of the state buffer */
+  pS2 = pState + (S->N - 1u);
+
+  /* pbuff initialized to input buffer */
+  pbuff = pInlineBuffer;
+
+  /* Initializing the loop counter to N/2 >> 2 for loop unrolling by 4 */
+  i = (uint32_t) S->Nby2 >> 2u;
+
+  /* First part of the processing with loop unrolling.  Compute 4 outputs at a time.    
+   ** a second loop below computes the remaining 1 to 3 samples. */
+  do
+  {
+    /* Re-ordering of even and odd elements */
+    /* pState[i] =  pInlineBuffer[2*i] */
+    *pS1++ = *pbuff++;
+    /* pState[N-i-1] = pInlineBuffer[2*i+1] */
+    *pS2-- = *pbuff++;
+
+    *pS1++ = *pbuff++;
+    *pS2-- = *pbuff++;
+
+    *pS1++ = *pbuff++;
+    *pS2-- = *pbuff++;
+
+    *pS1++ = *pbuff++;
+    *pS2-- = *pbuff++;
+
+    /* Decrement the loop counter */
+    i--;
+  } while(i > 0u);
+
+  /* pbuff initialized to input buffer */
+  pbuff = pInlineBuffer;
+
+  /* pS1 initialized to pState */
+  pS1 = pState;
+
+  /* Initializing the loop counter to N/4 instead of N for loop unrolling */
+  i = (uint32_t) S->N >> 2u;
+
+  /* Processing with loop unrolling 4 times as N is always multiple of 4.    
+   * Compute 4 outputs at a time */
+  do
+  {
+    /* Writing the re-ordered output back to inplace input buffer */
+    *pbuff++ = *pS1++;
+    *pbuff++ = *pS1++;
+    *pbuff++ = *pS1++;
+    *pbuff++ = *pS1++;
+
+    /* Decrement the loop counter */
+    i--;
+  } while(i > 0u);
+
+  /* ---------------------------------------------------------    
+   *     Step2: Calculate RFFT for N-point input    
+   * ---------------------------------------------------------- */
+  /* pInlineBuffer is real input of length N , pState is the complex output of length 2N */
+  arm_rfft_q15(S->pRfft, pInlineBuffer, pState);
+
+ /*----------------------------------------------------------------------    
+  *  Step3: Multiply the FFT output with the weights.    
+  *----------------------------------------------------------------------*/
+  arm_cmplx_mult_cmplx_q15(pState, weights, pState, S->N);
+
+  /* The output of complex multiplication is in 3.13 format.    
+   * Hence changing the format of N (i.e. 2*N elements) complex numbers to 1.15 format by shifting left by 2 bits. */
+  arm_shift_q15(pState, 2, pState, S->N * 2);
+
+}
+
 
 /*------------------------------------------------------------------------------
  * Callbacks
