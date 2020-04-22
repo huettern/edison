@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-21 19:32:48
+* @Last Modified time: 2020-04-22 08:17:06
 */
 #include "audioprocessing.h"
 
@@ -41,6 +41,10 @@ static q15_t bufSpect[2*MEL_SAMPLE_SIZE];
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
+
+static void cmpl_mag_sqd_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize);
+static void cmpl_mag_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize);
+
 /*------------------------------------------------------------------------------
  * Publics
  * ---------------------------------------------------------------------------*/
@@ -112,6 +116,61 @@ void audioDevelop(void)
   uint32_t len;
   uint8_t tag;
 
+  // test
+
+  q31_t in1, in2, in3, in4;
+  q31_t acc0, acc1;
+  q31_t acc2, acc3;
+  q15_t * pSrc = bufFft;
+  q15_t * pDst= bufSpect;
+
+  bufFft[0]   = 10;
+  bufFft[0+1] = 10;
+  bufFft[0+2] = 20;
+  bufFft[0+3] = 10;
+  cmpl_mag_sqd_q15(&bufFft[0], bufSpect, 2);
+  printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
+  printf("|%5d + j(%5d) | = %5d\n", bufFft[2], bufFft[3], bufSpect[1]);
+  cmpl_mag_q15(&bufFft[0], bufSpect, 2);
+  printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
+  printf("|%5d + j(%5d) | = %5d\n------\n", bufFft[2], bufFft[3], bufSpect[1]);
+
+  bufFft[0]   = 1024;
+  bufFft[0+1] = 1024;
+  bufFft[0+2] = 2048;
+  bufFft[0+3] = 1024;
+  cmpl_mag_sqd_q15(&bufFft[0], bufSpect, 2);
+  printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
+  printf("|%5d + j(%5d) | = %5d\n", bufFft[2], bufFft[3], bufSpect[1]);
+  cmpl_mag_q15(&bufFft[0], bufSpect, 2);
+  printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
+  printf("|%5d + j(%5d) | = %5d\n------\n", bufFft[2], bufFft[3], bufSpect[1]);
+
+
+  bufFft[0]   = 0x7fff;
+  bufFft[0+1] = 0x7fff;
+  bufFft[0+2] = 0x8000;
+  bufFft[0+3] = 0x8000;
+  cmpl_mag_sqd_q15(&bufFft[0], bufSpect, 2);
+  printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
+  printf("|%5d + j(%5d) | = %5d\n", bufFft[2], bufFft[3], bufSpect[1]);
+  cmpl_mag_q15(&bufFft[0], bufSpect, 2);
+  printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
+  printf("|%5d + j(%5d) | = %5d\n------\n", bufFft[2], bufFft[3], bufSpect[1]);
+
+
+  for(uint16_t i = 0; i < 10*1024; i+=2)
+  {
+    bufFft[i]   = i;
+    bufFft[i+1] = 0;
+    bufFft[i+2] = i+1;
+    bufFft[i+3] = 0;
+    arm_cmplx_mag_q15(&bufFft[i], bufSpect, 2);
+    printf("|%5d + j(%5d) | = %5d\n", bufFft[i], bufFft[i+1], bufSpect[0]);
+    printf("|%5d + j(%5d) | = %5d\n", bufFft[i+2], bufFft[i+3], bufSpect[1]);
+    HAL_Delay(200);
+  }
+
   while(1)
   {
     len = hiReceive((void *)in_frame, 2*MEL_SAMPLE_SIZE, DATA_FORMAT_S16, &tag);
@@ -125,6 +184,34 @@ void audioDevelop(void)
 /*------------------------------------------------------------------------------
  * Privates
  * ---------------------------------------------------------------------------*/
+static void cmpl_mag_sqd_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize)
+{
+  q15_t in;
+  q31_t sum;
+  while(blockSize--)
+  {
+    in = *pSrc++;
+    sum = ((q31_t) in * in);
+    in = *pSrc++;
+    sum += ((q31_t) in * in);
+    *pDst++ = (q15_t)(sum>>16);
+  }
+}
+static void cmpl_mag_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize)
+{
+  q15_t in;
+  q31_t sum;
+  while(blockSize--)
+  {
+    in = *pSrc++;
+    sum = ((q31_t) in * in);
+    in = *pSrc++;
+    sum += ((q31_t) in * in);
+    arm_sqrt_q31(sum, &sum);
+    *pDst++ = (q15_t)sum;
+  }
+}
+
 /*------------------------------------------------------------------------------
  * Callbacks
  * ---------------------------------------------------------------------------*/

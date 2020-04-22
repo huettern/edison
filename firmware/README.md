@@ -1,5 +1,14 @@
 # Edison Firmware
 
+
+## CMSIS DSP lessons learned
+`arm_cfft_q15` 
+
+- bit reversal flag must be set for the output to be interpreted.
+- FFT output is not in fractional format
+
+
+
 ## Host interface
 
 When `hifRun` is run, a host can communicate with the board via UART. Below is a list of commands and their description follows.
