@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-21 19:27:18
+# @Last Modified time: 2020-04-22 19:34:32
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -161,10 +161,18 @@ else:
 ######################################################################
 # Same calculations on host
 # compensate same bit shift as on MCU
-host_fft = np.fft.fft(y) / 2**(9-4)
+host_fft = np.fft.fft(y)
 host_spec = np.abs(host_fft)
 
 
+######################################################################
+# Print some facts
+scale = np.real(host_fft).max()/mcu_fft[0::2].max()
+print('host/mcu fft scale %f' % (scale) )
+host_fft = host_fft * 1/scale
+scale = host_spec.max()/mcu_spec.max()
+print('host/mcu spectrum scale %f' % (scale) )
+host_spec = host_spec * 1/scale
 
 ######################################################################
 # plot

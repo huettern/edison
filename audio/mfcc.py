@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 import mfcc_utils as mfu
 
+
 # Input wav file to use
 in_wav = 'data/heysnips_true_5k_16b.wav'
 

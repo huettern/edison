@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-22 08:17:06
+* @Last Modified time: 2020-04-22 19:27:38
 */
 #include "audioprocessing.h"
 
@@ -23,7 +23,7 @@
  * Uncomment to use real FFT functions. They dont produce the same clean results
  * as the complex FFT
  */
-#define USE_REAL_FFT
+// #define USE_REAL_FFT
 
 /*------------------------------------------------------------------------------
  * Private data
@@ -91,8 +91,9 @@ void audioCalcMFCCs(int16_t * inp, int16_t * oup)
 
   // ---------------------------------------------------------------
   // [2.] Perform magnitude value for spectrum
-  arm_cmplx_mag_q15(bufFft, bufSpect, 2*MEL_SAMPLE_SIZE);
+  // arm_cmplx_mag_q15(bufFft, bufSpect, 2*MEL_SAMPLE_SIZE);
   // arm_shift_q15(bufSpect, -1, bufSpect, 2*MEL_SAMPLE_SIZE);
+  cmpl_mag_q15(bufFft, bufSpect, 2*MEL_SAMPLE_SIZE);
 }
 
 /**
@@ -118,16 +119,16 @@ void audioDevelop(void)
 
   // test
 
-  q31_t in1, in2, in3, in4;
-  q31_t acc0, acc1;
-  q31_t acc2, acc3;
-  q15_t * pSrc = bufFft;
-  q15_t * pDst= bufSpect;
+  // q31_t in1, in2, in3, in4;
+  // q31_t acc0, acc1;
+  // q31_t acc2, acc3;
+  // q15_t * pSrc = bufFft;
+  // q15_t * pDst= bufSpect;
 
-  bufFft[0]   = 10;
-  bufFft[0+1] = 10;
-  bufFft[0+2] = 20;
-  bufFft[0+3] = 10;
+  bufFft[0]   = -2;
+  bufFft[0+1] = 0;
+  bufFft[0+2] = -2;
+  bufFft[0+3] = -3;
   cmpl_mag_sqd_q15(&bufFft[0], bufSpect, 2);
   printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
   printf("|%5d + j(%5d) | = %5d\n", bufFft[2], bufFft[3], bufSpect[1]);
@@ -135,41 +136,41 @@ void audioDevelop(void)
   printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
   printf("|%5d + j(%5d) | = %5d\n------\n", bufFft[2], bufFft[3], bufSpect[1]);
 
-  bufFft[0]   = 1024;
-  bufFft[0+1] = 1024;
-  bufFft[0+2] = 2048;
-  bufFft[0+3] = 1024;
-  cmpl_mag_sqd_q15(&bufFft[0], bufSpect, 2);
-  printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
-  printf("|%5d + j(%5d) | = %5d\n", bufFft[2], bufFft[3], bufSpect[1]);
-  cmpl_mag_q15(&bufFft[0], bufSpect, 2);
-  printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
-  printf("|%5d + j(%5d) | = %5d\n------\n", bufFft[2], bufFft[3], bufSpect[1]);
+  // bufFft[0]   = 1024;
+  // bufFft[0+1] = 1024;
+  // bufFft[0+2] = 2048;
+  // bufFft[0+3] = 1024;
+  // cmpl_mag_sqd_q15(&bufFft[0], bufSpect, 2);
+  // printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
+  // printf("|%5d + j(%5d) | = %5d\n", bufFft[2], bufFft[3], bufSpect[1]);
+  // cmpl_mag_q15(&bufFft[0], bufSpect, 2);
+  // printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
+  // printf("|%5d + j(%5d) | = %5d\n------\n", bufFft[2], bufFft[3], bufSpect[1]);
 
 
-  bufFft[0]   = 0x7fff;
-  bufFft[0+1] = 0x7fff;
-  bufFft[0+2] = 0x8000;
-  bufFft[0+3] = 0x8000;
-  cmpl_mag_sqd_q15(&bufFft[0], bufSpect, 2);
-  printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
-  printf("|%5d + j(%5d) | = %5d\n", bufFft[2], bufFft[3], bufSpect[1]);
-  cmpl_mag_q15(&bufFft[0], bufSpect, 2);
-  printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
-  printf("|%5d + j(%5d) | = %5d\n------\n", bufFft[2], bufFft[3], bufSpect[1]);
+  // bufFft[0]   = 0x7fff;
+  // bufFft[0+1] = 0x7fff;
+  // bufFft[0+2] = 0x8000;
+  // bufFft[0+3] = 0x8000;
+  // cmpl_mag_sqd_q15(&bufFft[0], bufSpect, 2);
+  // printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
+  // printf("|%5d + j(%5d) | = %5d\n", bufFft[2], bufFft[3], bufSpect[1]);
+  // cmpl_mag_q15(&bufFft[0], bufSpect, 2);
+  // printf("|%5d + j(%5d) | = %5d\n", bufFft[0], bufFft[1], bufSpect[0]);
+  // printf("|%5d + j(%5d) | = %5d\n------\n", bufFft[2], bufFft[3], bufSpect[1]);
 
 
-  for(uint16_t i = 0; i < 10*1024; i+=2)
-  {
-    bufFft[i]   = i;
-    bufFft[i+1] = 0;
-    bufFft[i+2] = i+1;
-    bufFft[i+3] = 0;
-    arm_cmplx_mag_q15(&bufFft[i], bufSpect, 2);
-    printf("|%5d + j(%5d) | = %5d\n", bufFft[i], bufFft[i+1], bufSpect[0]);
-    printf("|%5d + j(%5d) | = %5d\n", bufFft[i+2], bufFft[i+3], bufSpect[1]);
-    HAL_Delay(200);
-  }
+  // for(uint16_t i = 0; i < 10*1024; i+=2)
+  // {
+  //   bufFft[i]   = i;
+  //   bufFft[i+1] = 0;
+  //   bufFft[i+2] = i+1;
+  //   bufFft[i+3] = 0;
+  //   arm_cmplx_mag_q15(&bufFft[i], bufSpect, 2);
+  //   printf("|%5d + j(%5d) | = %5d\n", bufFft[i], bufFft[i+1], bufSpect[0]);
+  //   printf("|%5d + j(%5d) | = %5d\n", bufFft[i+2], bufFft[i+3], bufSpect[1]);
+  //   HAL_Delay(200);
+  // }
 
   while(1)
   {
@@ -184,6 +185,15 @@ void audioDevelop(void)
 /*------------------------------------------------------------------------------
  * Privates
  * ---------------------------------------------------------------------------*/
+/**
+ * @brief Take blockSize complex numbers stored [real, imag, real, image, ..] and calculate
+ * the squared magnitude
+ * @details 
+ * 
+ * @param pSrc source
+ * @param pDst destination
+ * @param blockSize number of complex input numbers
+ */
 static void cmpl_mag_sqd_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize)
 {
   q15_t in;
@@ -197,6 +207,15 @@ static void cmpl_mag_sqd_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize)
     *pDst++ = (q15_t)(sum>>16);
   }
 }
+/**
+ * @brief Take blockSize complex numbers stored [real, imag, real, image, ..] and calculate
+ * the magnitude
+ * @details 
+ * 
+ * @param pSrc source
+ * @param pDst destination
+ * @param blockSize number of complex input numbers
+ */
 static void cmpl_mag_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize)
 {
   q15_t in;
@@ -208,7 +227,7 @@ static void cmpl_mag_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize)
     in = *pSrc++;
     sum += ((q31_t) in * in);
     arm_sqrt_q31(sum, &sum);
-    *pDst++ = (q15_t)sum;
+    *pDst++ = (q15_t)(sum>>16);
   }
 }
 
