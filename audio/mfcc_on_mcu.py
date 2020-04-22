@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-22 20:26:40
+# @Last Modified time: 2020-04-22 20:48:41
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -108,6 +108,7 @@ def plotCompare():
   ax.set_title('MCU FFT')
 
   ax = fig.add_subplot(gs[2, 0])
+  ax.plot(f2[-mel_mtx.shape[0]:], mel_mtx*(host_spec.max()/mel_mtx.max()), 'k', alpha=0.2, label='')
   ax.plot(f2, np.concatenate((host_spec[-n//2:], host_spec[0:n//2])), label='y')
   ax.grid(True)
   ax.legend()
@@ -128,6 +129,8 @@ def plotCompare():
 
   ax = fig.add_subplot(gs[3, 1])
   ax.plot(fmel, mcu_melspec, label='mel spectrum')
+  # ax.plot(fmel, mcu_melspec_manual, label='mel spectrum')
+
   ax.grid(True)
   ax.legend()
   ax.set_title('MCU mel spectrum')
@@ -145,7 +148,7 @@ def plotCompare():
 fs = sample_rate
 t = np.linspace(0,sample_size/fs, sample_size)
 y = np.array(1000*np.cos(2*np.pi*(fs/16)*t)+500*np.cos(2*np.pi*(fs/128)*t), dtype='int16')
-# y = np.array((2**15-1)*np.cos(2*np.pi*(fs/80)*t), dtype='int16')
+# y = np.array((2**15-1)*np.cos(2*np.pi*(fs/80)*t), dtype='int16') # saturating
 # y = np.array((2**15-1)*np.cos(2*np.pi*(0)*t), dtype='int16')
 # y = np.array((2**15-1)*np.cos(2*np.pi*(2*fs/1024)*t), dtype='int16')
 
@@ -162,6 +165,8 @@ if not from_files:
   print('Received %s type with tag 0x%x len %d' % (mcu_spec.dtype, tag, mcu_fft.shape[0]))
   mcu_melspec, tag = mcu.receiveData()
   print('Received %s type with tag 0x%x len %d' % (mcu_melspec.dtype, tag, mcu_melspec.shape[0]))
+  # mcu_melspec_manual, tag = mcu.receiveData()
+  # print('Received %s type with tag 0x%x len %d' % (mcu_melspec_manual.dtype, tag, mcu_melspec_manual.shape[0]))
 
   # store this valuable data!
   import pathlib
