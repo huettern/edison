@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-22 19:27:38
+* @Last Modified time: 2020-04-22 20:25:05
 */
 #include "audioprocessing.h"
 
@@ -37,6 +37,7 @@ static arm_rfft_instance_q15 rfft_q15_i;
  */
 static q15_t bufFft[2*MEL_SAMPLE_SIZE];
 static q15_t bufSpect[2*MEL_SAMPLE_SIZE];
+static q31_t bufMelSpect[MEL_N_MEL_BINS];
 
 /*------------------------------------------------------------------------------
  * Prototypes
@@ -72,6 +73,9 @@ void audioInit(void)
  */
 void audioCalcMFCCs(int16_t * inp, int16_t * oup)
 {
+  arm_matrix_instance_q15 mtxq15A, mtxq15B, mtxq15C;
+  q31_t tmpq31;
+
   // ---------------------------------------------------------------
   // [1.] Calculate FFT
 #ifdef USE_REAL_FFT
@@ -91,9 +95,27 @@ void audioCalcMFCCs(int16_t * inp, int16_t * oup)
 
   // ---------------------------------------------------------------
   // [2.] Perform magnitude value for spectrum
-  // arm_cmplx_mag_q15(bufFft, bufSpect, 2*MEL_SAMPLE_SIZE);
-  // arm_shift_q15(bufSpect, -1, bufSpect, 2*MEL_SAMPLE_SIZE);
   cmpl_mag_q15(bufFft, bufSpect, 2*MEL_SAMPLE_SIZE);
+
+  // ---------------------------------------------------------------
+  // [3.] Dot product xxx of the mel matrix with the positive values of
+  // the spectrum
+  // mtxq15A.numRows = 1; mtxq15A.numCols = MEL_SAMPLE_SIZE/2+1; mtxq15A.pData = bufSpect;
+  // mtxq15B.numRows = MEL_MTX_ROWS; mtxq15B.numCols = MEL_MTX_COLS; mtxq15B.pData = melMtx;
+  // mtxq15C.numRows = 1; mtxq15C.numCols = MEL_N_MEL_BINS; mtxq15C.pData = bufMelSpect;
+  // arm_mat_mult_q15(&mtxq15A, &mtxq15B, &mtxq15C, NULL);
+
+  // manual
+  for(int mel = 0; mel < MEL_N_MEL_BINS; mel++)
+  {
+    tmpq31 = 0;
+    for(int frq = 0; frq < MEL_SAMPLE_SIZE/2+1; frq++)
+    {
+      tmpq31 += bufSpect[frq] * melMtx[frq][mel];
+    }
+    bufMelSpect[mel] = tmpq31;
+  }
+  
 }
 
 /**
@@ -104,6 +126,8 @@ void audioDumpToHost(void)
 {
   hiSendS16(bufFft, 2*MEL_SAMPLE_SIZE, 0);
   hiSendS16(bufSpect, MEL_SAMPLE_SIZE, 1);
+  hiSendS32(bufMelSpect, sizeof(bufMelSpect)/sizeof(q31_t), 2);
+
 }
 
 /**

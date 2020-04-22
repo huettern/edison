@@ -5,7 +5,7 @@
 `arm_cfft_q15` 
 
 - bit reversal flag must be set for the output to be interpreted.
-- FFT output is not in fractional format
+- FFT output is not in fractional format, hence applying `arm_cmplx_mag_q15` doesn't work
 
 
 

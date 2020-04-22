@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-22 19:34:32
+# @Last Modified time: 2020-04-22 20:26:40
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ import mcu_util as mcu
 
 fname = '.cache/mel_constants.h'
 cache_dir = '.cache/mfcc_mcu'
-from_files = False
+from_files = 1
 
 # costant frame size
 sample_size = 1024#1024
@@ -79,9 +79,10 @@ def plotCompare():
   t = np.linspace(0, sample_size/fs, num=sample_size)
   f = np.linspace(0.0, fs/2.0, sample_size//2)
   f2 = np.linspace(-fs/2, fs/2, sample_size)
+  fmel = np.linspace(0,num_mel_bins,num_mel_bins)
 
   fig = plt.figure(constrained_layout=True)
-  gs = fig.add_gridspec(3, 2)
+  gs = fig.add_gridspec(4, 2)
 
   ax = fig.add_subplot(gs[0, :])
   ax.plot(t, y, label='y')
@@ -118,6 +119,19 @@ def plotCompare():
   ax.legend()
   ax.set_title('MCU spectrum')
 
+
+  ax = fig.add_subplot(gs[3, 0])
+  ax.plot(fmel, host_melspec, label='mel spectrum')
+  ax.grid(True)
+  ax.legend()
+  ax.set_title('host mel spectrum')
+
+  ax = fig.add_subplot(gs[3, 1])
+  ax.plot(fmel, mcu_melspec, label='mel spectrum')
+  ax.grid(True)
+  ax.legend()
+  ax.set_title('MCU mel spectrum')
+
   return fig
 
 
@@ -146,16 +160,20 @@ if not from_files:
   print('Received %s type with tag 0x%x len %d' % (mcu_fft.dtype, tag, mcu_fft.shape[0]))
   mcu_spec, tag = mcu.receiveData()
   print('Received %s type with tag 0x%x len %d' % (mcu_spec.dtype, tag, mcu_fft.shape[0]))
+  mcu_melspec, tag = mcu.receiveData()
+  print('Received %s type with tag 0x%x len %d' % (mcu_melspec.dtype, tag, mcu_melspec.shape[0]))
 
   # store this valuable data!
   import pathlib
   pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
   np.save(cache_dir+'/mcu_fft.npy', mcu_fft)
   np.save(cache_dir+'/mcu_spec.npy', mcu_spec)
+  np.save(cache_dir+'/mcu_melspec.npy', mcu_melspec)
 
 else:
   mcu_fft = np.load(cache_dir+'/mcu_fft.npy')
   mcu_spec = np.load(cache_dir+'/mcu_spec.npy')
+  mcu_melspec = np.load(cache_dir+'/mcu_melspec.npy')
 
 
 ######################################################################
@@ -163,7 +181,10 @@ else:
 # compensate same bit shift as on MCU
 host_fft = np.fft.fft(y)
 host_spec = np.abs(host_fft)
-
+mel_mtx = mfu.gen_mel_weight_matrix(num_mel_bins=num_mel_bins, num_spectrogram_bins=num_spectrogram_bins, sample_rate=sample_rate, \
+    lower_edge_hertz=lower_edge_hertz, upper_edge_hertz=upper_edge_hertz)
+mel_mtx_s16 = np.array(mel_mtx_scale*mel_mtx, dtype='int16')
+host_melspec = host_spec[:(sample_size//2)+1].dot(mel_mtx_s16)
 
 ######################################################################
 # Print some facts
@@ -173,6 +194,9 @@ host_fft = host_fft * 1/scale
 scale = host_spec.max()/mcu_spec.max()
 print('host/mcu spectrum scale %f' % (scale) )
 host_spec = host_spec * 1/scale
+scale = host_melspec.max()/mcu_melspec.max()
+print('host/mcu mel spectrum scale %f' % (scale) )
+host_melspec = host_melspec * 1/scale
 
 ######################################################################
 # plot
