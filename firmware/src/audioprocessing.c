@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-23 14:45:58
+* @Last Modified time: 2020-04-23 14:57:35
 */
 #include "audioprocessing.h"
 
@@ -164,7 +164,7 @@ void audioDumpToHost(void)
   hiSendS16(bufMelSpect, sizeof(bufMelSpect)/sizeof(q15_t), 2);
   // hiSendS32(bufMelSpectManual, sizeof(bufMelSpectManual)/sizeof(q31_t), 3);
   // hiSendS16(bufDct, sizeof(bufDct)/sizeof(q15_t), 4);
-  hiSendS16(bufDct, sizeof(bufDct)/sizeof(q15_t), 4); // post FFT
+  hiSendS16(bufDctInline, sizeof(bufDctInline)/sizeof(q15_t), 4); // post FFT
 
 
 }
@@ -353,6 +353,18 @@ static void dct2_q15(
    * Hence changing the format of N (i.e. 2*N elements) complex numbers to 1.15 format by shifting left by 2 bits. */
   // arm_shift_q15(pState, 2, pState, S->N * 2);
 
+ /*----------------------------------------------------------------------    
+  *  Step4: Take only the real part
+  *----------------------------------------------------------------------*/
+  i = (uint32_t) S->N;
+  pbuff = pState;
+  pS1 = pInlineBuffer;
+  do
+  {
+    *pS1++ = *pbuff++;
+    in     = *pbuff++; // discard imaginary part
+    i--;
+  } while(i > 0u);
 }
 
 
