@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-23 14:36:20
+* @Last Modified time: 2020-04-23 14:45:58
 */
 #include "audioprocessing.h"
 
@@ -52,7 +52,7 @@ static q15_t bufFft[2*MEL_SAMPLE_SIZE];
 static q15_t bufSpect[2*MEL_SAMPLE_SIZE];
 // static q31_t bufMelSpectManual[MEL_N_MEL_BINS];
 static q15_t bufMelSpect[MEL_N_MEL_BINS];
-static q15_t bufDct[MEL_N_MEL_BINS];
+static q15_t bufDct[2*MEL_N_MEL_BINS];
 static q15_t bufDctInline[MEL_N_MEL_BINS];
 
 /*------------------------------------------------------------------------------
@@ -144,7 +144,7 @@ void audioCalcMFCCs(int16_t * inp, int16_t * oup)
   arm_copy_q15(bufMelSpect, bufDctInline,MEL_N_MEL_BINS);
   if(arm_rfft_init_q15(&dct2_rfft_q15_i, (uint32_t)MEL_N_MEL_BINS, 0, 1) != ARM_MATH_SUCCESS)
   {
-    // Error_Handler();
+    Error_Handler();
   } 
   dct2_q15_i.N = MEL_N_MEL_BINS;
   dct2_q15_i.Nby2 = MEL_N_MEL_BINS/2;
@@ -164,7 +164,7 @@ void audioDumpToHost(void)
   hiSendS16(bufMelSpect, sizeof(bufMelSpect)/sizeof(q15_t), 2);
   // hiSendS32(bufMelSpectManual, sizeof(bufMelSpectManual)/sizeof(q31_t), 3);
   // hiSendS16(bufDct, sizeof(bufDct)/sizeof(q15_t), 4);
-  hiSendS16(bufDctInline, sizeof(bufDctInline)/sizeof(q15_t), 4); // reordering only
+  hiSendS16(bufDct, sizeof(bufDct)/sizeof(q15_t), 4); // post FFT
 
 
 }
@@ -342,7 +342,7 @@ static void dct2_q15(
    *     Step2: Calculate RFFT for N-point input    
    * ---------------------------------------------------------- */
   /* pInlineBuffer is real input of length N , pState is the complex output of length 2N */
-  // arm_rfft_q15(S->pRfft, pInlineBuffer, pState);
+  arm_rfft_q15(S->pRfft, pInlineBuffer, pState);
 
  /*----------------------------------------------------------------------    
   *  Step3: Multiply the FFT output with the weights.    

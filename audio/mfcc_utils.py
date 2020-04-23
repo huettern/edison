@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:23:59
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-23 14:36:47
+# @Last Modified time: 2020-04-23 14:39:58
 
 import numpy as np
 from scipy.fftpack import dct
@@ -265,5 +265,5 @@ def dct2Makhoul(x):
   else: # even length
       v[(N-1)//2+1:] = x[::-2]
   V = np.fft.fft(v)
-  V *= 2 * np.exp(-1j*np.pi*k/(2*N))
-  return V.real, v
+  Vr = V * 2 * np.exp(-1j*np.pi*k/(2*N))
+  return Vr.real, v, V

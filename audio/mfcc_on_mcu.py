@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-23 14:37:25
+# @Last Modified time: 2020-04-23 14:46:56
 
 import sys
 
@@ -168,13 +168,15 @@ def plotCompare():
   ax = fig.add_subplot(gs[4, 0])
   ax.plot(fmel, host_dct, label='mel dct')
   ax.plot(fmel, host_dct_reorder, label='post reorder')
+  ax.plot(fmel, host_dct_fft, label='post fft')
   ax.plot(fmel, host_dct_makhoul, 'r--', label='fast dct')
   ax.grid(True)
   ax.legend()
   ax.set_title('host mel DCT-II')
 
   ax = fig.add_subplot(gs[4, 1])
-  ax.plot(fmel, mcu_dct, label='mel dct')
+  ax.plot(fmel, mcu_dct[1::2], label='mel dct')
+  ax.plot(fmel, host_dct_fft.imag*(np.max(mcu_dct)/np.max(host_dct_fft.real)), label='mel dct')
   ax.grid(True)
   ax.legend()
   ax.set_title('MCU mel DCT-II')
@@ -198,9 +200,9 @@ y = np.array(1000*np.cos(2*np.pi*(fs/16)*t)+500*np.cos(2*np.pi*(fs/128)*t), dtyp
 # y = np.array((2**15-1)*np.cos(2*np.pi*(2*fs/1024)*t), dtype='int16')
 
 # natural sample
-in_fs, in_data = wavfile.read('data/hey_short_16k.wav')
-in_data = np.pad(in_data, (0,sample_size-in_data.shape[0]), 'constant', constant_values=(4, 6))
-y = in_data
+# in_fs, in_data = wavfile.read('data/hey_short_16k.wav')
+# in_data = np.pad(in_data, (0,sample_size-in_data.shape[0]), 'constant', constant_values=(4, 6))
+# y = in_data
 
 if not from_files:
   # Exchange some data
@@ -244,7 +246,7 @@ mel_mtx = mfu.gen_mel_weight_matrix(num_mel_bins=num_mel_bins, num_spectrogram_b
 mel_mtx_s16 = np.array(mel_mtx_scale*mel_mtx, dtype='int16')
 host_melspec = host_spec[:(sample_size//2)+1].dot(mel_mtx_s16)
 host_dct = dct(host_melspec, type=2)
-host_dct_makhoul, host_dct_reorder = mfu.dct2Makhoul(host_melspec)
+host_dct_makhoul, host_dct_reorder, host_dct_fft = mfu.dct2Makhoul(host_melspec)
 
 ######################################################################
 # Print some facts
