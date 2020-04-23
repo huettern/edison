@@ -2,10 +2,14 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-23 11:55:13
+# @Last Modified time: 2020-04-23 14:37:25
+
+import sys
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.fftpack import dct
+from scipy.io import wavfile
 
 import mfcc_utils as mfu
 import mcu_util as mcu
@@ -13,6 +17,7 @@ import mcu_util as mcu
 fname = '.cache/mel_constants.h'
 cache_dir = '.cache/mfcc_mcu'
 from_files = 0
+from_files = 1 if len(sys.argv) > 1 else from_files
 
 # costant frame size
 sample_size = 1024#1024
@@ -27,6 +32,8 @@ lower_edge_hertz = 80.0
 upper_edge_hertz = 7600.0
 # convert to int16 after scaling up
 mel_mtx_scale = 128
+# convert to int16 after scaling up of twiddle factors for fast DCT2
+mel_twiddle_scale = 128
 
 ######################################################################
 # functions
@@ -64,6 +71,19 @@ def calcCConstants():
   log_lug_str += mcu.vecToC(log_lut, prepad = 4)
   log_lug_str += ';\n'
 
+  # calculate scale vector for fast DCT by Makhoul1980
+  N = num_mel_bins
+  k = np.arange(N)
+  factors = 2 * np.exp(-1j*np.pi*k/(2*N))
+  factors_s16_real = np.array(mel_twiddle_scale*factors.real, dtype='int16')
+  factors_s16_imag = np.array(mel_twiddle_scale*factors.imag, dtype='int16')
+  factors_s16 = np.empty((factors_s16_real.size + factors_s16_imag.size,), dtype='int16')
+  factors_s16[0::2] = factors_s16_real
+  factors_s16[1::2] = factors_s16_imag
+  twiddle_factors_str = 'const q15_t dctTwiddleFactorsq15[%d] = \n' % (2*N)
+  twiddle_factors_str += mcu.vecToC(factors_s16, prepad = 4)
+  twiddle_factors_str += ';\n'
+
   f = open(fname, 'w')
   f.write('#define MEL_SAMPLE_SIZE         %5d\n' % sample_size)
   f.write('#define MEL_N_MEL_BINS          %5d\n' % num_mel_bins)
@@ -77,6 +97,8 @@ def calcCConstants():
   f.write(mel_str)
   f.write('#define MEL_LOG_LUT_SIZE        %5d\n' % log_lut.shape[0])
   f.write(log_lug_str)
+  f.write('#define MEL_DCT_TWIDDLE_SIZE        %5d\n' % factors_s16.shape[0])
+  f.write(twiddle_factors_str)
   f.close()
 
 ######################################################################
@@ -144,7 +166,9 @@ def plotCompare():
   ax.set_title('MCU mel spectrum')
 
   ax = fig.add_subplot(gs[4, 0])
-  # ax.plot(fmel, host_dct, label='mel dct')
+  ax.plot(fmel, host_dct, label='mel dct')
+  ax.plot(fmel, host_dct_reorder, label='post reorder')
+  ax.plot(fmel, host_dct_makhoul, 'r--', label='fast dct')
   ax.grid(True)
   ax.legend()
   ax.set_title('host mel DCT-II')
@@ -173,6 +197,10 @@ y = np.array(1000*np.cos(2*np.pi*(fs/16)*t)+500*np.cos(2*np.pi*(fs/128)*t), dtyp
 # y = np.array((2**15-1)*np.cos(2*np.pi*(0)*t), dtype='int16')
 # y = np.array((2**15-1)*np.cos(2*np.pi*(2*fs/1024)*t), dtype='int16')
 
+# natural sample
+in_fs, in_data = wavfile.read('data/hey_short_16k.wav')
+in_data = np.pad(in_data, (0,sample_size-in_data.shape[0]), 'constant', constant_values=(4, 6))
+y = in_data
 
 if not from_files:
   # Exchange some data
@@ -215,6 +243,8 @@ mel_mtx = mfu.gen_mel_weight_matrix(num_mel_bins=num_mel_bins, num_spectrogram_b
     lower_edge_hertz=lower_edge_hertz, upper_edge_hertz=upper_edge_hertz)
 mel_mtx_s16 = np.array(mel_mtx_scale*mel_mtx, dtype='int16')
 host_melspec = host_spec[:(sample_size//2)+1].dot(mel_mtx_s16)
+host_dct = dct(host_melspec, type=2)
+host_dct_makhoul, host_dct_reorder = mfu.dct2Makhoul(host_melspec)
 
 ######################################################################
 # Print some facts
@@ -227,6 +257,8 @@ host_spec = host_spec * 1/scale
 scale = host_melspec.max()/mcu_melspec.max()
 print('host/mcu mel spectrum scale %f' % (scale) )
 host_melspec = host_melspec * 1/scale
+
+
 
 ######################################################################
 # plot

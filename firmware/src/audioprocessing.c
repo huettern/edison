@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-22 21:25:26
+* @Last Modified time: 2020-04-23 14:36:20
 */
 #include "audioprocessing.h"
 
@@ -16,13 +16,13 @@
  * Types
  * ---------------------------------------------------------------------------*/
 
-  typedef struct
-  {
-    uint16_t N;                         /**< length of the DCT2. */
-    uint16_t Nby2;                      /**< half of the length of the DCT2. */
-    q15_t *pTwiddle;                    /**< points to the twiddle factor table. */
-    arm_rfft_instance_q15 *pRfft;        /**< points to the real FFT instance. */
-  } dct2_instance_q15;
+typedef struct
+{
+  uint16_t N;                         /**< length of the DCT2. */
+  uint16_t Nby2;                      /**< half of the length of the DCT2. */
+  q15_t *pTwiddle;                    /**< points to the twiddle factor table. */
+  arm_rfft_instance_q15 *pRfft;        /**< points to the real FFT instance. */
+} dct2_instance_q15;
 
 
 /*------------------------------------------------------------------------------
@@ -52,8 +52,9 @@ static q15_t bufFft[2*MEL_SAMPLE_SIZE];
 static q15_t bufSpect[2*MEL_SAMPLE_SIZE];
 // static q31_t bufMelSpectManual[MEL_N_MEL_BINS];
 static q15_t bufMelSpect[MEL_N_MEL_BINS];
-static q15_t pDctState[MEL_N_MEL_BINS];
 static q15_t bufDct[MEL_N_MEL_BINS];
+static q15_t bufDctInline[MEL_N_MEL_BINS];
+
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
@@ -89,7 +90,6 @@ void audioInit(void)
  */
 void audioCalcMFCCs(int16_t * inp, int16_t * oup)
 {
-  arm_matrix_instance_q15 mtxq15A, mtxq15B, mtxq15C;
   q31_t tmpq31;
 
   // ---------------------------------------------------------------
@@ -116,6 +116,7 @@ void audioCalcMFCCs(int16_t * inp, int16_t * oup)
   // ---------------------------------------------------------------
   // [3.] Dot product mel matrix with the positive values of the spectrum
   // couldn't get this to run, but since mel mtx so sparse, should not spend too much time getting it to work
+  // arm_matrix_instance_q15 mtxq15A, mtxq15B, mtxq15C;
   // mtxq15A.numRows = 1; mtxq15A.numCols = MEL_SAMPLE_SIZE/2+1; mtxq15A.pData = bufSpect;
   // mtxq15B.numRows = MEL_MTX_ROWS; mtxq15B.numCols = MEL_MTX_COLS; mtxq15B.pData = melMtx;
   // mtxq15C.numRows = 1; mtxq15C.numCols = MEL_N_MEL_BINS; mtxq15C.pData = bufMelSpect;
@@ -140,16 +141,16 @@ void audioCalcMFCCs(int16_t * inp, int16_t * oup)
   // ---------------------------------------------------------------
   // [5.] DCT-2
   // calc is inplace, so copy to buffer
-  arm_copy_q15(bufMelSpect, bufDct,MEL_N_MEL_BINS);
-  // if(arm_rfft_init_q15(&dct2_rfft_q15_i, (uint32_t)MEL_N_MEL_BINS, 0, 1) != ARM_MATH_SUCCESS)
-  // {
-  //   // Error_Handler();
-  // } 
-  // dct2_q15_i.N = MEL_N_MEL_BINS;
-  // dct2_q15_i.Nby2 = MEL_N_MEL_BINS/2;
-  // dct2_q15_i.pTwiddle = &dct2_rfft_q15_i.pTwiddleAReal; // TODO: this is just a guess
-  // dct2_q15_i.pRfft = &dct2_rfft_q15_i;
-  // dct2_q15(&dct2_q15_i, pDctState, bufDct);
+  arm_copy_q15(bufMelSpect, bufDctInline,MEL_N_MEL_BINS);
+  if(arm_rfft_init_q15(&dct2_rfft_q15_i, (uint32_t)MEL_N_MEL_BINS, 0, 1) != ARM_MATH_SUCCESS)
+  {
+    // Error_Handler();
+  } 
+  dct2_q15_i.N = MEL_N_MEL_BINS;
+  dct2_q15_i.Nby2 = MEL_N_MEL_BINS/2;
+  dct2_q15_i.pTwiddle = dctTwiddleFactorsq15; // TODO: this is just a guess
+  dct2_q15_i.pRfft = &dct2_rfft_q15_i;
+  dct2_q15(&dct2_q15_i, bufDct, bufDctInline);
 }
 
 /**
@@ -162,7 +163,9 @@ void audioDumpToHost(void)
   hiSendS16(bufSpect, MEL_SAMPLE_SIZE, 1);
   hiSendS16(bufMelSpect, sizeof(bufMelSpect)/sizeof(q15_t), 2);
   // hiSendS32(bufMelSpectManual, sizeof(bufMelSpectManual)/sizeof(q31_t), 3);
-  hiSendS16(bufDct, sizeof(bufDct)/sizeof(q15_t), 4);
+  // hiSendS16(bufDct, sizeof(bufDct)/sizeof(q15_t), 4);
+  hiSendS16(bufDctInline, sizeof(bufDctInline)/sizeof(q15_t), 4); // reordering only
+
 
 }
 
@@ -339,16 +342,16 @@ static void dct2_q15(
    *     Step2: Calculate RFFT for N-point input    
    * ---------------------------------------------------------- */
   /* pInlineBuffer is real input of length N , pState is the complex output of length 2N */
-  arm_rfft_q15(S->pRfft, pInlineBuffer, pState);
+  // arm_rfft_q15(S->pRfft, pInlineBuffer, pState);
 
  /*----------------------------------------------------------------------    
   *  Step3: Multiply the FFT output with the weights.    
   *----------------------------------------------------------------------*/
-  arm_cmplx_mult_cmplx_q15(pState, weights, pState, S->N);
+  // arm_cmplx_mult_cmplx_q15(pState, weights, pState, S->N);
 
   /* The output of complex multiplication is in 3.13 format.    
    * Hence changing the format of N (i.e. 2*N elements) complex numbers to 1.15 format by shifting left by 2 bits. */
-  arm_shift_q15(pState, 2, pState, S->N * 2);
+  // arm_shift_q15(pState, 2, pState, S->N * 2);
 
 }
 

@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:23:59
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-19 10:33:47
+# @Last Modified time: 2020-04-23 14:36:47
 
 import numpy as np
 from scipy.fftpack import dct
@@ -249,3 +249,21 @@ def mfcc_tf(data, \
     frame['mfcc'] = mfccs[0, frame_ctr, ...]
     output.append(frame)
   return output
+
+def dct2Makhoul(x):
+  """
+    Calculate DCT-II using N-point FFT as in "A Fast Cosine Transform in O'ne and Two Dimensions" - Makhoul1980
+    Source: https://dsp.stackexchange.com/questions/2807/fast-cosine-transform-via-fft
+  """
+  N = x.shape[0]
+  k = np.arange(N)
+
+  v = np.empty_like(x)
+  v[:(N-1)//2+1] = x[::2]
+  if N % 2: # odd length
+      v[(N-1)//2+1:] = x[-2::-2]
+  else: # even length
+      v[(N-1)//2+1:] = x[::-2]
+  V = np.fft.fft(v)
+  V *= 2 * np.exp(-1j*np.pi*k/(2*N))
+  return V.real, v
