@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-22 21:25:56
+# @Last Modified time: 2020-04-23 11:55:13
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,7 +17,7 @@ from_files = 0
 # costant frame size
 sample_size = 1024#1024
 # From experience, we want 80 mel bins
-num_mel_bins = 80#80
+num_mel_bins = 32#80
 # From the FFT, we take only half the spectrum plus the DC component
 num_spectrogram_bins = sample_size//2+1
 # set the microphone sample rate
