@@ -91,7 +91,7 @@ CMSIS_LIB =
 
 ##############################################################################
 # HAL
-HAL = src/lib/stm32f4/drivers/STM32L4xx\_HAL\_Driver
+HAL = src/lib/stm32f4/drivers/STM32L4xx_HAL_Driver
 HAL_INC = -I$(HAL)/Inc -I$(HAL)/Inc/Legacy 
 HAL_CSRC = $(filter-out $(wildcard $(HAL)/src/*template.c), $(wildcard $(HAL)/src/*.c))
 #
