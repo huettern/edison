@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-28 18:03:24
+# @Last Modified time: 2020-04-28 20:29:35
 
 import sys
 
@@ -217,7 +217,7 @@ def plotFileMode():
   ax.set_ylabel('amplitude')
 
   vmin = 0
-  vmax = 0.1e6
+  vmax = 200
   ax = fig.add_subplot(gs[1, 0])
   c = ax.pcolor(frames, f, host_spec.T, cmap='PuBu', vmin=vmin, vmax=vmax)
   ax.grid(True)
@@ -237,7 +237,7 @@ def plotFileMode():
   fig.colorbar(c, ax=ax)
 
   vmin = host_dct.min()
-  vmax = 20
+  vmax = host_dct.max()
   ax = fig.add_subplot(gs[2, 0])
   c = ax.pcolor(frames, melbin, host_dct.T, cmap='PuBu', vmin=vmin, vmax=vmax)
   ax.grid(True)
@@ -267,8 +267,8 @@ if mode == 'single':
   t = np.linspace(0,sample_size/fs, sample_size)
   y = np.array(1000*np.cos(2*np.pi*(fs/16)*t)+500*np.cos(2*np.pi*(fs/128)*t), dtype='int16')
   # y = np.array((2**15-1)*np.cos(2*np.pi*(fs/80)*t), dtype='int16') # saturating
-  # y = np.array((2**15-1)*np.cos(2*np.pi*(0)*t), dtype='int16')
   # y = np.array((2**15-1)*np.cos(2*np.pi*(2*fs/1024)*t), dtype='int16')
+  y = np.array(65536*np.random.rand(sample_size)-65536//2, dtype='int16') # random
 
   # natural sample
   in_fs, in_data = wavfile.read('data/hey_short_16k.wav')
@@ -322,6 +322,15 @@ if mode == 'single':
   host_dct = dct(host_melspec, type=2)
   host_dct_makhoul, host_dct_reorder, host_dct_fft = mfu.dct2Makhoul(host_melspec)
 
+  o_mfcc = mfu.mfcc_mcu([y], fs, nSamples=1024, frame_len=1024, frame_step=1024, 
+    frame_count=1, fft_len=1024, mel_nbins=num_mel_bins, 
+    mel_lower_hz=lower_edge_hertz, mel_upper_hz=upper_edge_hertz, mel_mtx_scale=mel_mtx_scale)
+
+  host_fft = o_mfcc[0]['fft']
+  host_spec = o_mfcc[0]['spectrogram']
+  host_melspec = o_mfcc[0]['mel_spectrogram']
+  host_dct = o_mfcc[0]['mfcc']
+
   ######################################################################
   # Print some facts
   scale = np.real(host_fft).max()/mcu_fft[0::2].max()
@@ -335,12 +344,6 @@ if mode == 'single':
   host_melspec = host_melspec * 1/scale
   scale = host_dct.max()/mcu_dct.max()
   print('host/mcu dct scale %f' % (scale) )
-  host_dct = host_dct * 1/scale
-  host_dct_makhoul = host_dct_makhoul * 1/scale
-  host_dct_reorder = host_dct_reorder * 1/scale
-  host_dct_fft = host_dct_fft * 1/scale
-
-
 
   ######################################################################
   # plot
@@ -386,9 +389,9 @@ if mode == 'file':
   o_mfcc = mfu.mfcc(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, num_mel_bins, lower_edge_hertz, upper_edge_hertz)
 
   host_fft = np.array([x['fft'] for x in o_mfcc])
-  host_spec = np.array([x['spectrogram'] for x in o_mfcc])
-  host_melspec = np.array([x['mel_spectrogram'] for x in o_mfcc])
-  host_dct = np.array([x['mfcc'] for x in o_mfcc])
+  host_spec = 1.0/(np.sqrt(2)*1024)*np.array([x['spectrogram'] for x in o_mfcc])
+  host_melspec = 1.0/(np.sqrt(2)*1024*64)*np.array([x['mel_spectrogram'] for x in o_mfcc])
+  host_dct = np.pi*np.array([x['mfcc'] for x in o_mfcc])
 
   # calculate on MCU
   frames = mfu.frames(in_data, frame_length=sample_size, frame_step=frame_step)
@@ -441,6 +444,22 @@ if mode == 'file':
 
   ######################################################################
   # plot
+
+  print(np.median(host_dct[...,0] / mcu_dct[...,0]))
+  print(np.median(host_dct[1] / mcu_dct[1]))
+  print(np.median(host_dct[2] / mcu_dct[2]))
+  print(np.median(host_dct[3] / mcu_dct[3]))
+  print(np.median(host_dct[4] / mcu_dct[4]))
+  print(np.median(host_dct[5] / mcu_dct[5]))
+  print(np.median(host_dct[6] / mcu_dct[6]))
+  print(np.median(host_dct[7] / mcu_dct[7]))
+  print(np.median(host_dct[8] / mcu_dct[8]))
+  print(np.median(host_dct[9] / mcu_dct[9]))
+  print(np.median(host_dct[10] / mcu_dct[10]))
+  print(np.median(host_dct[11] / mcu_dct[11]))
+  print(np.median(host_dct[12] / mcu_dct[12]))
+  print(np.median(host_dct[13] / mcu_dct[13]))
+
   print(type(mcu_spec[0]))
   print(mcu_spec.shape)
   fig = plotFileMode()

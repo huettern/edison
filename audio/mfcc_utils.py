@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:23:59
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-23 14:39:58
+# @Last Modified time: 2020-04-28 20:28:09
 
 import numpy as np
 from scipy.fftpack import dct
@@ -248,6 +248,83 @@ def mfcc_tf(data, \
     frame['log_mel_spectrogram'] = log_mel_spectrograms[0, frame_ctr, ...]
     frame['mfcc'] = mfccs[0, frame_ctr, ...]
     output.append(frame)
+  return output
+
+def mfcc_mcu(data, \
+  fs, nSamples, frame_len, frame_step, frame_count, \
+  fft_len, \
+  mel_nbins, mel_lower_hz, mel_upper_hz, mel_mtx_scale):
+  """
+    Runs windowed mfcc on a strem of data, with similar calculation to MCU and scaled to match
+    output of MCU
+  
+      data          input data
+      fs            input sample rate
+      nSamples      number of samples in input
+      frame_len     length of each frame
+      frame_step    how many samples to advance the frame
+      frame_count   how many frames to compute
+      fft_len       length of FFT, ideally frame_len 
+      mel_nbins     number of mel filter banks to create
+      mel_lower_hz  lowest frequency of mel bank
+      mel_upper_hz  highest frequency of mel bank
+  
+  """
+
+  if frame_count == 0:
+    frame_count = 1 + (nSamples - frame_len) // frame_step
+  print("Running mfcc for %d frames with %d step" % (frame_count, frame_step))
+  # will return a list with a dict for each frame
+  output = []
+
+  for frame_ctr in range(frame_count):
+    frame = {}
+    frame['t_start'] = frame_ctr*frame_step/fs
+    frame['t_end'] = (frame_ctr*frame_step+frame_len)/fs
+
+    # print("frame %d start %f end %f"%(frame_ctr, frame['t_start'],frame['t_end']))
+
+    # get chunk of data
+    chunk = np.array(data[frame_ctr*frame_step : frame_ctr*frame_step+frame_len])[0,:]
+    sample_size = chunk.shape[0]
+
+    # calculate FFT
+    frame['fft'] = 1.0/1024*np.fft.fft(chunk)
+    
+    # calcualte spectorgram
+    spectrogram = 1.0/np.sqrt(2)*np.abs(frame['fft'])
+    frame['spectrogram'] = spectrogram
+    num_spectrogram_bins = len(frame['spectrogram'])
+
+    # calculate mel weights
+    mel_weight_matrix = gen_mel_weight_matrix(num_mel_bins=mel_nbins, 
+      num_spectrogram_bins=sample_size//2+1, sample_rate=fs,
+      lower_edge_hertz=mel_lower_hz, upper_edge_hertz=mel_upper_hz)
+    frame['mel_weight_matrix'] = mel_weight_matrix
+
+    # dot product of spectrum and mel matrix to get mel spectrogram
+    mel_spectrogram = 2.0*np.dot(spectrogram[:(sample_size//2)+1], mel_weight_matrix)
+    frame['mel_spectrogram'] = mel_spectrogram
+    
+    # calculate DCT-II
+    mfcc = 1.0/64*dct(mel_spectrogram, type=2)
+    frame['mfcc'] = mfcc
+
+    # Add frame to output list
+    output.append(frame)
+
+    # sample_size = chunk.shape[0]    
+    # frame['fft'] = 1.0/1024*np.fft.fft(chunk)
+    # frame['spectrogram'] = 1.0/np.sqrt(2)*np.abs(frame['fft'])
+    # frame['mel_weight_matrix'] = gen_mel_weight_matrix(num_mel_bins=mel_nbins, num_spectrogram_bins=sample_size//2+1, sample_rate=fs, \
+    #     lower_edge_hertz=mel_lower_hz, upper_edge_hertz=mel_upper_hz)
+    # frame['mel_mtx_s16'] = np.array(mel_mtx_scale*frame['mel_weight_matrix'], dtype='int16')
+    # frame['mel_spectrogram'] = 1.0/64*frame['spectrogram'][:(sample_size//2)+1].dot(frame['mel_mtx_s16'])
+    # frame['mfcc'] = 1.0/64*dct(frame['mel_spectrogram'], type=2)
+
+    # # Add frame to output list
+    # output.append(frame)
+
   return output
 
 def dct2Makhoul(x):
