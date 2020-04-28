@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-28 16:48:59
+# @Last Modified time: 2020-04-28 18:03:24
 
 import sys
 
@@ -10,7 +10,9 @@ if len(sys.argv) < 2:
   print('Usage:')
   print('  mfcc_on_mcu.py <mode> [from file ]')
   print('    Modes:')
-  print('    single      Run MFCC on single frame')
+  print('    calc                     Calculate C constants header file')
+  print('    single                   Run MFCC on single frame')
+  print('    file data/test.wav       Run MFCC on wav file of any length')
   exit()
 
 import numpy as np
@@ -194,97 +196,252 @@ def plotCompare():
 
   return fig
 
+def plotFileMode():
+  plt.style.use('seaborn-bright')
+  t = np.linspace(0, nSamples/fs, num=nSamples)
+  f = np.linspace(0.0, fs/2.0, sample_size//2)
+  f2 = np.linspace(-fs/2, fs/2, sample_size)
+  fmel = np.linspace(0,num_mel_bins,num_mel_bins)
+  frames = np.arange(mcu_dct.shape[0])
+  melbin = np.arange(mcu_dct.shape[1])
+
+  fig = plt.figure(constrained_layout=True)
+  gs = fig.add_gridspec(3, 2)
+
+  ax = fig.add_subplot(gs[0, :])
+  ax.plot(t, y, label='y')
+  ax.grid(True)
+  ax.legend()
+  ax.set_title('input: '+fname)
+  ax.set_xlabel('time [s]')
+  ax.set_ylabel('amplitude')
+
+  vmin = 0
+  vmax = 0.1e6
+  ax = fig.add_subplot(gs[1, 0])
+  c = ax.pcolor(frames, f, host_spec.T, cmap='PuBu', vmin=vmin, vmax=vmax)
+  ax.grid(True)
+  ax.set_title('host spectrogram')
+  ax.set_xlabel('frame')
+  ax.set_ylabel('frequency [Hz]')
+  fig.colorbar(c, ax=ax)
+
+  vmin = 0
+  vmax = 200
+  ax = fig.add_subplot(gs[1, 1])
+  c = ax.pcolor(frames, f, mcu_spec[..., 0:mcu_spec.shape[1]//2].T, cmap='PuBu', vmin=vmin, vmax=vmax)
+  ax.grid(True)
+  ax.set_title('MCU spectrogram')
+  ax.set_xlabel('frame')
+  ax.set_ylabel('frequency [Hz]')
+  fig.colorbar(c, ax=ax)
+
+  vmin = host_dct.min()
+  vmax = 20
+  ax = fig.add_subplot(gs[2, 0])
+  c = ax.pcolor(frames, melbin, host_dct.T, cmap='PuBu', vmin=vmin, vmax=vmax)
+  ax.grid(True)
+  ax.set_title('host MFCC')
+  ax.set_xlabel('frame')
+  ax.set_ylabel('Mel bin')
+  fig.colorbar(c, ax=ax)
+
+  vmin = mcu_dct.min()
+  vmax = mcu_dct.max()
+  ax = fig.add_subplot(gs[2, 1])
+  c = ax.pcolor(frames, melbin, mcu_dct.T, cmap='PuBu', vmin=vmin, vmax=vmax)
+  ax.grid(True)
+  ax.set_title('MCU MFCC')
+  ax.set_xlabel('frame')
+  ax.set_ylabel('Mel bin')
+  fig.colorbar(c, ax=ax)
+
+  return fig
 
 ######################################################################
-# main
+# single
 ######################################################################
+if mode == 'single':
+  # Create synthetic sample
+  fs = sample_rate
+  t = np.linspace(0,sample_size/fs, sample_size)
+  y = np.array(1000*np.cos(2*np.pi*(fs/16)*t)+500*np.cos(2*np.pi*(fs/128)*t), dtype='int16')
+  # y = np.array((2**15-1)*np.cos(2*np.pi*(fs/80)*t), dtype='int16') # saturating
+  # y = np.array((2**15-1)*np.cos(2*np.pi*(0)*t), dtype='int16')
+  # y = np.array((2**15-1)*np.cos(2*np.pi*(2*fs/1024)*t), dtype='int16')
 
-# calcCConstants()
-# exit()
+  # natural sample
+  in_fs, in_data = wavfile.read('data/hey_short_16k.wav')
+  in_data = np.pad(in_data, (0,sample_size-in_data.shape[0]), 'constant', constant_values=(4, 6))
+  y = in_data
 
-# Create synthetic sample
-fs = sample_rate
-t = np.linspace(0,sample_size/fs, sample_size)
-y = np.array(1000*np.cos(2*np.pi*(fs/16)*t)+500*np.cos(2*np.pi*(fs/128)*t), dtype='int16')
-# y = np.array((2**15-1)*np.cos(2*np.pi*(fs/80)*t), dtype='int16') # saturating
-# y = np.array((2**15-1)*np.cos(2*np.pi*(0)*t), dtype='int16')
-# y = np.array((2**15-1)*np.cos(2*np.pi*(2*fs/1024)*t), dtype='int16')
+  if not from_files:
+    # Exchange some data
+    if mcu.sendCommand('mel_one_batch') < 0:
+      exit()
 
-# natural sample
-in_fs, in_data = wavfile.read('data/hey_short_16k.wav')
-in_data = np.pad(in_data, (0,sample_size-in_data.shape[0]), 'constant', constant_values=(4, 6))
-y = in_data
+    print('Upload sample')
+    mcu.sendData(y, 0)
 
-if not from_files:
-  # Exchange some data
-  if mcu.sendCommand('mel_one_batch') < 0:
+    print('Download samples')
+    mcu_fft, tag = mcu.receiveData()
+    print('Received %s type with tag 0x%x len %d' % (mcu_fft.dtype, tag, mcu_fft.shape[0]))
+    mcu_spec, tag = mcu.receiveData()
+    print('Received %s type with tag 0x%x len %d' % (mcu_spec.dtype, tag, mcu_fft.shape[0]))
+    mcu_melspec, tag = mcu.receiveData()
+    print('Received %s type with tag 0x%x len %d' % (mcu_melspec.dtype, tag, mcu_melspec.shape[0]))
+    # mcu_melspec_manual, tag = mcu.receiveData()
+    # print('Received %s type with tag 0x%x len %d' % (mcu_melspec_manual.dtype, tag, mcu_melspec_manual.shape[0]))
+    mcu_dct, tag = mcu.receiveData()
+    print('Received %s type with tag 0x%x len %d' % (mcu_dct.dtype, tag, mcu_dct.shape[0]))
+
+    # store this valuable data!
+    import pathlib
+    pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
+    np.save(cache_dir+'/mcu_fft.npy', mcu_fft)
+    np.save(cache_dir+'/mcu_spec.npy', mcu_spec)
+    np.save(cache_dir+'/mcu_melspec.npy', mcu_melspec)
+    np.save(cache_dir+'/mcu_dct.npy', mcu_dct)
+
+  else:
+    mcu_fft = np.load(cache_dir+'/mcu_fft.npy')
+    mcu_spec = np.load(cache_dir+'/mcu_spec.npy')
+    mcu_melspec = np.load(cache_dir+'/mcu_melspec.npy')
+    mcu_dct = np.load(cache_dir+'/mcu_dct.npy')
+
+
+  ######################################################################
+  # Same calculations on host
+  # compensate same bit shift as on MCU
+  host_fft = np.fft.fft(y)
+  host_spec = np.abs(host_fft)
+  mel_mtx = mfu.gen_mel_weight_matrix(num_mel_bins=num_mel_bins, num_spectrogram_bins=num_spectrogram_bins, sample_rate=sample_rate, \
+      lower_edge_hertz=lower_edge_hertz, upper_edge_hertz=upper_edge_hertz)
+  mel_mtx_s16 = np.array(mel_mtx_scale*mel_mtx, dtype='int16')
+  host_melspec = host_spec[:(sample_size//2)+1].dot(mel_mtx_s16)
+  host_dct = dct(host_melspec, type=2)
+  host_dct_makhoul, host_dct_reorder, host_dct_fft = mfu.dct2Makhoul(host_melspec)
+
+  ######################################################################
+  # Print some facts
+  scale = np.real(host_fft).max()/mcu_fft[0::2].max()
+  print('host/mcu fft scale %f' % (scale) )
+  host_fft = host_fft * 1/scale
+  scale = host_spec.max()/mcu_spec.max()
+  print('host/mcu spectrum scale %f' % (scale) )
+  host_spec = host_spec * 1/scale
+  scale = host_melspec.max()/mcu_melspec.max()
+  print('host/mcu mel spectrum scale %f' % (scale) )
+  host_melspec = host_melspec * 1/scale
+  scale = host_dct.max()/mcu_dct.max()
+  print('host/mcu dct scale %f' % (scale) )
+  host_dct = host_dct * 1/scale
+  host_dct_makhoul = host_dct_makhoul * 1/scale
+  host_dct_reorder = host_dct_reorder * 1/scale
+  host_dct_fft = host_dct_fft * 1/scale
+
+
+
+  ######################################################################
+  # plot
+
+  fig = plotCompare()
+  plt.show()
+
+######################################################################
+# Calculate C constants
+######################################################################
+if mode == 'calc':
+  calcCConstants()
+
+######################################################################
+# File
+######################################################################
+if mode == 'file':
+  if len(sys.argv) < 3:
+    print('Specify input file')
     exit()
+  fname = sys.argv[2]
+  from_files = 1 if len(sys.argv) > 3 else 0
+  print('Working with %s' % (fname))
 
-  print('Upload sample')
-  mcu.sendData(y, 0)
+  # Read data
+  in_fs, in_data = wavfile.read(fname)
+  in_data = np.array(in_data)
+  y = in_data
 
-  print('Download samples')
-  mcu_fft, tag = mcu.receiveData()
-  print('Received %s type with tag 0x%x len %d' % (mcu_fft.dtype, tag, mcu_fft.shape[0]))
-  mcu_spec, tag = mcu.receiveData()
-  print('Received %s type with tag 0x%x len %d' % (mcu_spec.dtype, tag, mcu_fft.shape[0]))
-  mcu_melspec, tag = mcu.receiveData()
-  print('Received %s type with tag 0x%x len %d' % (mcu_melspec.dtype, tag, mcu_melspec.shape[0]))
-  # mcu_melspec_manual, tag = mcu.receiveData()
-  # print('Received %s type with tag 0x%x len %d' % (mcu_melspec_manual.dtype, tag, mcu_melspec_manual.shape[0]))
-  mcu_dct, tag = mcu.receiveData()
-  print('Received %s type with tag 0x%x len %d' % (mcu_dct.dtype, tag, mcu_dct.shape[0]))
+  # Set MFCC settings
+  fs = in_fs
+  nSamples = len(in_data)
+  frame_len = sample_size
+  frame_step = 1024
+  frame_count = 0 # 0 for auto
+  fft_len = sample_size
 
-  # store this valuable data!
-  import pathlib
-  pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
-  np.save(cache_dir+'/mcu_fft.npy', mcu_fft)
-  np.save(cache_dir+'/mcu_spec.npy', mcu_spec)
-  np.save(cache_dir+'/mcu_melspec.npy', mcu_melspec)
-  np.save(cache_dir+'/mcu_dct.npy', mcu_dct)
+  # Some info
+  print("Frame length in seconds = %.3fs" % (frame_len/fs))
+  print("Number of input samples = %d" % (nSamples))
 
-else:
-  mcu_fft = np.load(cache_dir+'/mcu_fft.npy')
-  mcu_spec = np.load(cache_dir+'/mcu_spec.npy')
-  mcu_melspec = np.load(cache_dir+'/mcu_melspec.npy')
-  mcu_dct = np.load(cache_dir+'/mcu_dct.npy')
+  # calculate mfcc
+  o_mfcc = mfu.mfcc(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, num_mel_bins, lower_edge_hertz, upper_edge_hertz)
 
+  host_fft = np.array([x['fft'] for x in o_mfcc])
+  host_spec = np.array([x['spectrogram'] for x in o_mfcc])
+  host_melspec = np.array([x['mel_spectrogram'] for x in o_mfcc])
+  host_dct = np.array([x['mfcc'] for x in o_mfcc])
 
-######################################################################
-# Same calculations on host
-# compensate same bit shift as on MCU
-host_fft = np.fft.fft(y)
-host_spec = np.abs(host_fft)
-mel_mtx = mfu.gen_mel_weight_matrix(num_mel_bins=num_mel_bins, num_spectrogram_bins=num_spectrogram_bins, sample_rate=sample_rate, \
-    lower_edge_hertz=lower_edge_hertz, upper_edge_hertz=upper_edge_hertz)
-mel_mtx_s16 = np.array(mel_mtx_scale*mel_mtx, dtype='int16')
-host_melspec = host_spec[:(sample_size//2)+1].dot(mel_mtx_s16)
-host_dct = dct(host_melspec, type=2)
-host_dct_makhoul, host_dct_reorder, host_dct_fft = mfu.dct2Makhoul(host_melspec)
+  # calculate on MCU
+  frames = mfu.frames(in_data, frame_length=sample_size, frame_step=frame_step)
+  mcu_fft = []
+  mcu_spec = []
+  mcu_melspec = []
+  mcu_dct = []
+  frame_ctr = 0
+  print('Running on MCU')
+  from tqdm import tqdm
+  if not from_files:
+    for frame in tqdm(frames):
+      yf = np.array(frame, dtype='int16')
+      # Exchange some data
+      if mcu.sendCommand('mel_one_batch') < 0:
+        exit()
+      # print('Upload sample')
+      mcu.sendData(yf, 0, progress=False)
+      # print('Download samples')
+      dat, tag = mcu.receiveData()
+      mcu_fft.append(dat)
+      # print('Received %s type with tag 0x%x len %d' % (dat.dtype, tag, dat.shape[0]))
+      dat, tag = mcu.receiveData()
+      mcu_spec.append(dat)
+      # print('Received %s type with tag 0x%x len %d' % (dat.dtype, tag, dat.shape[0]))
+      dat, tag = mcu.receiveData()
+      mcu_melspec.append(dat)
+      # print('Received %s type with tag 0x%x len %d' % (dat.dtype, tag, dat.shape[0]))
+      dat, tag = mcu.receiveData()
+      mcu_dct.append(dat)
+      # print('Received %s type with tag 0x%x len %d' % (dat.dtype, tag, dat.shape[0]))
+      frame_ctr += 1
 
-######################################################################
-# Print some facts
-scale = np.real(host_fft).max()/mcu_fft[0::2].max()
-print('host/mcu fft scale %f' % (scale) )
-host_fft = host_fft * 1/scale
-scale = host_spec.max()/mcu_spec.max()
-print('host/mcu spectrum scale %f' % (scale) )
-host_spec = host_spec * 1/scale
-scale = host_melspec.max()/mcu_melspec.max()
-print('host/mcu mel spectrum scale %f' % (scale) )
-host_melspec = host_melspec * 1/scale
-scale = host_dct.max()/mcu_dct.max()
-print('host/mcu dct scale %f' % (scale) )
-host_dct = host_dct * 1/scale
-host_dct_makhoul = host_dct_makhoul * 1/scale
-host_dct_reorder = host_dct_reorder * 1/scale
-host_dct_fft = host_dct_fft * 1/scale
+    mcu_fft = np.array(mcu_fft)
+    mcu_spec = np.array(mcu_spec)
+    mcu_melspec = np.array(mcu_melspec)
+    mcu_dct = np.array(mcu_dct)
+    import pathlib
+    pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
+    np.save(cache_dir+'/mcu_fft_file.npy', mcu_fft)
+    np.save(cache_dir+'/mcu_spec_file.npy', mcu_spec)
+    np.save(cache_dir+'/mcu_melspec_file.npy', mcu_melspec)
+    np.save(cache_dir+'/mcu_dct_file.npy', mcu_dct)
 
+  else:
+    mcu_fft = np.load(cache_dir+'/mcu_fft_file.npy')
+    mcu_spec = np.load(cache_dir+'/mcu_spec_file.npy')
+    mcu_melspec = np.load(cache_dir+'/mcu_melspec_file.npy')
+    mcu_dct = np.load(cache_dir+'/mcu_dct_file.npy')
 
-
-######################################################################
-# plot
-
-fig = plotCompare()
-plt.show()
-
+  ######################################################################
+  # plot
+  print(type(mcu_spec[0]))
+  print(mcu_spec.shape)
+  fig = plotFileMode()
+  plt.show()

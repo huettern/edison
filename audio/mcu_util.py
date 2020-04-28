@@ -80,12 +80,13 @@ def waitForBytes(bts, timeout=1000):
     timeout = timeout - 1
   return -1
 
-def serWriteWrap(b):
+def serWriteWrap(b, progress=True):
   """
     wraps the serial write function
   """
   bytes_written = 0
-  pbar = tqdm(total=len(b))
+  if progress:
+    pbar = tqdm(total=len(b))
   while bytes_written != len(b):
     sleep(0.001)
     remaining = len(b) - bytes_written
@@ -94,9 +95,11 @@ def serWriteWrap(b):
     bytes_now = ser.write(chunk)
     bytes_written += bytes_now
     ser.flush()
-    pbar.update(bytes_now)
+    if progress:
+      pbar.update(bytes_now)
     # input("Sent %d, press Enter to send next byte..." % (struct.unpack('<B',chunk)[0]))
-  pbar.close()
+  if progress:
+    pbar.close()
 
 def receiveData():
   """
@@ -187,7 +190,7 @@ def receiveData():
   return ret_data, ret_tag
 
 
-def sendData(data, tag):
+def sendData(data, tag, progress=True):
   """
     Send data, length and type is infered from data
   """
@@ -196,7 +199,8 @@ def sendData(data, tag):
   if data.dtype in fmt_byte_to_dtype:
     fmt_byte = fmt_byte_to_dtype.index(data.dtype) + 0x30
   else:
-    print('Unsupported datatype, aborting')
+    print('FATAL! Unsupported datatype, aborting')
+    return
 
   length = len(data)
   ser.flush()
@@ -225,7 +229,7 @@ def sendData(data, tag):
     element_ctr += 1
 
   # actual send
-  serWriteWrap(send_payload)
+  serWriteWrap(send_payload, progress=progress)
   while(ser.out_waiting):
     ser.flush()
 
@@ -241,7 +245,7 @@ def sendData(data, tag):
       errorstr += ' (CRC error)'
     print(errorstr)
     return
-  print('Transfer acknowledged')
+  # print('Transfer acknowledged')
   
 def sendCommand(cmd_name, args=None):
   """
@@ -264,7 +268,7 @@ def sendCommand(cmd_name, args=None):
     print('Command not accepted (%d), exiting' % ret)
     return -1
   
-  print('Command accepted')
+  # print('Command accepted')
   return 0
 
 
