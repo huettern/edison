@@ -27,6 +27,7 @@ python mfcc_on_mcu.py single
 ![](doc/img/mfcc_on_mcu_single.png)
 
 ### MFCC on audio file
+Working and tested at 6ddbdc4.
 
 ```bash
 python mfcc_on_mcu.py file data/heysnips_true_16k_16b.wav
