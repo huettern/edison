@@ -56,6 +56,8 @@ USR_CSRC = 	$(wildcard src/*.c) \
 						$(wildcard src/hal/*.c) \
 						$(wildcard src/util/*.c) \
 
+USR_ASMSRC = src/startup/startup_stm32l475xx.s
+
 USR_DEFINES = 
 
 #
@@ -72,28 +74,15 @@ BUILD_DIR = build
 
 ##############################################################################
 # CMSIS
-
 CMSIS = src/lib/CMSIS
-
-CMSIS_INC = -I$(CMSIS)/Include \
-						-I$(CMSIS)/Device/ST/STM32L4xx/Include 
-
-CMSIS_ASMSRC = src/startup/startup_stm32l475xx.s \
-						$(CMSIS)/DSP\_Lib/Source/TransformFunctions/arm_bitreversal2.S
-
-CMSIS_CSRC = $(wildcard $(CMSIS)/DSP_Lib/Source/*/*.c)
-# $(wildcard $(CMSIS)/Device/ST/STM32L4xx/Source/Templates/*.c)
-#                 $(wildcard $(CMSIS)/DSP_Lib/Source/*/*.c)
-
-CMSIS_LIB = 
-# $(wildcard $(CMSIS)/Lib/GCC/*.a)
-
+include $(CMSIS)/cmsis.mk
+#
+##############################################################################
 
 ##############################################################################
 # HAL
 HAL = src/lib/stm32f4/drivers/STM32L4xx_HAL_Driver
-HAL_INC = -I$(HAL)/Inc -I$(HAL)/Inc/Legacy 
-HAL_CSRC = $(filter-out $(wildcard $(HAL)/src/*template.c), $(wildcard $(HAL)/src/*.c))
+include $(HAL)/hal.mk
 #
 ##############################################################################
 
@@ -107,7 +96,7 @@ BUILD_DATE  := "$(shell date +%Y-%m-%d\ %H:%M:%S\ %Z)"
 ##############################################################################
 # sources and objects
 CSRC = $(CMSIS_CSRC) $(HAL_CSRC) $(USR_CSRC) $(TEST_CSRC)
-ASMSRC = $(CMSIS_ASMSRC)
+ASMSRC = $(CMSIS_ASMSRC) $(USR_ASMSRC)
 LIBS = $(CMSIS_LIB)
 
 COBJ   = $(patsubst src/%,$(BUILD_DIR)/obj/%,$(CSRC:.c=.o))
@@ -208,10 +197,10 @@ flash: $(BUILD_DIR)/$(TARGET).bin
 	st-flash write $(BUILD_DIR)/$(TARGET).bin 0x8000000
 
 mdebug:
-	echo $(ASMOBJ)
-	echo $(HAL)
-	echo $(HAL_INC)
-	echo $(HAL_CSRC)
+# 	echo $(ASMOBJ)
+	echo $(OBJ)
+# 	echo $(HAL_INC)
+# 	echo $(HAL_CSRC)
 
 #Pull in dependency info for *existing* .o files
 -include $(OBJ:.o=.d)
@@ -219,7 +208,7 @@ mdebug:
 # Linker
 $(BUILD_DIR)/$(TARGET).elf: $(OBJ)
 	@echo "LD\t$(notdir $@)"
-	@$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $(LDFLAGS) $^ -o $@
 	$(SZ) $@
 
 # hex file
@@ -254,9 +243,9 @@ $(BUILD_DIR)/obj/%.o: src/%.s
 	@mkdir -p $(dir $@)
 	@$(AS) $(CFLAGS) -c $< -o $@
 
-build/obj/lib/CMSIS/DSP\_Lib/Source/TransformFunctions/arm_bitreversal2.o:
+$(BUILD_DIR)/obj/%.o: src/%.S
 	@echo "AS\t$(notdir $<)"
 	@mkdir -p $(dir $@)
-	@$(AS) $(CFLAGS) -c src/lib/CMSIS/DSP\_Lib/Source/TransformFunctions/arm_bitreversal2.S -o $@
+	@$(AS) $(CFLAGS) -c $< -o $@
 
 .PHONY: all clean cleaner flash mdebug
