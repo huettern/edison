@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-15 10:59:05
+* @Last Modified time: 2020-04-28 16:23:13
 */
 #include "microphone.h"
 
@@ -70,8 +70,8 @@ const filterSettings_t fs8krs16 = {33, 242, 16, OFFSET_DATA, DFSDM_FILTER_SINC3_
  * Settings
  * ---------------------------------------------------------------------------*/
 #define RAW_BUFFER_SIZE 1000
-#define MIC_8BIT_BUF_SIZE 25000
-#define MIC_16BIT_BUF_SIZE 25000
+#define MIC_8BIT_BUF_SIZE 1000
+#define MIC_16BIT_BUF_SIZE 1000
 
 const filterSettings_t* filterSettings = &fs5k;
 

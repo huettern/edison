@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-23 15:00:59
+# @Last Modified time: 2020-04-28 16:20:09
 
 import sys
 
@@ -207,6 +207,9 @@ y = in_data
 
 if not from_files:
   # Exchange some data
+  if mcu.sendCommand('mel_one_batch') < 0:
+    exit()
+
   print('Upload sample')
   mcu.sendData(y, 0)
 

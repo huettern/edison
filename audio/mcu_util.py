@@ -4,6 +4,7 @@ from time import sleep
 import struct
 import numpy as np
 from tqdm import tqdm
+from enum import Enum
 
 try:
   ser = Serial('/dev/tty.usbmodem1413303', 115200, bytesize=serial.EIGHTBITS,
@@ -24,6 +25,35 @@ fmt_byte_to_nbytes = [1,1,2,2,4,4]
 fmt_byte_to_upack_string = ['<B', '<b', '<H', '<h', '<I', '<i']
 fmt_byte_to_dtype = ['uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32']
 
+# Used for sendCommand
+hif_commands = [
+    {
+      'name': 'version',
+      'cmd_byte': b'0',
+      'argc': 0
+    },
+    {
+      'name': 'mic_sample_processed_manual',
+      'cmd_byte': b'1',
+      'argc': 0
+    },
+    {
+      'name': 'mic_sample',
+      'cmd_byte': b'\0',
+      'argc': 2
+    },
+    {
+      'name': 'mic_sample_preprocessed',
+      'cmd_byte': b'\1',
+      'argc': 3
+    },
+    {
+      'name': 'mel_one_batch',
+      'cmd_byte': b'\2',
+      'argc': 0
+    },
+  ]
+
 def waitForByte(b, timeout=1000):
   """
     wait for byte b to be received. timeout in ms
@@ -33,6 +63,19 @@ def waitForByte(b, timeout=1000):
       c = ser.read(1)
       if c == b:
         return 0
+    sleep(0.001)
+    timeout = timeout - 1
+  return -1
+
+def waitForBytes(bts, timeout=1000):
+  """
+    wait for any byte in bts to be received. timeout in ms
+  """
+  while(timeout):
+    if ser.in_waiting:
+      c = ser.read(1)
+      if c in bts:
+        return c
     sleep(0.001)
     timeout = timeout - 1
   return -1
@@ -191,11 +234,39 @@ def sendData(data, tag):
 
   # Read ack
   timeout = 500
-  if waitForByte(b'^') < 0:
-    print('Error: Transfer not acknowledged!')
+  ret = waitForBytes([b'^', b'C'])
+  if ret != b'^':
+    errorstr = 'Error: Transfer not acknowledged'
+    if ret == b'C':
+      errorstr += ' (CRC error)'
+    print(errorstr)
     return
   print('Transfer acknowledged')
   
+def sendCommand(cmd_name, args=None):
+  """
+    Send a command to the MCU. cmd_name should be in hif_commands
+  """
+
+  for cmd in hif_commands:
+    if cmd['name'] == cmd_name:
+      command = cmd
+
+  ser.flush()
+  ser.write(command['cmd_byte']) # command byte
+
+  if args:
+    ser.write(args) # number of samples
+
+  # poll for command status
+  ret = waitForBytes([b'\0', b'\1', b'\2'])
+  if ret != b'\0':
+    print('Command not accepted (%d), exiting' % ret)
+    return -1
+  
+  print('Command accepted')
+  return 0
+
 
 def pingtest():
 

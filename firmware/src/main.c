@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-21 17:44:03
+* @Last Modified time: 2020-04-28 16:07:50
 */
 
 #include "main.h"
@@ -75,16 +75,16 @@ int main(void)
              verProgName, verVersion,
              verBuildDate, verGitSha);
   micInit();
+  audioInit();
 
 
-  // while(1)
-  // {
-  //   hifRun();
-  // }
+  while(1)
+  {
+    hifRun();
+  }
 
   /* TESTS --------------------------------------------------------*/
-  audioInit();
-  audioDevelop();
+  // audioDevelop();
 
   /* Host interface --------------------------------------------------------*/
 

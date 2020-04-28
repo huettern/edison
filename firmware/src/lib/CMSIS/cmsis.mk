@@ -18,6 +18,8 @@ CMSIS_CSRC = \
 	$(CMSIS)/DSP_Lib/Source/CommonTables/arm_const_structs.c \
 	$(CMSIS)/DSP_Lib/Source/CommonTables/arm_common_tables.c \
 	$(CMSIS)/DSP_Lib/Source/FastMathFunctions/arm_sqrt_q31.c \
+	$(CMSIS)/DSP_Lib/Source/StatisticsFunctions/arm_min_q31.c \
+	$(CMSIS)/DSP_Lib/Source/StatisticsFunctions/arm_max_q31.c \
 
 # 	$(CMSIS)/DSP_Lib/Source/MatrixFunctions/arm_mat_sub_q31.c \
 # 	$(CMSIS)/DSP_Lib/Source/MatrixFunctions/arm_mat_add_f32.c \

@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-20 20:31:15
+* @Last Modified time: 2020-04-28 16:42:36
 */
 
 #include "hostinterface.h"
@@ -37,6 +37,7 @@ typedef enum
   CMD_MIC_SAMPLE_PREPROCESSED_MANUAL = '1',
   CMD_MIC_SAMPLE = 0x0,
   CMD_MIC_SAMPLE_PREPROCESSED = 0x1,
+  CMD_MEL_ONE_BATCH = 0x2,
 } hostCommandIDs_t;
 
 typedef struct 
@@ -71,7 +72,8 @@ static const hostCommands_t commands [] = {
   {CMD_VERSION, 0},
   {CMD_MIC_SAMPLE, 2},
   {CMD_MIC_SAMPLE_PREPROCESSED, 3},
-  {CMD_MIC_SAMPLE_PREPROCESSED_MANUAL, 0}
+  {CMD_MIC_SAMPLE_PREPROCESSED_MANUAL, 0},
+  {CMD_MEL_ONE_BATCH, 0}
 };
 
 static const uint8_t fmtToNbytes[] = {1,1,2,2,4,4};
@@ -214,7 +216,8 @@ void hiSendS32(int32_t * data, uint32_t len, uint8_t tag)
  */
 uint32_t hiReceive(void * data, uint32_t maxlen, hiDataFormat_t fmt, uint8_t * tag)
 {
-  uint32_t nBytes, length, crc_in, crc_out;
+  uint32_t nBytes, length;
+  uint16_t crc_in, crc_out;
   uint8_t tmp[7]; 
   hiDataFormat_t inFmt;
 
@@ -254,7 +257,10 @@ uint32_t hiReceive(void * data, uint32_t maxlen, hiDataFormat_t fmt, uint8_t * t
   // 
   if(crc_in != crc_out)
   {
-    printf("crc in %d crc out %d\n", crc_in, crc_out);
+    // printf("crc in %d crc out %d\n", crc_in, crc_out);
+    // printf("CRCFAIL", crc_in, crc_out);
+    tmp[0] = 'C';
+    HAL_UART_Transmit(&huart1, (uint8_t*)tmp, 1, HAL_MAX_DELAY);
     return 0;
   } 
 
@@ -296,8 +302,13 @@ static void runCommand(const hostCommands_t* cmd, uint8_t* args)
       u16 = args[1]<<8 | args[2];
       // call
       micHostSampleRequestPreprocessed(u16, u8);
+      break;
     case CMD_MIC_SAMPLE_PREPROCESSED_MANUAL:
       micHostSampleRequestPreprocessed(10, 16);
+      break;
+    case CMD_MEL_ONE_BATCH:
+      audioMELSingleBatch();
+      break;
     default:
       // invalid command
       return;

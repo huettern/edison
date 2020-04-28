@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-23 14:57:35
+* @Last Modified time: 2020-04-28 16:32:43
 */
 #include "audioprocessing.h"
 
@@ -44,6 +44,12 @@ static arm_rfft_instance_q15 rfft_q15_i;
 
 static dct2_instance_q15 dct2_q15_i;
 static arm_rfft_instance_q15 dct2_rfft_q15_i;
+
+/**
+ * Input and output
+ */
+static q15_t in_frame[MEL_SAMPLE_SIZE];
+static q15_t out_mfcc[MEL_N_MEL_BINS];
 
 /**
  * Room for FFT and spectrogram
@@ -175,8 +181,6 @@ void audioDumpToHost(void)
  */
 void audioDevelop(void)
 {
-  static q15_t in_frame[MEL_SAMPLE_SIZE];
-  static q15_t out_mfcc[MEL_N_MEL_BINS];
   uint32_t len;
   uint8_t tag;
 
@@ -188,6 +192,22 @@ void audioDevelop(void)
 
     audioDumpToHost();
   }
+}
+
+/**
+ * @brief Runs single batch MEL coefficient calcualtion with host interface
+ * @details 
+ */
+void audioMELSingleBatch(void)
+{
+  uint32_t len;
+  uint8_t tag;
+
+  len = hiReceive((void *)in_frame, 2*MEL_SAMPLE_SIZE, DATA_FORMAT_S16, &tag);
+
+  audioCalcMFCCs(in_frame, out_mfcc);
+
+  audioDumpToHost();
 }
 
 /*------------------------------------------------------------------------------
