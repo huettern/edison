@@ -73,7 +73,7 @@ BUILD_DIR = build
 ##############################################################################
 # CMSIS
 
-CMSIS = lib/CMSIS
+CMSIS = src/lib/CMSIS
 
 CMSIS_INC = -I$(CMSIS)/Include \
 						-I$(CMSIS)/Device/ST/STM32L4xx/Include 
@@ -91,7 +91,7 @@ CMSIS_LIB =
 
 ##############################################################################
 # HAL
-HAL = lib/stm32f4/drivers/STM32L4xx_HAL_Driver
+HAL = src/lib/stm32f4/drivers/STM32L4xx_HAL_Driver
 HAL_INC = -I$(HAL)/Inc -I$(HAL)/Inc/Legacy 
 HAL_CSRC = $(filter-out $(wildcard $(HAL)/src/*template.c), $(wildcard $(HAL)/src/*.c))
 #
@@ -215,46 +215,45 @@ mdebug:
 
 # Linker
 $(BUILD_DIR)/$(TARGET).elf: $(OBJ)
-	which $(CC)
-	echo "LD\t$(notdir $@)"
-	$(CC) $(LDFLAGS) $^ -o $@
+	@echo "LD\t$(notdir $@)"
+	@$(CC) $(LDFLAGS) $^ -o $@
 	$(SZ) $@
 
 # hex file
 $(BUILD_DIR)/$(TARGET).hex: $(BUILD_DIR)/$(TARGET).elf
-	echo "HEX\t$(notdir $@)"
-	$(HEX) $< $@
+	@echo "HEX\t$(notdir $@)"
+	@$(HEX) $< $@
 
 # binary file
 $(BUILD_DIR)/$(TARGET).bin: $(BUILD_DIR)/$(TARGET).elf
-	echo "BIN\t$(notdir $@)"
-	$(BIN) $< $@  
+	@echo "BIN\t$(notdir $@)"
+	@$(BIN) $< $@  
 
 # c compiler
 $(BUILD_DIR)/obj/%.o: src/%.c
-	echo "CC\t$(notdir $<)"
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
-	# deps
-	$(CC) $(CFLAGS) $(INC) -MM src/$*.c > $(BUILD_DIR)/obj/$*.d
-	cp -f $(BUILD_DIR)/obj/$*.d $(BUILD_DIR)/obj/$*.d.tmp
-	sed -e 's|.*:|$(BUILD_DIR)/obj/$*.o:|' < $(BUILD_DIR)/obj/$*.d.tmp > $(BUILD_DIR)/obj/$*.d
-	sed -e 's/.*://' -e 's/\\$$//' < $(BUILD_DIR)/obj/$*.d.tmp | fmt -1 | sed -e 's/^ *//' -e 's/$$/:/' >> $(BUILD_DIR)/obj/$*.d
-	rm -f $(BUILD_DIR)/obj/$*.d.tmp
+	@echo "CC\t$(notdir $<)"
+	@mkdir -p $(dir $@)
+	@$(CC) $(CFLAGS) -c $< -o $@
+	@# deps
+	@$(CC) $(CFLAGS) $(INC) -MM src/$*.c > $(BUILD_DIR)/obj/$*.d
+	@cp -f $(BUILD_DIR)/obj/$*.d $(BUILD_DIR)/obj/$*.d.tmp
+	@sed -e 's|.*:|$(BUILD_DIR)/obj/$*.o:|' < $(BUILD_DIR)/obj/$*.d.tmp > $(BUILD_DIR)/obj/$*.d
+	@sed -e 's/.*://' -e 's/\\$$//' < $(BUILD_DIR)/obj/$*.d.tmp | fmt -1 | sed -e 's/^ *//' -e 's/$$/:/' >> $(BUILD_DIR)/obj/$*.d
+	@rm -f $(BUILD_DIR)/obj/$*.d.tmp
 ifdef GEN_LST
-		$(CC) -S -fverbose-asm $(CFLAGS) -w -o $(@:.o=.s) $<
-		$(ASM) -alhnd $(@:.o=.s) > $(@:.o=.lst)
+		@$(CC) -S -fverbose-asm $(CFLAGS) -w -o $(@:.o=.s) $<
+		@$(ASM) -alhnd $(@:.o=.s) > $(@:.o=.lst)
 endif
 
 # assembler
 $(BUILD_DIR)/obj/%.o: src/%.s
-	echo "AS\t$(notdir $<)"
-	mkdir -p $(dir $@)
-	$(AS) $(CFLAGS) -c $< -o $@
+	@echo "AS\t$(notdir $<)"
+	@mkdir -p $(dir $@)
+	@$(AS) $(CFLAGS) -c $< -o $@
 
-lib/CMSIS/DSP\_Lib/Source/TransformFunctions/arm_bitreversal2.o:
-	echo "AS\t$(notdir $<)"
-	mkdir -p $(dir $@)
-	$(AS) $(CFLAGS) -c lib/CMSIS/DSP\_Lib/Source/TransformFunctions/arm_bitreversal2.S -o $@
+build/obj/lib/CMSIS/DSP\_Lib/Source/TransformFunctions/arm_bitreversal2.o:
+	@echo "AS\t$(notdir $<)"
+	@mkdir -p $(dir $@)
+	@$(AS) $(CFLAGS) -c src/lib/CMSIS/DSP\_Lib/Source/TransformFunctions/arm_bitreversal2.S -o $@
 
 .PHONY: all clean cleaner flash mdebug
