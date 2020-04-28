@@ -2,9 +2,16 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-28 16:20:09
+# @Last Modified time: 2020-04-28 16:48:59
 
 import sys
+
+if len(sys.argv) < 2:
+  print('Usage:')
+  print('  mfcc_on_mcu.py <mode> [from file ]')
+  print('    Modes:')
+  print('    single      Run MFCC on single frame')
+  exit()
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,7 +24,10 @@ import mcu_util as mcu
 fname = '.cache/mel_constants.h'
 cache_dir = '.cache/mfcc_mcu'
 from_files = 0
-from_files = 1 if len(sys.argv) > 1 else from_files
+
+mode = sys.argv[1]
+
+from_files = 1 if len(sys.argv) > 2 else from_files
 
 # costant frame size
 sample_size = 1024#1024
