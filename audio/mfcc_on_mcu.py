@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-28 20:37:21
+# @Last Modified time: 2020-04-28 20:40:04
 
 import sys
 
@@ -320,7 +320,7 @@ if mode == 'single':
   host_dct = dct(host_melspec, type=2)
   host_dct_makhoul, host_dct_reorder, host_dct_fft = mfu.dct2Makhoul(host_melspec)
 
-  o_mfcc = mfu.mfcc_mcu([y], fs, nSamples=1024, frame_len=1024, frame_step=1024, 
+  o_mfcc = mfu.mfcc_mcu(y, fs, nSamples=1024, frame_len=1024, frame_step=1024, 
     frame_count=1, fft_len=1024, mel_nbins=num_mel_bins, 
     mel_lower_hz=lower_edge_hertz, mel_upper_hz=upper_edge_hertz, mel_mtx_scale=mel_mtx_scale)
 
