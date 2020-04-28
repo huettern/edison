@@ -31,3 +31,5 @@ python mfcc_on_mcu.py single
 ```bash
 python mfcc_on_mcu.py file data/heysnips_true_16k_16b.wav
 ```
+
+![](doc/img/mfcc_snips.png)

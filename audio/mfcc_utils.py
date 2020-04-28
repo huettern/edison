@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:23:59
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-28 20:28:09
+# @Last Modified time: 2020-04-28 20:31:31
 
 import numpy as np
 from scipy.fftpack import dct
@@ -285,7 +285,7 @@ def mfcc_mcu(data, \
     # print("frame %d start %f end %f"%(frame_ctr, frame['t_start'],frame['t_end']))
 
     # get chunk of data
-    chunk = np.array(data[frame_ctr*frame_step : frame_ctr*frame_step+frame_len])[0,:]
+    chunk = np.array(data[frame_ctr*frame_step : frame_ctr*frame_step+frame_len])
     sample_size = chunk.shape[0]
 
     # calculate FFT

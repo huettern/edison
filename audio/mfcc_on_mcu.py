@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-28 20:29:35
+# @Last Modified time: 2020-04-28 20:37:21
 
 import sys
 
@@ -46,6 +46,8 @@ upper_edge_hertz = 7600.0
 mel_mtx_scale = 128
 # convert to int16 after scaling up of twiddle factors for fast DCT2
 mel_twiddle_scale = 128
+# the first num_mfcc MFCC are plotted that are used later for training
+num_mfcc = 13
 
 ######################################################################
 # functions
@@ -203,7 +205,7 @@ def plotFileMode():
   f2 = np.linspace(-fs/2, fs/2, sample_size)
   fmel = np.linspace(0,num_mel_bins,num_mel_bins)
   frames = np.arange(mcu_dct.shape[0])
-  melbin = np.arange(mcu_dct.shape[1])
+  melbin = np.arange(num_mfcc)
 
   fig = plt.figure(constrained_layout=True)
   gs = fig.add_gridspec(3, 2)
@@ -226,8 +228,6 @@ def plotFileMode():
   ax.set_ylabel('frequency [Hz]')
   fig.colorbar(c, ax=ax)
 
-  vmin = 0
-  vmax = 200
   ax = fig.add_subplot(gs[1, 1])
   c = ax.pcolor(frames, f, mcu_spec[..., 0:mcu_spec.shape[1]//2].T, cmap='PuBu', vmin=vmin, vmax=vmax)
   ax.grid(True)
@@ -236,20 +236,18 @@ def plotFileMode():
   ax.set_ylabel('frequency [Hz]')
   fig.colorbar(c, ax=ax)
 
-  vmin = host_dct.min()
-  vmax = host_dct.max()
+  vmin = mcu_dct.min()
+  vmax = mcu_dct.max()
   ax = fig.add_subplot(gs[2, 0])
-  c = ax.pcolor(frames, melbin, host_dct.T, cmap='PuBu', vmin=vmin, vmax=vmax)
+  c = ax.pcolor(frames, melbin, host_dct[...,:num_mfcc].T, cmap='PuBu', vmin=vmin, vmax=vmax)
   ax.grid(True)
   ax.set_title('host MFCC')
   ax.set_xlabel('frame')
   ax.set_ylabel('Mel bin')
   fig.colorbar(c, ax=ax)
 
-  vmin = mcu_dct.min()
-  vmax = mcu_dct.max()
   ax = fig.add_subplot(gs[2, 1])
-  c = ax.pcolor(frames, melbin, mcu_dct.T, cmap='PuBu', vmin=vmin, vmax=vmax)
+  c = ax.pcolor(frames, melbin, mcu_dct[...,:num_mfcc].T, cmap='PuBu', vmin=vmin, vmax=vmax)
   ax.grid(True)
   ax.set_title('MCU MFCC')
   ax.set_xlabel('frame')
@@ -386,12 +384,13 @@ if mode == 'file':
   print("Number of input samples = %d" % (nSamples))
 
   # calculate mfcc
-  o_mfcc = mfu.mfcc(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, num_mel_bins, lower_edge_hertz, upper_edge_hertz)
+  o_mfcc = mfu.mfcc_mcu(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+    num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
 
-  host_fft = np.array([x['fft'] for x in o_mfcc])
-  host_spec = 1.0/(np.sqrt(2)*1024)*np.array([x['spectrogram'] for x in o_mfcc])
-  host_melspec = 1.0/(np.sqrt(2)*1024*64)*np.array([x['mel_spectrogram'] for x in o_mfcc])
-  host_dct = np.pi*np.array([x['mfcc'] for x in o_mfcc])
+  host_fft = np.array([x['fft'][:sample_size//2] for x in o_mfcc])[:sample_size]
+  host_spec = np.array([x['spectrogram'][:sample_size//2] for x in o_mfcc])
+  host_melspec = np.array([x['mel_spectrogram'][:sample_size//2] for x in o_mfcc])
+  host_dct = np.array([x['mfcc'] for x in o_mfcc])
 
   # calculate on MCU
   frames = mfu.frames(in_data, frame_length=sample_size, frame_step=frame_step)
