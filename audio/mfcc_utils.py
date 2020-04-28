@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:23:59
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-28 20:31:31
+# @Last Modified time: 2020-04-28 21:09:22
 
 import numpy as np
 from scipy.fftpack import dct
@@ -273,7 +273,7 @@ def mfcc_mcu(data, \
 
   if frame_count == 0:
     frame_count = 1 + (nSamples - frame_len) // frame_step
-  print("Running mfcc for %d frames with %d step" % (frame_count, frame_step))
+  # print("Running mfcc for %d frames with %d step" % (frame_count, frame_step))
   # will return a list with a dict for each frame
   output = []
 

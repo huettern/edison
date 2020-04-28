@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-20 10:42:05
+# @Last Modified time: 2020-04-28 21:21:10
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -10,6 +10,7 @@ import keras
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 import numpy as np
+import matplotlib.pyplot as plt
 import os
 import pathlib
 import librosa
@@ -21,10 +22,28 @@ try:
 except:
   pass
 
-cache_dir = '.cache'
+cache_dir = '.cache/kws'
 verbose = 1
-trainsize = 1000
-testsize = 100
+
+# Limit in number of samples to take. make sure the correct wav files are present!
+trainsize = 10#1000
+testsize = 10#100
+
+# cut/padd each sample to that many seconds
+sample_len_seconds = 4.0
+
+# MFCC settings
+fs = 16000.0
+mel_mtx_scale = 128
+lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 32
+frame_length = 1024
+num_mfcc = 13
+nSamples = int(sample_len_seconds*fs)
+frame_len = frame_length
+frame_step = frame_len
+frame_count = 0 # 0 for auto
+fft_len = frame_len
+
 
 ##################################################
 # Model definition
@@ -34,21 +53,6 @@ def get_model(inp_shape, num_classes):
     Build CNN model
   """
   print("Building model with input shape %s" % (inp_shape, ))
-  # model = Sequential()
-  # model.add(Conv2D(32, kernel_size=(2, 2), activation='relu', input_shape=inp_shape))
-  # model.add(Conv2D(48, kernel_size=(2, 2), activation='relu'))
-  # model.add(Conv2D(120, kernel_size=(2, 2), activation='relu'))
-  # model.add(MaxPooling2D(pool_size=(2, 2)))
-  # model.add(Dropout(0.25))
-  # model.add(Flatten())
-  # model.add(Dense(128, activation='relu'))
-  # model.add(Dropout(0.25))
-  # model.add(Dense(64, activation='relu'))
-  # model.add(Dropout(0.4))
-  # model.add(Dense(num_classes, activation='softmax'))
-  # model.compile(loss='binary_crossentropy',
-  #               optimizer=keras.optimizers.Adam(),
-  #               metrics=['accuracy'])
 
   model = Sequential()
   model.add(Conv2D(4, kernel_size=(3, 3), activation='relu', padding='same', input_shape=inp_shape))
@@ -196,9 +200,9 @@ def load_data3(max_len=11):
 
   except:
     print('Loading data from source using Tensorflow MFCCs')
-    x_train, y_train, x_test, y_test = au.load_snips_data(sample_len=4*16000, trainsize = trainsize, testsize = testsize)
+    x_train, y_train, x_test, y_test = au.load_snips_data(sample_len=int(sample_len_seconds*16000), trainsize = trainsize, testsize = testsize)
 
-    sample_rate = 16000.0
+    fs = 16000.0
     lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 80
     frame_length = 1024
     num_mfcc = 13
@@ -207,14 +211,14 @@ def load_data3(max_len=11):
     spectrograms = tf.reshape(spectrograms, (spectrograms.shape[0],spectrograms.shape[1],-1))
     num_spectrogram_bins = stfts.shape[-1]
     linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
-      num_mel_bins, num_spectrogram_bins, sample_rate, lower_edge_hertz,
+      num_mel_bins, num_spectrogram_bins, fs, lower_edge_hertz,
       upper_edge_hertz)
     mel_spectrograms = tf.tensordot(spectrograms, linear_to_mel_weight_matrix, 1)
     log_mel_spectrograms = tf.math.log(mel_spectrograms + 1e-6)
     mfccs = tf.signal.mfccs_from_log_mel_spectrograms(log_mel_spectrograms)[..., :num_mfcc]
     x_train_mfcc = tf.reshape(mfccs, (mfccs.shape[0],mfccs.shape[1],mfccs.shape[2],-1))
 
-    sample_rate = 16000.0
+    fs = 16000.0
     lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 80
     frame_length = 1024
     num_mfcc = 13
@@ -223,7 +227,7 @@ def load_data3(max_len=11):
     spectrograms = tf.reshape(spectrograms, (spectrograms.shape[0],spectrograms.shape[1],-1))
     num_spectrogram_bins = stfts.shape[-1]
     linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
-      num_mel_bins, num_spectrogram_bins, sample_rate, lower_edge_hertz,
+      num_mel_bins, num_spectrogram_bins, fs, lower_edge_hertz,
       upper_edge_hertz)
     mel_spectrograms = tf.tensordot(spectrograms, linear_to_mel_weight_matrix, 1)
     log_mel_spectrograms = tf.math.log(mel_spectrograms + 1e-6)
@@ -244,13 +248,56 @@ def load_data3(max_len=11):
   # return
   return x_train_mfcc, x_test_mfcc, y_train, y_test
 
+def load_data_mculike():
+  """
+    Load data and compute MFCC with scaled and custom implementation as it is done on the MCU
+  """
+  # if in cache, use it
+  try:
+    x_train_mfcc = np.load(cache_dir+'/x_train_mfcc_mcu.npy')
+    x_test_mfcc = np.load(cache_dir+'/x_test_mfcc_mcu.npy')
+    y_train = np.load(cache_dir+'/y_train_mcu.npy')
+    y_test = np.load(cache_dir+'/y_test_mcu.npy')
+    assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
+    print('Load data from cache success!')
+
+  except:
+    # failed, load from source wave files
+    x_train, y_train, x_test, y_test = au.load_snips_data(sample_len=int(sample_len_seconds*16000), trainsize = trainsize, testsize = testsize)
+
+    # calculate MFCCs of training and test x data
+    o_mfcc_train = []
+    o_mfcc_test = []
+    print('starting mfcc calculation')
+    for data in tqdm(x_train):
+      o_mfcc = mfu.mfcc_mcu(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+        num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
+      o_mfcc_train.append([x['mfcc'] for x in o_mfcc])
+    for data in tqdm(x_test):
+      o_mfcc = mfu.mfcc_mcu(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+        num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
+      o_mfcc_test.append([x['mfcc'] for x in o_mfcc])
+
+    x_train_mfcc = np.array(o_mfcc_train)
+    x_test_mfcc = np.array(o_mfcc_test)
+
+    # store data
+    print('Store mfcc data')
+    pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
+    np.save(cache_dir+'/x_train_mfcc_mcu.npy', x_train_mfcc)
+    np.save(cache_dir+'/x_test_mfcc_mcu.npy', x_test_mfcc)
+    np.save(cache_dir+'/y_train_mcu.npy', y_train)
+    np.save(cache_dir+'/y_test_mcu.npy', y_test)
+
+  # return
+  return x_train_mfcc, x_test_mfcc, y_train, y_test
+
 ##################################################
 # plottery
 def plotInputDifference(mfccs, names):
   """
     Plot different mfcc inputs
   """
-  import matplotlib.pyplot as plt
   from matplotlib import colors
   import matplotlib as mpl
   
@@ -311,6 +358,44 @@ def plotInputDifference(mfccs, names):
   fig.savefig('test2png.png', dpi=100)
   plt.show()
 
+def plotSomeMfcc(x_train, x_test):
+  """
+    Plot a grid of MFCCs to check train and test data
+  """
+  frames = np.arange(x_train.shape[1])
+  melbin = np.arange(num_mfcc)
+
+  fig, axs = plt.subplots(4, 4)
+  fig.set_size_inches(8,8)
+
+  vmin = 0
+  vmax = 1500
+
+  for i in range(8):
+    ax=axs[i//2, i%2]
+    print(i%2)
+    print(i//2)
+    print('---')
+    c = ax.pcolor(frames, melbin, x_train[i,:,:num_mfcc].T, cmap='PuBu', vmin=vmin, vmax=vmax, label=('x_train[%d]' % (i)))
+    ax.grid(True)
+    ax.legend()
+    ax.set_xlabel('frame')
+    ax.set_ylabel('mfcc bin')
+    # fig.colorbar(c, ax=ax)
+
+  for i in range(8):
+    ax=axs[i//2, 2+i%2]
+    print(2+i%2)
+    print(i//2)
+    print('---')
+    c = ax.pcolor(frames, melbin, x_test[i,:,:num_mfcc].T, cmap='PuBu', vmin=vmin, vmax=vmax, label=('x_test[%d]' % (i)))
+    ax.grid(True)
+    ax.legend()
+    ax.set_xlabel('frame')
+    ax.set_ylabel('mfcc bin')
+    # fig.colorbar(c, ax=ax)
+
+  return fig, axs
 
 ##################################################
 # MAIN
@@ -327,7 +412,8 @@ def plotInputDifference(mfccs, names):
 # exit()
 
 
-x_train_mfcc, x_test_mfcc, y_train, y_test = load_data()
+# x_train_mfcc, x_test_mfcc, y_train, y_test = load_data()
+x_train_mfcc, x_test_mfcc, y_train, y_test = load_data_mculike()
 
 assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
 print(x_train_mfcc.shape)
@@ -335,6 +421,10 @@ print(x_test_mfcc.shape)
 print(y_train.shape)
 print(y_test.shape)
 print(y_test)
+
+fig, axs = plotSomeMfcc(x_train_mfcc, x_test_mfcc)
+plt.show()
+exit()
 
 ##################################################
 # Build model
