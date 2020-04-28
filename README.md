@@ -4,6 +4,7 @@
 Build the firmware and follow these instructions to get some data.
 
 ### MFCC Single
+Working and tested at f86859f.
 
 To test a single 1024 element frame of audio data, run in the `audio` directory
 ```bash
