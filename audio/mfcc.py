@@ -11,17 +11,19 @@ import mfcc_utils as mfu
 
 
 # Input wav file to use
-in_wav = 'data/heysnips_true_5k_16b.wav'
+in_wav = 'data/heysnips_true_16k_16b.wav'
 
 
 ######################################################################
 # Plottery
 ######################################################################
-def plotFrame(frame):
+def plotFrame(frame, title=None):
   plt.style.use('seaborn-bright')
   t = np.linspace(0, nSamples/fs, num=nSamples)
-  f = np.linspace(0.0, fs/2.0, fft_len/2)
+  f = np.linspace(0.0, fs/2.0, fft_len//2)
   fig, axs = plt.subplots(2, 2)
+  if title:
+    fig.suptitle(title, fontsize=16)
 
   # Input
   axs[0,0].plot(t, in_data, label='input')
@@ -173,8 +175,8 @@ o_mfcc_tf = mfu.mfcc_tf(in_data, fs, nSamples, frame_len, frame_step, frame_coun
 ##
 # This makes two figures to compare own implementation with tensorflow
 ##
-fig = plotFrame(o_mfcc[10])
+fig = plotFrame(o_mfcc[5], 'Own implementation')
 fig.tight_layout()
-fig = plotFrame(o_mfcc_tf[10])
+fig = plotFrame(o_mfcc_tf[5], 'Tensorflow')
 fig.tight_layout()
 plt.show()
