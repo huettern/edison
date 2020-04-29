@@ -63,6 +63,17 @@ USR_DEFINES =
 #
 ##############################################################################
 
+
+##############################################################################
+# CubeAI network
+CUBEAI_LOCATION=build/cube/tmp
+CUBEAI_NET_NAME=kws
+CUBEAI_INC = -Isrc/lib/ST/AI/Inc -Isrc/ai/cube/$(CUBEAI_NET_NAME)
+CUBEAI_LIB = src/lib/ST/AI/Lib/NetworkRuntime500_CM4_GCC.a
+CUBEAI_SRC = $(wildcard src/ai/cube/$(CUBEAI_NET_NAME)/*.c)
+#
+##############################################################################
+
 ##############################################################################
 # paths
 
@@ -95,9 +106,9 @@ BUILD_DATE  := "$(shell date +%Y-%m-%d\ %H:%M:%S\ %Z)"
 
 ##############################################################################
 # sources and objects
-CSRC = $(CMSIS_CSRC) $(HAL_CSRC) $(USR_CSRC) $(TEST_CSRC)
+CSRC = $(CMSIS_CSRC) $(HAL_CSRC) $(USR_CSRC) $(TEST_CSRC) $(CUBEAI_SRC)
 ASMSRC = $(CMSIS_ASMSRC) $(USR_ASMSRC)
-LIBS = $(CMSIS_LIB)
+LIBS = $(CMSIS_LIB) $(CUBEAI_LIB)
 
 COBJ   = $(patsubst src/%,$(BUILD_DIR)/obj/%,$(CSRC:.c=.o))
 ASMOBJ = $(patsubst src/%,$(BUILD_DIR)/obj/%,$(filter %.o,$(ASMSRC:.s=.o) $(ASMSRC:.S=.o)))
@@ -149,7 +160,7 @@ C_DEFS =  -DGIT_SHA=\"$(GIT_VERSION)\" -DBUILD_DATE=\"$(BUILD_DATE)\"\
 AS_INCLUDES = 
 
 # C includes
-C_INCLUDES =  $(CMSIS_INC) $(HAL_INC) $(USR_INC) $(TEST_INC)
+C_INCLUDES =  $(CMSIS_INC) $(HAL_INC) $(USR_INC) $(TEST_INC) $(CUBEAI_INC)
 
 # compile gcc flags
 INC = $(C_INCLUDES) $(AS_INCLUDES)
@@ -202,6 +213,9 @@ mdebug:
 # 	echo $(HAL_INC)
 # 	echo $(HAL_CSRC)
 
+import-cubeai-net:
+	./scripts/import-cubeai-net.sh $(CUBEAI_LOCATION) $(CUBEAI_NET_NAME) src/lib/ST src/ai/cube/$(CUBEAI_NET_NAME)
+
 #Pull in dependency info for *existing* .o files
 -include $(OBJ:.o=.d)
 
@@ -248,4 +262,4 @@ $(BUILD_DIR)/obj/%.o: src/%.S
 	@mkdir -p $(dir $@)
 	@$(AS) $(CFLAGS) -c $< -o $@
 
-.PHONY: all clean cleaner flash mdebug
+.PHONY: all clean cleaner flash mdebug import-cubeai-net
