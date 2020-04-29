@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-28 16:07:50
+* @Last Modified time: 2020-04-29 22:14:12
 */
 
 #include "main.h"
@@ -55,6 +55,7 @@ int main(void)
   int16_t tmps16[8];
   uint32_t tmpu32[8];
   int32_t tmps32[8];
+  float tmpf32[8];
   
   uint32_t length;
   uint8_t tag;
@@ -144,6 +145,11 @@ int main(void)
   //   printf("Received %d elements with tag %d\n[ ", length, tag);
   //   for(int i = 0; i < length; i++) printf("%d ", tmps32[i]);
   //   printf("]\n");
+
+  //   length = hiReceive(tmpf32, 32, DATA_FORMAT_F32, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%f ", tmpf32[i]);
+  //   printf("]\n");
   // }
 
   /* pont test --------------------------------------------------------*/
@@ -152,60 +158,76 @@ int main(void)
   // {
   //   HAL_Delay(2000);
 
+  //   HAL_Delay(1000);
   //   hiSendU8(tmpu8, 6, 0xee);
 
+  //   HAL_Delay(1000);
   //   hiSendS8(tmps8, 6, 0xee);
 
+  //   HAL_Delay(1000);
   //   hiSendU16(tmpu16, 6, 0xee);
 
+  //   HAL_Delay(1000);
   //   hiSendS16(tmps16, 6, 0xee);
 
+  //   HAL_Delay(1000);
   //   hiSendU32(tmpu32, 6, 0xee);
 
+  //   HAL_Delay(1000);
   //   hiSendS32(tmps32, 6, 0xee);
+
+  //   tmpf32[0]=0.0;tmpf32[1]=-1.2345;tmpf32[2]=9999.987;
+  //   HAL_Delay(1000);
+  //   hiSendF32(tmpf32, 6, 0xee);
   // }
 
 
   /* pingpong test --------------------------------------------------------*/
 
-  while(1)
-  {
-    length = hiReceive(tmpu8, 8, DATA_FORMAT_U8, &tag);
-    printf("Received %d elements with tag %d\n[ ", length, tag);
-    for(int i = 0; i < length; i++) printf("%d ", tmpu8[i]);
-    printf("]\n");
-    hiSendU8(tmpu8, 6, 0xee);
+  // while(1)
+  // {
+  //   length = hiReceive(tmpu8, 8, DATA_FORMAT_U8, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%d ", tmpu8[i]);
+  //   printf("]\n");
+  //   hiSendU8(tmpu8, 6, 0xee);
 
-    length = hiReceive(tmps8, 8, DATA_FORMAT_S8, &tag);
-    printf("Received %d elements with tag %d\n[ ", length, tag);
-    for(int i = 0; i < length; i++) printf("%d ", tmps8[i]);
-    printf("]\n");
-    hiSendS8(tmps8, 6, 0xee);
+  //   length = hiReceive(tmps8, 8, DATA_FORMAT_S8, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%d ", tmps8[i]);
+  //   printf("]\n");
+  //   hiSendS8(tmps8, 6, 0xee);
 
-    length = hiReceive(tmpu16, 16, DATA_FORMAT_U16, &tag);
-    printf("Received %d elements with tag %d\n[ ", length, tag);
-    for(int i = 0; i < length; i++) printf("%d ", tmpu16[i]);
-    printf("]\n");
-    hiSendU16(tmpu16, 6, 0xee);
+  //   length = hiReceive(tmpu16, 16, DATA_FORMAT_U16, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%d ", tmpu16[i]);
+  //   printf("]\n");
+  //   hiSendU16(tmpu16, 6, 0xee);
 
-    length = hiReceive(tmps16, 16, DATA_FORMAT_S16, &tag);
-    printf("Received %d elements with tag %d\n[ ", length, tag);
-    for(int i = 0; i < length; i++) printf("%d ", tmps16[i]);
-    printf("]\n");
-    hiSendS16(tmps16, 6, 0xee);
+  //   length = hiReceive(tmps16, 16, DATA_FORMAT_S16, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%d ", tmps16[i]);
+  //   printf("]\n");
+  //   hiSendS16(tmps16, 6, 0xee);
 
-    length = hiReceive(tmpu32, 32, DATA_FORMAT_U32, &tag);
-    printf("Received %d elements with tag %d\n[ ", length, tag);
-    for(int i = 0; i < length; i++) printf("%u ", tmpu32[i]);
-    printf("]\n");
-    hiSendU32(tmpu32, 6, 0xee);
+  //   length = hiReceive(tmpu32, 32, DATA_FORMAT_U32, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%u ", tmpu32[i]);
+  //   printf("]\n");
+  //   hiSendU32(tmpu32, 6, 0xee);
 
-    length = hiReceive(tmps32, 32, DATA_FORMAT_S32, &tag);
-    printf("Received %d elements with tag %d\n[ ", length, tag);
-    for(int i = 0; i < length; i++) printf("%d ", tmps32[i]);
-    printf("]\n");
-    hiSendS32(tmps32, 6, 0xee);
-  }
+  //   length = hiReceive(tmps32, 32, DATA_FORMAT_S32, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%d ", tmps32[i]);
+  //   printf("]\n");
+  //   hiSendS32(tmps32, 6, 0xee);
+
+  //   length = hiReceive(tmpf32, 32, DATA_FORMAT_S32, &tag);
+  //   printf("Received %d elements with tag %d\n[ ", length, tag);
+  //   for(int i = 0; i < length; i++) printf("%f ", tmpf32[i]);
+  //   printf("]\n");
+  //   hiSendS32(tmpf32, 6, 0xee);
+  // }
 
 
   // micEndlessStream();

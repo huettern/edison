@@ -20,10 +20,10 @@ except SerialException:
 CRC_SEED = 0x1234
 SEND_CHUNK_SIZE = 8
 
-valid_fmt_bytes = [0,1,2,3,4,5]
-fmt_byte_to_nbytes = [1,1,2,2,4,4]
-fmt_byte_to_upack_string = ['<B', '<b', '<H', '<h', '<I', '<i']
-fmt_byte_to_dtype = ['uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32']
+valid_fmt_bytes = [0,1,2,3,4,5,6]
+fmt_byte_to_nbytes = [1,1,2,2,4,4,4]
+fmt_byte_to_upack_string = ['<B', '<b', '<H', '<h', '<I', '<i', '<f']
+fmt_byte_to_dtype = ['uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32', 'float32']
 
 # Used for sendCommand
 hif_commands = [
@@ -221,7 +221,7 @@ def sendData(data, tag, progress=True):
   for element in data:
     # online crc calculation
     for i in range(fmt_byte_to_nbytes[fmt_byte-0x30]):
-      data_byte = (element // (2**(8*i))) & 0xff
+      data_byte=struct.pack(fmt_byte_to_upack_string[fmt_byte-0x30], element)[i]
       crc = np.dtype('uint16').type(crc+data_byte)
     # aassemble byte array to send
     send_payload += struct.pack(fmt_byte_to_upack_string[fmt_byte-0x30], element)
@@ -315,12 +315,21 @@ def pingtest():
   sendData(dat, 6)
   print(ser.readline())
   print(ser.readline())
+  
+  sleep(1)
+  print('--- Transferring float32 -----------------------')
+  dat = np.array([-289.125,-1.05,0.001234,12e9,23e16,32.21], dtype='float32')
+  sendData(dat, 7)
+  print(ser.readline())
+  print(ser.readline())
 
   print('----------------------------------------------')
   print(' ping test passed')
   print('----------------------------------------------')
 
 def pongtest():
+  data, tag = receiveData()
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
   data, tag = receiveData()
   print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
   data, tag = receiveData()
@@ -401,6 +410,15 @@ def pingpongtest():
   print(ser.readline())
   data, tag = receiveData()
   print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
+  
+  sleep(1)
+  print('--- Transferring float32 -----------------------')
+  dat = np.array([-289.125,-1.05,0.001234,12e9,23e16,32.21], dtype='float32')
+  sendData(dat, 6)
+  print(ser.readline())
+  print(ser.readline())
+  data, tag = receiveData()
+  print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
 
 def vecToC(vec, prepad=3):
   """
@@ -434,8 +452,8 @@ def mtxToC (matrix, prepad=3):
 if __name__ == '__main__':
   import sys, os
   try:
-    pingtest()
-    # pongtest()
+    # pingtest()
+    pongtest()
     # pingpongtest()
   except KeyboardInterrupt:
     print('Interrupted')

@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-28 16:42:36
+* @Last Modified time: 2020-04-29 22:10:02
 */
 
 #include "hostinterface.h"
@@ -76,7 +76,7 @@ static const hostCommands_t commands [] = {
   {CMD_MEL_ONE_BATCH, 0}
 };
 
-static const uint8_t fmtToNbytes[] = {1,1,2,2,4,4};
+static const uint8_t fmtToNbytes[] = {1,1,2,2,4,4,4};
 
 /*------------------------------------------------------------------------------
  * Prototypes
@@ -198,6 +198,16 @@ void hiSendS32(int32_t * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, 4*len);
   sendDataTransferHeader(DATA_FORMAT_S32, tag, len);
+  if(waitForByte('a', 1000) < 0) return;
+  HAL_UART_Transmit(&huart1, (uint8_t*)data, 4*len, HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
+  checkSendAck();
+}
+
+void hiSendF32(float * data, uint32_t len, uint8_t tag)
+{
+  uint16_t crc = calcCcrSum((void*)data, 4*len);
+  sendDataTransferHeader(DATA_FORMAT_F32, tag, len);
   if(waitForByte('a', 1000) < 0) return;
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 4*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);

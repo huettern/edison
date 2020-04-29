@@ -17,6 +17,7 @@ typedef enum
   DATA_FORMAT_S16 = '3',
   DATA_FORMAT_U32 = '4',
   DATA_FORMAT_S32 = '5',
+  DATA_FORMAT_F32 = '6',
 } hiDataFormat_t;
 
 void hifRun(void);
@@ -27,5 +28,6 @@ void hiSendU16(uint16_t * data, uint32_t len, uint8_t tag);
 void hiSendS16(int16_t * data, uint32_t len, uint8_t tag);
 void hiSendU32(uint32_t * data, uint32_t len, uint8_t tag);
 void hiSendS32(int32_t * data, uint32_t len, uint8_t tag);
+void hiSendF32(float * data, uint32_t len, uint8_t tag);
 
 uint32_t hiReceive(void * data, uint32_t maxlen, hiDataFormat_t fmt, uint8_t * tag);
