@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-28 21:21:10
+# @Last Modified time: 2020-04-29 20:59:48
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -26,8 +26,12 @@ cache_dir = '.cache/kws'
 verbose = 1
 
 # Limit in number of samples to take. make sure the correct wav files are present!
-trainsize = 10#1000
-testsize = 10#100
+trainsize = 1000
+testsize = 100
+
+# training parameters
+batchSize = 100
+epochs  = 50
 
 # cut/padd each sample to that many seconds
 sample_len_seconds = 4.0
@@ -52,10 +56,10 @@ def get_model(inp_shape, num_classes):
   """
     Build CNN model
   """
-  print("Building model with input shape %s" % (inp_shape, ))
+  print("Building model with input shape %s and %d classes" % (inp_shape, num_classes))
 
   model = Sequential()
-  model.add(Conv2D(4, kernel_size=(3, 3), activation='relu', padding='same', input_shape=inp_shape))
+  model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', padding='same', input_shape=inp_shape))
   model.add(MaxPooling2D(pool_size=(2, 2)))
   model.add(Dropout(0.25))
   model.add(Flatten())
@@ -278,8 +282,9 @@ def load_data_mculike():
         num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
       o_mfcc_test.append([x['mfcc'] for x in o_mfcc])
 
-    x_train_mfcc = np.array(o_mfcc_train)
-    x_test_mfcc = np.array(o_mfcc_test)
+    # add dimension to get (x, y, 1) from to make conv2D input layer happy
+    x_train_mfcc = np.expand_dims(np.array(o_mfcc_train), axis = -1)
+    x_test_mfcc = np.expand_dims(np.array(o_mfcc_test), axis = -1)
 
     # store data
     print('Store mfcc data')
@@ -373,9 +378,6 @@ def plotSomeMfcc(x_train, x_test):
 
   for i in range(8):
     ax=axs[i//2, i%2]
-    print(i%2)
-    print(i//2)
-    print('---')
     c = ax.pcolor(frames, melbin, x_train[i,:,:num_mfcc].T, cmap='PuBu', vmin=vmin, vmax=vmax, label=('x_train[%d]' % (i)))
     ax.grid(True)
     ax.legend()
@@ -385,9 +387,6 @@ def plotSomeMfcc(x_train, x_test):
 
   for i in range(8):
     ax=axs[i//2, 2+i%2]
-    print(2+i%2)
-    print(i//2)
-    print('---')
     c = ax.pcolor(frames, melbin, x_test[i,:,:num_mfcc].T, cmap='PuBu', vmin=vmin, vmax=vmax, label=('x_test[%d]' % (i)))
     ax.grid(True)
     ax.legend()
@@ -416,24 +415,20 @@ def plotSomeMfcc(x_train, x_test):
 x_train_mfcc, x_test_mfcc, y_train, y_test = load_data_mculike()
 
 assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
-print(x_train_mfcc.shape)
-print(x_test_mfcc.shape)
-print(y_train.shape)
-print(y_test.shape)
-print(y_test)
+print('x train shape: ', x_train_mfcc.shape)
+print('x test shape: ', x_test_mfcc.shape)
+print('y train shape: ', y_train.shape)
+print('y test shape: ', y_test.shape)
 
-fig, axs = plotSomeMfcc(x_train_mfcc, x_test_mfcc)
-plt.show()
-exit()
+# fig, axs = plotSomeMfcc(x_train_mfcc, x_test_mfcc)
+# plt.show()
 
 ##################################################
 # Build model
 model = get_model(inp_shape=x_train_mfcc.shape[1:], num_classes = 1)
 model.summary()
-train_set, train_labels, test_set, test_labels = train(model, batchSize = 10, epochs = 100)
-
+train_set, train_labels, test_set, test_labels = train(model, batchSize = batchSize, epochs = epochs)
 model.summary()
-print(x_test_mfcc.shape)
 y_pred = np.rint(model.predict(x_test_mfcc).reshape((-1,))).astype(int)
 
 print('Prediction:')
@@ -441,6 +436,7 @@ print(y_pred)
 print('True:')
 print(y_test)
 
+print('Confusion matrix:')
 print(confusion_matrix(y_test, y_pred))
 # model.evaluate(test_set, y_test)
 model.save(cache_dir+'/mfcc_model.h5')
