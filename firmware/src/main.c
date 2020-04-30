@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-30 13:32:32
+* @Last Modified time: 2020-04-30 13:40:30
 */
 
 #include "main.h"
@@ -82,11 +82,11 @@ int main(void)
   
   // aiInitialize();
   // aiPrintInfo();
-
+#ifdef CUBE_VERIFICATION
   MX_CRC_Init();
   MX_X_CUBE_AI_Init();
-
   while(1) MX_X_CUBE_AI_Process();
+#endif
   
   while(1)
   {
