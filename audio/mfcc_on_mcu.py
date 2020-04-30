@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-28 20:40:04
+# @Last Modified time: 2020-04-30 14:48:17
 
 import sys
 
@@ -19,6 +19,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.fftpack import dct
 from scipy.io import wavfile
+
+import tensorflow as tf
 
 import mfcc_utils as mfu
 import mcu_util as mcu

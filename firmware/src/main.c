@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-30 14:35:16
+* @Last Modified time: 2020-04-30 15:13:31
 */
 
 #include "main.h"
@@ -89,7 +89,7 @@ int main(void)
 
   aiInitialize();
   aiPrintInfo();
-  aiRunInferenceHif(0);
+  // aiRunInferenceHif();
 
   while(1)
   {

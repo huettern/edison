@@ -2,13 +2,15 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-29 22:10:02
+* @Last Modified time: 2020-04-30 15:12:39
 */
 
 #include "hostinterface.h"
 
 #include "version.h"
 #include "microphone.h"
+#include "audioprocessing.h"
+#include "ai.h"
 
 /**
  * Simple host-microcontroller interface. Commands are issued from the host with 
@@ -38,6 +40,7 @@ typedef enum
   CMD_MIC_SAMPLE = 0x0,
   CMD_MIC_SAMPLE_PREPROCESSED = 0x1,
   CMD_MEL_ONE_BATCH = 0x2,
+  CMD_KWS_SINGLE_INFERENCE = 0x03,
 } hostCommandIDs_t;
 
 typedef struct 
@@ -73,7 +76,8 @@ static const hostCommands_t commands [] = {
   {CMD_MIC_SAMPLE, 2},
   {CMD_MIC_SAMPLE_PREPROCESSED, 3},
   {CMD_MIC_SAMPLE_PREPROCESSED_MANUAL, 0},
-  {CMD_MEL_ONE_BATCH, 0}
+  {CMD_MEL_ONE_BATCH, 0},
+  {CMD_KWS_SINGLE_INFERENCE, 0}
 };
 
 static const uint8_t fmtToNbytes[] = {1,1,2,2,4,4,4};
@@ -318,6 +322,9 @@ static void runCommand(const hostCommands_t* cmd, uint8_t* args)
       break;
     case CMD_MEL_ONE_BATCH:
       audioMELSingleBatch();
+      break;
+    case CMD_KWS_SINGLE_INFERENCE:
+      aiRunInferenceHif();
       break;
     default:
       // invalid command

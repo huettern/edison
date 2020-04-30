@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-30 14:35:11
+* @Last Modified time: 2020-04-30 15:19:30
 */
 #include "ai.h"
 
@@ -16,6 +16,7 @@
 #include "cube/kws/aiTestUtility.h"
 
 #include "printf.h"
+#include "hostinterface.h"
 
 /*------------------------------------------------------------------------------
  * Types
@@ -102,15 +103,22 @@ int aiInitialize(void)
  * 
  * @param netId select net ID
  */
-void aiRunInferenceHif(uint8_t netId)
+void aiRunInferenceHif(void)
 {
   int ret;
   float *in_data=NULL, *out_data=NULL;
+  uint32_t len;
+  uint8_t tag;
 
   in_data = malloc(NET_CUBE_KWS_INSIZE_BYTES);
   out_data = malloc(NET_CUBE_KWS_OUTSIZE_BYTES);
 
+  len = hiReceive(in_data, NET_CUBE_KWS_INSIZE_BYTES, DATA_FORMAT_F32, &tag);
+//   printf("Received %d elements with tag %d\n[ ", length, tag);
+
   ret = cubeNetRun((void*)in_data, (void*)out_data);
+
+  hiSendF32(out_data, NET_CUBE_KWS_OUTSIZE, 0x17);
 
   free(in_data);
   free(out_data);
@@ -248,7 +256,7 @@ static void printCubeNetInfo(void)
   }
   else
   {
-    printf("----------------------------------\n");
+    printf("-------------------------------------------------------------\n");
     printf("AI net information\n");
     printf(" name: %s\n", rep.model_name);
     printf(" signature: %s\n", rep.model_signature);
@@ -257,16 +265,10 @@ static void printCubeNetInfo(void)
     printf(" n macc: %d\n", rep.n_macc);
     printf(" n inputs: %d\n", rep.n_inputs);
     printf(" n outputs: %d\n\n", rep.n_outputs);
-    printf(" in[0] format: %d\n", rep.inputs[0].format);
-    printf(" in[0] n_batches: %d\n", rep.inputs[0].n_batches);
-    printf(" in[0] height: %d\n", rep.inputs[0].height);
-    printf(" in[0] width: %d\n", rep.inputs[0].width);
-    printf(" in[0] channels: %d\n\n", rep.inputs[0].channels);
-    printf(" out[0] format: %d\n", rep.outputs[0].format);
-    printf(" out[0] n_batches: %d\n", rep.outputs[0].n_batches);
-    printf(" out[0] height: %d\n", rep.outputs[0].height);
-    printf(" out[0] width: %d\n", rep.outputs[0].width);
-    printf(" out[0] channels: %d\n", rep.outputs[0].channels);
+    printf(" I[0] format: %d batches %d shape (%d, %d, %d)\n", rep.inputs[0].format,
+      rep.inputs[0].n_batches, rep.inputs[0].height, rep.inputs[0].width, rep.inputs[0].channels);
+    printf(" O[0] format: %d batches %d shape (%d, %d, %d)\n", rep.outputs[0].format,
+      rep.outputs[0].n_batches, rep.outputs[0].height, rep.outputs[0].width, rep.outputs[0].channels);
   }
 }
 

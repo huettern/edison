@@ -52,6 +52,11 @@ hif_commands = [
       'cmd_byte': b'\2',
       'argc': 0
     },
+    {
+      'name': 'kws_single_inference',
+      'cmd_byte': b'\3',
+      'argc': 0
+    },
   ]
 
 def waitForByte(b, timeout=1000):
