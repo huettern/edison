@@ -48,13 +48,14 @@ GEN_LST = 1
 # User code
 
 # Build path
-USR_INC = -Isrc -Isrc/io -Isrc/sys -Isrc/hal -Isrc/util
+USR_INC = -Isrc -Isrc/io -Isrc/sys -Isrc/hal -Isrc/util -Isrc/ai
 
 USR_CSRC = 	$(wildcard src/*.c) \
 						$(wildcard src/io/*.c) \
 						$(wildcard src/sys/*.c) \
 						$(wildcard src/hal/*.c) \
 						$(wildcard src/util/*.c) \
+						$(wildcard src/ai/*.c) \
 
 USR_ASMSRC = src/startup/startup_stm32l475xx.s
 
@@ -69,8 +70,12 @@ USR_DEFINES =
 CUBEAI_LOCATION=build/cube/tmp
 CUBEAI_NET_NAME=kws
 CUBEAI_INC = -Isrc/lib/ST/AI/Inc -Isrc/ai/cube/$(CUBEAI_NET_NAME)
-CUBEAI_LIB = src/lib/ST/AI/Lib/NetworkRuntime500_CM4_GCC.a
-CUBEAI_SRC = $(wildcard src/ai/cube/$(CUBEAI_NET_NAME)/*.c)
+CUBEAI_LIBDIR = -Lsrc/lib/ST/AI/Lib
+CUBEAI_LIB = -l:NetworkRuntime500_CM4_GCC.a
+CUBEAI_SRC = 	$(wildcard src/ai/cube/$(CUBEAI_NET_NAME)/*.c)
+# src/ai/cube/$(CUBEAI_NET_NAME)/$(CUBEAI_NET_NAME).c \
+# 							src/ai/cube/$(CUBEAI_NET_NAME)/$(CUBEAI_NET_NAME)_data.c \
+# 							src/ai/cube/$(CUBEAI_NET_NAME)/app_x-cube-ai.c
 #
 ##############################################################################
 
@@ -108,6 +113,7 @@ BUILD_DATE  := "$(shell date +%Y-%m-%d\ %H:%M:%S\ %Z)"
 # sources and objects
 CSRC = $(CMSIS_CSRC) $(HAL_CSRC) $(USR_CSRC) $(TEST_CSRC) $(CUBEAI_SRC)
 ASMSRC = $(CMSIS_ASMSRC) $(USR_ASMSRC)
+LIB_DIRS = $(CMSIS_LIBDIR) $(CUBEAI_LIBDIR)
 LIBS = $(CMSIS_LIB) $(CUBEAI_LIB)
 
 COBJ   = $(patsubst src/%,$(BUILD_DIR)/obj/%,$(CSRC:.c=.o))
@@ -183,11 +189,12 @@ CFLAGS +=
 
 # libraries
 LIBS += -lc -lm -lnosys 
-LDFLAGS = $(MCU) -T$(LDSCRIPT) $(LIBS) \
+LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIB_DIRS) $(LIBS) \
 	-Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref \
 	-Wl,--gc-sections \
 	-Wl,--print-memory-usage
-
+# perhaps we want to wrap malloc/free with __wrap_malloc/__wrap_free?
+LDFLAGS += -Wl,--wrap=malloc -Wl,--wrap=free  
 #
 ##############################################################################
 # Targets
@@ -222,7 +229,7 @@ import-cubeai-net:
 # Linker
 $(BUILD_DIR)/$(TARGET).elf: $(OBJ)
 	@echo "LD\t$(notdir $@)"
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $^ $(LDFLAGS) -o $@
 	$(SZ) $@
 
 # hex file

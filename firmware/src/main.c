@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-29 22:14:12
+* @Last Modified time: 2020-04-30 13:32:32
 */
 
 #include "main.h"
@@ -11,6 +11,7 @@
 #include "microphone.h"
 #include "hostinterface.h"
 #include "audioprocessing.h"
+#include "ai.h"
 
 /*------------------------------------------------------------------------------
  * Private data
@@ -22,6 +23,7 @@
 static void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_CRC_Init(void);
 
 /*------------------------------------------------------------------------------
  * Publics
@@ -77,8 +79,15 @@ int main(void)
              verBuildDate, verGitSha);
   micInit();
   audioInit();
+  
+  // aiInitialize();
+  // aiPrintInfo();
 
+  MX_CRC_Init();
+  MX_X_CUBE_AI_Init();
 
+  while(1) MX_X_CUBE_AI_Process();
+  
   while(1)
   {
     hifRun();
@@ -567,6 +576,25 @@ static void MX_GPIO_Init(void)
 
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+}
+
+/**
+  * @brief CRC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CRC_Init(void)
+{
+  hcrc.Instance = CRC;
+  hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_ENABLE;
+  hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_ENABLE;
+  hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_NONE;
+  hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLE;
+  hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_BYTES;
+  if (HAL_CRC_Init(&hcrc) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /**

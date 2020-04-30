@@ -26,6 +26,9 @@ HAL_CSRC = \
 	$(HAL)/Src/stm32l4xx_ll_pwr.c \
 	$(HAL)/Src/stm32l4xx_hal_pwr.c \
 	$(HAL)/Src/stm32l4xx_hal_cortex.c \
+	$(HAL)/Src/stm32l4xx_hal_crc_ex.c \
+	$(HAL)/Src/stm32l4xx_hal_crc.c \
+	$(HAL)/Src/stm32l4xx_ll_crc.c \
 # 	$(HAL)/Src/stm32l4xx_ll_rtc.c \
 # 	$(HAL)/Src/stm32l4xx_hal_pka.c \
 # 	$(HAL)/Src/stm32l4xx_hal_smartcard.c \

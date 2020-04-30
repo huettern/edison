@@ -4,6 +4,7 @@ CMSIS_INC = -I$(CMSIS)/Include \
 
 CMSIS_ASMSRC = $(CMSIS)/DSP_Lib/Source/TransformFunctions/arm_bitreversal2.S
 
+CMSIS_LIBDIR = 
 CMSIS_LIB = 
 
 CMSIS_CSRC = \

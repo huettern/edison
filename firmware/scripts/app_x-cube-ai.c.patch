@@ -1,0 +1,41 @@
+*** app_x-cube-ai.c	2020-04-30 12:50:45.000000000 +0200
+--- app_x-cube-ai2.c	2020-04-30 12:51:37.000000000 +0200
+***************
+*** 52,59 ****
+  /* Includes ------------------------------------------------------------------*/
+  #include <string.h>
+  #include "app_x-cube-ai.h"
+! #include "bsp_ai.h"
+! #include "aiValidation.h"
+  #include "ai_datatypes_defines.h"
+  
+  /* USER CODE BEGIN includes */
+--- 52,62 ----
+  /* Includes ------------------------------------------------------------------*/
+  #include <string.h>
+  #include "app_x-cube-ai.h"
+! #include "main.h"
+! #include "stm32l4xx.h"
+! #include "app_x-cube-ai.h"
+! #include "constants_ai.h"
+! // #include "aiValidation.h"
+  #include "ai_datatypes_defines.h"
+  
+  /* USER CODE BEGIN includes */
+***************
+*** 64,70 ****
+    */
+  void MX_X_CUBE_AI_Init(void)
+  {
+!     MX_UARTx_Init();
+      aiValidationInit();
+      /* USER CODE BEGIN 0 */
+      /* USER CODE END 0 */
+--- 67,73 ----
+    */
+  void MX_X_CUBE_AI_Init(void)
+  {
+!     // MX_UARTx_Init();
+      aiValidationInit();
+      /* USER CODE BEGIN 0 */
+      /* USER CODE END 0 */
