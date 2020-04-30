@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-30 13:40:30
+* @Last Modified time: 2020-04-30 13:57:10
 */
 
 #include "main.h"
@@ -73,6 +73,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART1_UART_Init();
+  MX_CRC_Init();
   
   printf("%s / %s / %s / %s\n",
              verProgName, verVersion,
@@ -80,14 +81,15 @@ int main(void)
   micInit();
   audioInit();
   
-  // aiInitialize();
-  // aiPrintInfo();
 #ifdef CUBE_VERIFICATION
-  MX_CRC_Init();
   MX_X_CUBE_AI_Init();
   while(1) MX_X_CUBE_AI_Process();
 #endif
   
+
+  aiInitialize();
+  aiPrintInfo();
+
   while(1)
   {
     hifRun();
@@ -585,6 +587,7 @@ static void MX_GPIO_Init(void)
   */
 static void MX_CRC_Init(void)
 {
+  __HAL_RCC_CRC_CLK_ENABLE();
   hcrc.Instance = CRC;
   hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_ENABLE;
   hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_ENABLE;
