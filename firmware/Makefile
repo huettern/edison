@@ -6,6 +6,9 @@ TARGET    = edison
 DEVICE    = STM32L475xx
 CPU       = cortex-m4
 
+# default operation mode
+OPMODE 		?= OPMODE_APP
+
 # mfpu
 # None for this target
 FPU       = -D__FPU_PRESENT -mfpu=fpv4-sp-d16
