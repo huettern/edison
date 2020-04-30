@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-29 20:59:48
+# @Last Modified time: 2020-04-30 14:23:59
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -59,7 +59,7 @@ def get_model(inp_shape, num_classes):
   print("Building model with input shape %s and %d classes" % (inp_shape, num_classes))
 
   model = Sequential()
-  model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', padding='same', input_shape=inp_shape))
+  model.add(Conv2D(16, kernel_size=(3, 3), activation='relu', padding='same', input_shape=inp_shape))
   model.add(MaxPooling2D(pool_size=(2, 2)))
   model.add(Dropout(0.25))
   model.add(Flatten())
