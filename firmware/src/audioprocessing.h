@@ -12,12 +12,14 @@
  * MFCC
  * ---------------------------------------------------------------------------*/
 #define AUD_MFCC_FRAME_LEN 1024
+#define AUD_MFCC_SAMPLE_SIZE 2
+#define AUD_MFCC_FRAME_SIZE_BYES (AUD_MFCC_FRAME_LEN*AUD_MFCC_SAMPLE_SIZE)
 
 /*------------------------------------------------------------------------------
  * publics
  * ---------------------------------------------------------------------------*/
 void audioInit(void);
-void audioCalcMFCCs(int16_t * inp, int16_t * oup);
+void audioCalcMFCCs(int16_t * inp, int16_t ** oup);
 void audioDumpToHost(void);
 void audioDevelop(void);
 void audioMELSingleBatch(void);

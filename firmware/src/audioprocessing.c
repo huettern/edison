@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-28 16:32:43
+* @Last Modified time: 2020-05-01 14:54:57
 */
 #include "audioprocessing.h"
 
@@ -94,7 +94,7 @@ void audioInit(void)
  * 
  * @param inp [description]
  */
-void audioCalcMFCCs(int16_t * inp, int16_t * oup)
+void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
 {
   q31_t tmpq31;
 
@@ -157,6 +157,9 @@ void audioCalcMFCCs(int16_t * inp, int16_t * oup)
   dct2_q15_i.pTwiddle = dctTwiddleFactorsq15; // TODO: this is just a guess
   dct2_q15_i.pRfft = &dct2_rfft_q15_i;
   dct2_q15(&dct2_q15_i, bufDct, bufDctInline);
+
+  // Store output
+  *oup = bufDctInline;
 }
 
 /**

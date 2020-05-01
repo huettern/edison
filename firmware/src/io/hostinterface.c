@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 14:17:11
+* @Last Modified time: 2020-05-01 14:24:59
 */
 
 #include "hostinterface.h"
@@ -310,7 +310,7 @@ void hiSendMCUReady(void)
 {
   uint8_t tmp; 
   tmp = DELIM_MCU_READY;
-  HAL_UART_Transmit(&huart1, (uint8_t*)tmp, 1, HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, (uint8_t*)&tmp, 1, HAL_MAX_DELAY);
 }
 
 /*------------------------------------------------------------------------------

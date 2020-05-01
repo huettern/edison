@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 11:47:59
+* @Last Modified time: 2020-05-01 13:58:41
 */
 #include "ai.h"
 
@@ -32,20 +32,6 @@
     0, 0, 0, 0, \
     AI_HANDLE_PTR(ptr_))
 
-#define NET_CUBE_KWS_ID 0
-// number of inputs, here 1
-#define NET_CUBE_KWS_IN_NUM AI_KWS_IN_NUM
-// input size in number of elements
-#define NET_CUBE_KWS_INSIZE AI_KWS_IN_1_SIZE
-// input size in bytes
-#define NET_CUBE_KWS_INSIZE_BYTES AI_KWS_IN_1_SIZE_BYTES
-// a predefined input structure
-#define NET_CUBE_KWS_INPUT AI_KWS_IN
-// same for output
-#define NET_CUBE_KWS_OUT_NUM AI_KWS_OUT_NUM
-#define NET_CUBE_KWS_OUTSIZE AI_KWS_OUT_1_SIZE
-#define NET_CUBE_KWS_OUTSIZE_BYTES AI_KWS_OUT_1_SIZE_BYTES
-#define NET_CUBE_KWS_OUTPUT AI_KWS_OUT
 // memory required for (intermediate) activations
 #define NET_CUBE_KWS_ACTIVATIONS_SIZE AI_KWS_DATA_ACTIVATIONS_SIZE
 
@@ -125,7 +111,7 @@ void aiRunInferenceHif(void)
   len = hiReceive(in_data, NET_CUBE_KWS_INSIZE_BYTES, DATA_FORMAT_F32, &tag);
 //   printf("Received %d elements with tag %d\n[ ", length, tag);
 
-  ret = cubeNetRun((void*)in_data, (void*)out_data);
+  ret = aiRunInference((void*)in_data, (void*)out_data);
 
   hiSendF32(out_data, NET_CUBE_KWS_OUTSIZE, 0x17);
 
@@ -140,6 +126,44 @@ void aiRunInferenceHif(void)
 void aiPrintInfo(void)
 {
   printCubeNetInfo();
+}
+
+/**
+ * @brief Fetches the networks input shape and stoers in argument pointer
+ * @details 
+ * 
+ * @param x input with
+ * @param y input height
+ */
+void aiGetInputShape(uint16_t *x, uint16_t *y)
+{
+  ai_network_report rep;
+  (void)ai_kws_get_info(kws, &rep);
+  *x = rep.inputs[0].width;
+  *y = rep.inputs[0].height;
+}
+
+/**
+ * @brief Run an inference on the defined net
+ * @details 
+ * 
+ * @param in_data input data pointer
+ * @param out_data otuput data pointer
+ * 
+ * @return 
+ */
+int aiRunInference(void* in_data, void* out_data)
+{
+  int ret;
+
+  uint8_t id = utilTic();
+
+#ifdef NET_TYPE_CUBE
+  ret = cubeNetRun((void*)in_data, (void*)out_data);
+#endif
+  
+  lastInferenceTimeUs = utilToc(id);
+  return ret;
 }
 
 /*------------------------------------------------------------------------------
@@ -239,8 +263,6 @@ static int cubeNetRun(const void *in_data, void *out_data)
   ai_output[0].n_batches = 1;
   ai_output[0].data = AI_HANDLE_PTR(out_data);
 
-  uint8_t id = utilTic();
-
   /* 2 - Perform the inference */
   nbatch = ai_kws_run(kws, &ai_input[0], &ai_output[0]);
   if (nbatch != 1) {
@@ -248,8 +270,6 @@ static int cubeNetRun(const void *in_data, void *out_data)
       // ...
       return err.code;
   }
-
-  lastInferenceTimeUs = utilToc(id);
 
   return 0;
 }
