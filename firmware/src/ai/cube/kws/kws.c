@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    kws.c
   * @author  AST Embedded Analytics Research Platform
-  * @date    Thu Apr 30 14:25:33 2020
+  * @date    Fri May  1 09:24:39 2020
   * @brief   AI Tool Automatic Code Generator for Embedded NN computing
   ******************************************************************************
   * @attention
@@ -46,14 +46,14 @@
 #define AI_NET_OBJ_INSTANCE g_kws
  
 #undef AI_KWS_MODEL_SIGNATURE
-#define AI_KWS_MODEL_SIGNATURE     "c73e984a842a4475bc98eb1fd0fa7687"
+#define AI_KWS_MODEL_SIGNATURE     "aa53227b8c4dd93db62766065858b05e"
 
 #ifndef AI_TOOLS_REVISION_ID
 #define AI_TOOLS_REVISION_ID     "(rev-5.0.0)"
 #endif
 
 #undef AI_TOOLS_DATE_TIME
-#define AI_TOOLS_DATE_TIME   "Thu Apr 30 14:25:33 2020"
+#define AI_TOOLS_DATE_TIME   "Fri May  1 09:24:39 2020"
 
 #undef AI_TOOLS_COMPILE_TIME
 #define AI_TOOLS_COMPILE_TIME    __DATE__ " " __TIME__
@@ -105,7 +105,7 @@ AI_STATIC ai_layer_nl dense_1_nl_layer; /* Layer #2 */
 /**  Array declarations section  **********************************************/
 AI_ARRAY_OBJ_DECLARE(
     conv2d_1_scratch0_array, AI_ARRAY_FORMAT_FLOAT,
-    NULL, NULL, 1024,
+    NULL, NULL, 416,
      AI_STATIC)
 AI_ARRAY_OBJ_DECLARE(
     dense_1_bias_array, AI_ARRAY_FORMAT_FLOAT,
@@ -113,7 +113,7 @@ AI_ARRAY_OBJ_DECLARE(
      AI_STATIC)
 AI_ARRAY_OBJ_DECLARE(
     dense_1_weights_array, AI_ARRAY_FORMAT_FLOAT,
-    NULL, NULL, 7936,
+    NULL, NULL, 2976,
      AI_STATIC)
 AI_ARRAY_OBJ_DECLARE(
     conv2d_1_bias_array, AI_ARRAY_FORMAT_FLOAT,
@@ -125,11 +125,11 @@ AI_ARRAY_OBJ_DECLARE(
      AI_STATIC)
 AI_ARRAY_OBJ_DECLARE(
     input_0_output_array, AI_ARRAY_FORMAT_FLOAT|AI_FMT_FLAG_IS_IO,
-    NULL, NULL, 1984,
+    NULL, NULL, 806,
      AI_STATIC)
 AI_ARRAY_OBJ_DECLARE(
     conv2d_1_output_array, AI_ARRAY_FORMAT_FLOAT,
-    NULL, NULL, 7936,
+    NULL, NULL, 2976,
      AI_STATIC)
 AI_ARRAY_OBJ_DECLARE(
     dense_1_output_array, AI_ARRAY_FORMAT_FLOAT,
@@ -146,7 +146,7 @@ AI_ARRAY_OBJ_DECLARE(
 /**  Tensor declarations section  *********************************************/
 AI_TENSOR_OBJ_DECLARE(
   conv2d_1_scratch0, AI_STATIC,
-  0x0, 0x0, AI_SHAPE_INIT(4, 1, 16, 32, 2), AI_STRIDE_INIT(4, 4, 4, 64, 2048),
+  0x0, 0x0, AI_SHAPE_INIT(4, 1, 16, 13, 2), AI_STRIDE_INIT(4, 4, 4, 64, 832),
   1, &conv2d_1_scratch0_array, NULL)
 AI_TENSOR_OBJ_DECLARE(
   dense_1_bias, AI_STATIC,
@@ -154,7 +154,7 @@ AI_TENSOR_OBJ_DECLARE(
   1, &dense_1_bias_array, NULL)
 AI_TENSOR_OBJ_DECLARE(
   dense_1_weights, AI_STATIC,
-  0x0, 0x0, AI_SHAPE_INIT(4, 7936, 1, 1, 1), AI_STRIDE_INIT(4, 4, 31744, 31744, 31744),
+  0x0, 0x0, AI_SHAPE_INIT(4, 2976, 1, 1, 1), AI_STRIDE_INIT(4, 4, 11904, 11904, 11904),
   1, &dense_1_weights_array, NULL)
 AI_TENSOR_OBJ_DECLARE(
   conv2d_1_bias, AI_STATIC,
@@ -166,15 +166,15 @@ AI_TENSOR_OBJ_DECLARE(
   1, &conv2d_1_weights_array, NULL)
 AI_TENSOR_OBJ_DECLARE(
   input_0_output, AI_STATIC,
-  0x0, 0x0, AI_SHAPE_INIT(4, 1, 1, 32, 62), AI_STRIDE_INIT(4, 4, 4, 4, 128),
+  0x0, 0x0, AI_SHAPE_INIT(4, 1, 1, 13, 62), AI_STRIDE_INIT(4, 4, 4, 4, 52),
   1, &input_0_output_array, NULL)
 AI_TENSOR_OBJ_DECLARE(
   conv2d_1_output, AI_STATIC,
-  0x0, 0x0, AI_SHAPE_INIT(4, 1, 16, 16, 31), AI_STRIDE_INIT(4, 4, 4, 64, 1024),
+  0x0, 0x0, AI_SHAPE_INIT(4, 1, 16, 6, 31), AI_STRIDE_INIT(4, 4, 4, 64, 384),
   1, &conv2d_1_output_array, NULL)
 AI_TENSOR_OBJ_DECLARE(
   conv2d_1_output0, AI_STATIC,
-  0x0, 0x0, AI_SHAPE_INIT(4, 1, 7936, 1, 1), AI_STRIDE_INIT(4, 4, 4, 31744, 31744),
+  0x0, 0x0, AI_SHAPE_INIT(4, 1, 2976, 1, 1), AI_STRIDE_INIT(4, 4, 4, 11904, 11904),
   1, &conv2d_1_output_array, NULL)
 AI_TENSOR_OBJ_DECLARE(
   dense_1_output, AI_STATIC,
@@ -250,10 +250,10 @@ AI_LAYER_OBJ_DECLARE(
 AI_NETWORK_OBJ_DECLARE(
   AI_NET_OBJ_INSTANCE, AI_STATIC,
   AI_BUFFER_OBJ_INIT(AI_BUFFER_FORMAT_U8,
-                     1, 1, 32388, 1,
+                     1, 1, 12548, 1,
                      NULL),
   AI_BUFFER_OBJ_INIT(AI_BUFFER_FORMAT_U8,
-                     1, 1, 35840, 1,
+                     1, 1, 13568, 1,
                      NULL),
   AI_TENSOR_LIST_IO_ENTRY(AI_FLAG_NONE, AI_KWS_IN_NUM, &input_0_output),
   AI_TENSOR_LIST_IO_ENTRY(AI_FLAG_NONE, AI_KWS_OUT_NUM, &dense_1_nl_output),
@@ -277,8 +277,8 @@ ai_bool kws_configure_activations(
     conv2d_1_scratch0_array.data_start = AI_PTR(activations + 0);
     input_0_output_array.data = AI_PTR(NULL);
     input_0_output_array.data_start = AI_PTR(NULL);
-    conv2d_1_output_array.data = AI_PTR(activations + 4096);
-    conv2d_1_output_array.data_start = AI_PTR(activations + 4096);
+    conv2d_1_output_array.data = AI_PTR(activations + 1664);
+    conv2d_1_output_array.data_start = AI_PTR(activations + 1664);
     dense_1_output_array.data = AI_PTR(activations + 0);
     dense_1_output_array.data_start = AI_PTR(activations + 0);
     dense_1_nl_output_array.data = AI_PTR(NULL);
@@ -304,8 +304,8 @@ ai_bool kws_configure_weights(
     /* Updating weights (byte) offsets */
     
     dense_1_bias_array.format |= AI_FMT_FLAG_CONST;
-    dense_1_bias_array.data = AI_PTR(weights + 32384);
-    dense_1_bias_array.data_start = AI_PTR(weights + 32384);
+    dense_1_bias_array.data = AI_PTR(weights + 12544);
+    dense_1_bias_array.data_start = AI_PTR(weights + 12544);
     dense_1_weights_array.format |= AI_FMT_FLAG_CONST;
     dense_1_weights_array.data = AI_PTR(weights + 640);
     dense_1_weights_array.data_start = AI_PTR(weights + 640);
@@ -350,7 +350,7 @@ ai_bool ai_kws_get_info(
       .api_version            = ai_platform_api_get_version(),
       .interface_api_version  = ai_platform_interface_api_get_version(),
       
-      .n_macc            = 357146,
+      .n_macc            = 143866,
       .n_inputs          = 0,
       .inputs            = NULL,
       .n_outputs         = 0,
