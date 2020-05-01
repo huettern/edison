@@ -82,3 +82,17 @@ python kws_on_mcu.py fileinf data/snips/audio_files/43654f5b-c51c-40fc-9a03-6b0f
 # File without hotword
 python kws_on_mcu.py fileinf data/snips/audio_files/26eb7524-6f7a-41f4-80e3-a0c374542f1a.wav
 ```
+
+**MFCC and inference from wav file**
+Reads a wav file, computes MFCC and inference on host and MCU.
+
+```bash
+# File with hotword
+python kws_on_mcu.py file data/snips/audio_files/43654f5b-c51c-40fc-9a03-6b0fbb3c366f.wav
+# File without hotword
+python kws_on_mcu.py file data/snips/audio_files/26eb7524-6f7a-41f4-80e3-a0c374542f1a.wav
+```
+
+
+
+
