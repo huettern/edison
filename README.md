@@ -61,3 +61,24 @@ make clean && make -j8 OPMODE=CUBE_VERIFICATION
 make flash
 ```
 15. In Cube, hit validate on target to get funky stuff
+
+### Test
+To test a net on the MCU and compare it to the host, use the `kws_on_mcu.py` program. Several modes exits:
+
+**Single inference with random data**
+Generates random test data and runs inference on host and MCU.
+
+```bash
+# 5: number of random test vectors to run
+python kws_on_mcu.py single 5
+```
+
+**Inference from wav file**
+Reads a wav file, computes MFCC on host and runs inference on host and MCU.
+
+```bash
+# File with hotword
+python kws_on_mcu.py fileinf data/snips/audio_files/43654f5b-c51c-40fc-9a03-6b0fbb3c366f.wav
+# File without hotword
+python kws_on_mcu.py fileinf data/snips/audio_files/26eb7524-6f7a-41f4-80e3-a0c374542f1a.wav
+```

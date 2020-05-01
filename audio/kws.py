@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-30 14:23:59
+# @Last Modified time: 2020-05-01 09:22:41
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -276,11 +276,11 @@ def load_data_mculike():
     for data in tqdm(x_train):
       o_mfcc = mfu.mfcc_mcu(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
         num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
-      o_mfcc_train.append([x['mfcc'] for x in o_mfcc])
+      o_mfcc_train.append([x['mfcc'][:num_mfcc] for x in o_mfcc])
     for data in tqdm(x_test):
       o_mfcc = mfu.mfcc_mcu(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
         num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
-      o_mfcc_test.append([x['mfcc'] for x in o_mfcc])
+      o_mfcc_test.append([x['mfcc'][:num_mfcc] for x in o_mfcc])
 
     # add dimension to get (x, y, 1) from to make conv2D input layer happy
     x_train_mfcc = np.expand_dims(np.array(o_mfcc_train), axis = -1)
@@ -368,7 +368,7 @@ def plotSomeMfcc(x_train, x_test):
     Plot a grid of MFCCs to check train and test data
   """
   frames = np.arange(x_train.shape[1])
-  melbin = np.arange(num_mfcc)
+  melbin = np.arange(x_train.shape[2])
 
   fig, axs = plt.subplots(4, 4)
   fig.set_size_inches(8,8)
@@ -378,7 +378,8 @@ def plotSomeMfcc(x_train, x_test):
 
   for i in range(8):
     ax=axs[i//2, i%2]
-    c = ax.pcolor(frames, melbin, x_train[i,:,:num_mfcc].T, cmap='PuBu', vmin=vmin, vmax=vmax, label=('x_train[%d]' % (i)))
+    data = np.squeeze(x_train[i,:,:].T, axis=0)
+    c = ax.pcolor(frames, melbin, data, cmap='PuBu', vmin=vmin, vmax=vmax, label=('x_train[%d]' % (i)))
     ax.grid(True)
     ax.legend()
     ax.set_xlabel('frame')
@@ -387,7 +388,8 @@ def plotSomeMfcc(x_train, x_test):
 
   for i in range(8):
     ax=axs[i//2, 2+i%2]
-    c = ax.pcolor(frames, melbin, x_test[i,:,:num_mfcc].T, cmap='PuBu', vmin=vmin, vmax=vmax, label=('x_test[%d]' % (i)))
+    data = np.squeeze(x_test[i,:,:].T, axis=0)
+    c = ax.pcolor(frames, melbin, data, cmap='PuBu', vmin=vmin, vmax=vmax, label=('x_test[%d]' % (i)))
     ax.grid(True)
     ax.legend()
     ax.set_xlabel('frame')
@@ -422,6 +424,7 @@ print('y test shape: ', y_test.shape)
 
 # fig, axs = plotSomeMfcc(x_train_mfcc, x_test_mfcc)
 # plt.show()
+# exit()
 
 ##################################################
 # Build model
@@ -439,4 +442,8 @@ print(y_test)
 print('Confusion matrix:')
 print(confusion_matrix(y_test, y_pred))
 # model.evaluate(test_set, y_test)
-model.save(cache_dir+'/mfcc_model.h5')
+from datetime import datetime
+dte = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+fname = cache_dir+'/kws_model_'+dte+'.h5'
+model.save(fname)
+print('Model saved as %s' % (fname))
