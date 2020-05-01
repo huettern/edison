@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-30 15:13:31
+* @Last Modified time: 2020-05-01 11:43:58
 */
 
 #include "main.h"
@@ -24,6 +24,7 @@ static void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_CRC_Init(void);
+static void MX_TIM1_Init(void);
 
 /*------------------------------------------------------------------------------
  * Publics
@@ -74,6 +75,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_CRC_Init();
+  MX_TIM1_Init();
   
   printf("%s / %s / %s / %s\n",
              verProgName, verVersion,
@@ -98,6 +100,25 @@ int main(void)
 
   /* TESTS --------------------------------------------------------*/
   // audioDevelop();
+
+  /* Timer 1 --------------------------------------------------------*/
+  // uint8_t id1, id2;
+  // uint16_t last, delta;
+  // uint32_t elapsed;
+  // while(1)
+  // {
+  //   // delta = __HAL_TIM_GET_COUNTER(&htim1)-last;
+  //   // last=__HAL_TIM_GET_COUNTER(&htim1);
+  //   // printf("tim cnt delta %d\n", delta);
+  //   id1 = utilTic();
+  //   id2 = utilTic();
+  //   HAL_Delay(123);
+  //   elapsed = utilToc(id1);
+  //   printf("elapsed: %.3fms id %d\n", (float)elapsed/1000.0, id1);
+  //   elapsed = utilToc(id2);
+  //   printf("elapsed: %.3fms id %d\n", (float)elapsed/1000.0, id2);
+  // }
+  
 
   /* Host interface --------------------------------------------------------*/
 
@@ -599,6 +620,39 @@ static void MX_CRC_Init(void)
   {
     Error_Handler();
   }
+}
+
+static void MX_TIM1_Init(void)
+{
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  htim1.Instance = TIM1;
+  // ticks in 100us ticks -> can count up to 6.5s with .1ms accuracy
+  htim1.Init.Prescaler = 80*MAIN_TIM1_TICK_US;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 0xffff;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  __HAL_TIM_ENABLE(&htim1);
+  HAL_TIM_Base_Start(&htim1);
 }
 
 /**

@@ -57,51 +57,49 @@ void utilMemcpy(uint8_t *dst, const uint8_t *src, uint16_t size)
   }
 }
 
+typedef struct 
+{
+  uint8_t used;
+  uint16_t start;
+} ticToc_t;
+static ticToc_t tics[8];
 
-// void* __real_malloc(size_t bytes);
-// void __real_free(void *ptr);
+uint8_t utilTic()
+{
+  static uint8_t init = 0;
+  if(!init)
+  {
+    init = 1;
+    for(int i =0; i < sizeof(tics)/sizeof(ticToc_t); i++)
+    {
+      tics[i].used = 0;
+    }
+  }
 
-// #define MALLOC_TRACK_DEPTH_SIZE (16)
-// struct _malloc_track {
-//     void *aptr[MALLOC_TRACK_DEPTH_SIZE];
-//     size_t a[MALLOC_TRACK_DEPTH_SIZE];
-//     int aidx;
-//     uint32_t n_a;
-//     void *fptr[MALLOC_TRACK_DEPTH_SIZE];
-//     int fidx;
-//     uint32_t n_f;
-//     int n_af;
-// } malloc_track;
+  // get next free tic and start it
+  for(int i =0; i < sizeof(tics)/sizeof(ticToc_t); i++)
+  {
+    if(tics[i].used == 0)
+    {
+      tics[i].used = 1;
+      tics[i].start = __HAL_TIM_GET_COUNTER(&htim1);
+      return i;
+    }
+  }
+  return -1;
+}
 
-// void* __wrap_malloc(size_t bytes)
-// {
-//     uint8_t *ptr;
-//     ptr = (uint8_t*)__real_malloc(bytes);
-
-//     if (ptr) {
-//         malloc_track.n_af++;
-//         malloc_track.n_a++;
-//         malloc_track.aptr[malloc_track.aidx] = ptr;
-//         malloc_track.a[malloc_track.aidx] = bytes;
-//         malloc_track.aidx++;
-
-//         if (malloc_track.aidx >= MALLOC_TRACK_DEPTH_SIZE)
-//             malloc_track.aidx = 0;
-//     }
-
-//     return ptr;
-// }
-
-// void __wrap_free(void *ptr)
-// {
-//     if (ptr) {
-//         malloc_track.n_af--;
-//         malloc_track.fptr[malloc_track.fidx] = ptr;
-//         malloc_track.fidx++;
-//         malloc_track.n_f++;
-//         if (malloc_track.fidx >= MALLOC_TRACK_DEPTH_SIZE)
-//             malloc_track.fidx = 0;
-//     }
-
-//     __real_free(ptr);
-// }
+uint32_t utilToc(uint8_t id)
+{
+  uint32_t stop = __HAL_TIM_GET_COUNTER(&htim1);
+  if(id < sizeof(tics)/sizeof(ticToc_t))
+  {
+    tics[id].used = 0;
+    if(stop > tics[id].start) return MAIN_TIM1_TICK_US*(stop-tics[id].start);
+    else
+    {
+      return MAIN_TIM1_TICK_US*(0xffff-tics[id].start+stop);
+    }
+  }
+  return 0;
+}

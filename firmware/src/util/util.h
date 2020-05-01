@@ -10,3 +10,6 @@
 
 void utilDumpHex(const void* data, size_t size);
 void utilMemcpy(uint8_t *dst, const uint8_t *src, uint16_t size);
+
+uint8_t utilTic();
+uint32_t utilToc(uint8_t id);

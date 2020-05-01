@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-30 15:19:30
+* @Last Modified time: 2020-05-01 11:47:59
 */
 #include "ai.h"
 
@@ -17,6 +17,7 @@
 
 #include "printf.h"
 #include "hostinterface.h"
+#include "util.h"
 
 /*------------------------------------------------------------------------------
  * Types
@@ -63,10 +64,12 @@
 /**
  * CUBE
  */
+#ifdef CUBE_VERIFICATION
 static struct ai_network_exec_ctx {
     ai_handle network;
     ai_network_report report;
 } net_exec_ctx[AI_MNETWORK_NUMBER] = {0};
+#endif
 // Handle to the net
 static ai_handle kws;
 // input and output buffers
@@ -75,6 +78,8 @@ static ai_buffer ai_output[NET_CUBE_KWS_OUT_NUM] = NET_CUBE_KWS_OUTPUT ;
 
 static ai_u8 activations[NET_CUBE_KWS_ACTIVATIONS_SIZE];
 
+static uint32_t lastInferenceTimeUs;
+
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
@@ -82,7 +87,10 @@ static ai_u8 activations[NET_CUBE_KWS_ACTIVATIONS_SIZE];
 static int cubeNetInit(void);
 static int cubeNetRun(const void *in_data, void *out_data);
 static void printCubeNetInfo(void);
+
+#ifdef CUBE_VERIFICATION
 static int aiBootstrap(const char *nn_name, const int idx);
+#endif
 
 /*------------------------------------------------------------------------------
  * Publics
@@ -95,6 +103,7 @@ static int aiBootstrap(const char *nn_name, const int idx);
 int aiInitialize(void)
 {
   cubeNetInit();
+  return 0;
 }
 
 /**
@@ -230,6 +239,8 @@ static int cubeNetRun(const void *in_data, void *out_data)
   ai_output[0].n_batches = 1;
   ai_output[0].data = AI_HANDLE_PTR(out_data);
 
+  uint8_t id = utilTic();
+
   /* 2 - Perform the inference */
   nbatch = ai_kws_run(kws, &ai_input[0], &ai_output[0]);
   if (nbatch != 1) {
@@ -237,6 +248,8 @@ static int cubeNetRun(const void *in_data, void *out_data)
       // ...
       return err.code;
   }
+
+  lastInferenceTimeUs = utilToc(id);
 
   return 0;
 }
@@ -267,11 +280,13 @@ static void printCubeNetInfo(void)
     printf(" n outputs: %d\n\n", rep.n_outputs);
     printf(" I[0] format: %d batches %d shape (%d, %d, %d)\n", rep.inputs[0].format,
       rep.inputs[0].n_batches, rep.inputs[0].height, rep.inputs[0].width, rep.inputs[0].channels);
-    printf(" O[0] format: %d batches %d shape (%d, %d, %d)\n", rep.outputs[0].format,
+    printf(" O[0] format: %d batches %d shape (%d, %d, %d)\n\n", rep.outputs[0].format,
       rep.outputs[0].n_batches, rep.outputs[0].height, rep.outputs[0].width, rep.outputs[0].channels);
+    printf(" last inference time: %.2fms\n", (float)lastInferenceTimeUs/1000.0);
   }
 }
 
+#ifdef CUBE_VERIFICATION
 static int aiBootstrap(const char *nn_name, const int idx)
 {
   ai_error err;
@@ -332,6 +347,7 @@ static int aiBootstrap(const char *nn_name, const int idx)
 
   return 0;
 }
+#endif
 
 /*------------------------------------------------------------------------------
  * Callbacks
