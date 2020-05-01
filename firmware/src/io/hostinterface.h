@@ -31,3 +31,5 @@ void hiSendS32(int32_t * data, uint32_t len, uint8_t tag);
 void hiSendF32(float * data, uint32_t len, uint8_t tag);
 
 uint32_t hiReceive(void * data, uint32_t maxlen, hiDataFormat_t fmt, uint8_t * tag);
+
+void hiSendMCUReady(void);

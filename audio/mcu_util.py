@@ -25,6 +25,13 @@ fmt_byte_to_nbytes = [1,1,2,2,4,4,4]
 fmt_byte_to_upack_string = ['<B', '<b', '<H', '<h', '<I', '<i', '<f']
 fmt_byte_to_dtype = ['uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32', 'float32']
 
+DELIM_MCU_TO_HOST   = b'>'
+DELIM_HOST_TO_MCU   = b'<'
+DELIM_ACK           = b'a'
+DELIM_CRC_FAIL      = b'C'
+DELIM_CRC_OK        = b'^'
+DELIM_MCU_READY     = b'R'
+
 # Used for sendCommand
 hif_commands = [
     {
@@ -55,6 +62,11 @@ hif_commands = [
     {
       'name': 'kws_single_inference',
       'cmd_byte': b'\3',
+      'argc': 0
+    },
+    {
+      'name': 'mfcc_kws_frame',
+      'cmd_byte': b'\4',
       'argc': 0
     },
   ]
@@ -119,7 +131,7 @@ def receiveData():
   while(1):
     sleep(0.01)
     c = ser.read(1)
-    if c == b'>':
+    if c == DELIM_MCU_TO_HOST:
       break
 
   # print("> received") # DBG
@@ -143,7 +155,7 @@ def receiveData():
     return ret_data, ret_tag
 
   # signal ready for data
-  ser.write(b'a')
+  ser.write(DELIM_ACK)
   ser.flush()
 
   # receive data
@@ -190,7 +202,7 @@ def receiveData():
   # print('crc_in = %d crc_out = %d' % (crc_in, crc_out)) # DBG
   
   # Ack the transfer
-  ser.write(b'^')
+  ser.write(DELIM_CRC_OK)
   ser.flush()
   return ret_data, ret_tag
 
@@ -211,11 +223,11 @@ def sendData(data, tag, progress=True):
   ser.flush()
 
   # assemble and send header
-  hdr = struct.pack('<cBBL', b'<', fmt_byte, tag, length)
+  hdr = struct.pack('<cBBL', DELIM_HOST_TO_MCU, fmt_byte, tag, length)
   ser.write(hdr)
   ser.flush()
 
-  if waitForByte(b'a') < 0:
+  if waitForByte(DELIM_ACK) < 0:
     print('mcu not ready for data, aborting')
     return
 
@@ -243,10 +255,10 @@ def sendData(data, tag, progress=True):
 
   # Read ack
   timeout = 500
-  ret = waitForBytes([b'^', b'C'])
-  if ret != b'^':
+  ret = waitForBytes([DELIM_CRC_OK, DELIM_CRC_FAIL])
+  if ret != DELIM_CRC_OK:
     errorstr = 'Error: Transfer not acknowledged'
-    if ret == b'C':
+    if ret == DELIM_CRC_FAIL:
       errorstr += ' (CRC error)'
     print(errorstr)
     return
@@ -276,6 +288,11 @@ def sendCommand(cmd_name, args=None):
   # print('Command accepted')
   return 0
 
+def waitForMcuReady():
+  """
+    Waits for the MCU to send the ready delimiter
+  """
+  waitForByte(DELIM_MCU_READY, timeout=1000)
 
 def pingtest():
 

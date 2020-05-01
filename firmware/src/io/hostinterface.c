@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 10:57:47
+* @Last Modified time: 2020-05-01 14:17:11
 */
 
 #include "hostinterface.h"
@@ -11,6 +11,7 @@
 #include "microphone.h"
 #include "audioprocessing.h"
 #include "ai.h"
+#include "app.h"
 
 /**
  * Simple host-microcontroller interface. Commands are issued from the host with 
@@ -46,6 +47,18 @@ typedef struct
   int8_t (*funPtr)(uint8_t* args);
   uint8_t nArgBytes;
 } hifCommand_t;
+
+/*------------------------------------------------------------------------------
+ * Settings
+ * ---------------------------------------------------------------------------*/
+
+// single byte delimiters used
+#define DELIM_MCU_TO_HOST   '>'
+#define DELIM_HOST_TO_MCU   '<'
+#define DELIM_ACK           'a'
+#define DELIM_CRC_FAIL      'C'
+#define DELIM_CRC_OK        '^'
+#define DELIM_MCU_READY     'R'
 
 /*------------------------------------------------------------------------------
  * Settings
@@ -88,6 +101,7 @@ static const hifCommand_t cmds [] = {
   {0x1, micHostSampleRequestPreprocessedWrap, 3},
   {0x2, audioMELSingleBatchWrap, 0},
   {0x3, aiRunInferenceHifWrap, 0},
+  {0x4, appHifMfccAndInference, 0},
   // end
   {NULL, NULL, NULL}
 };
@@ -156,7 +170,7 @@ void hiSendU8(uint8_t * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, len);
   sendDataTransferHeader(DATA_FORMAT_U8, tag, len);
-  if(waitForByte('a', 1000) < 0) return;
+  if(waitForByte(DELIM_ACK, 1000) < 0) return;
   HAL_UART_Transmit(&huart1, data, len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
   checkSendAck();
@@ -166,7 +180,7 @@ void hiSendS8(int8_t * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, len);
   sendDataTransferHeader(DATA_FORMAT_S8, tag, len);
-  if(waitForByte('a', 1000) < 0) return;
+  if(waitForByte(DELIM_ACK, 1000) < 0) return;
   HAL_UART_Transmit(&huart1, (uint8_t*)data, len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
   checkSendAck();
@@ -176,7 +190,7 @@ void hiSendU16(uint16_t * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, 2*len);
   sendDataTransferHeader(DATA_FORMAT_U16, tag, len);
-  if(waitForByte('a', 1000) < 0) return;
+  if(waitForByte(DELIM_ACK, 1000) < 0) return;
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 2*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
   checkSendAck();
@@ -186,7 +200,7 @@ void hiSendS16(int16_t * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, 2*len);
   sendDataTransferHeader(DATA_FORMAT_S16, tag, len);
-  if(waitForByte('a', 1000) < 0) return;
+  if(waitForByte(DELIM_ACK, 1000) < 0) return;
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 2*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
   checkSendAck();
@@ -196,7 +210,7 @@ void hiSendU32(uint32_t * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, 4*len);
   sendDataTransferHeader(DATA_FORMAT_U32, tag, len);
-  if(waitForByte('a', 1000) < 0) return;
+  if(waitForByte(DELIM_ACK, 1000) < 0) return;
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 4*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
   checkSendAck();
@@ -206,7 +220,7 @@ void hiSendS32(int32_t * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, 4*len);
   sendDataTransferHeader(DATA_FORMAT_S32, tag, len);
-  if(waitForByte('a', 1000) < 0) return;
+  if(waitForByte(DELIM_ACK, 1000) < 0) return;
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 4*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
   checkSendAck();
@@ -216,7 +230,7 @@ void hiSendF32(float * data, uint32_t len, uint8_t tag)
 {
   uint16_t crc = calcCcrSum((void*)data, 4*len);
   sendDataTransferHeader(DATA_FORMAT_F32, tag, len);
-  if(waitForByte('a', 1000) < 0) return;
+  if(waitForByte(DELIM_ACK, 1000) < 0) return;
   HAL_UART_Transmit(&huart1, (uint8_t*)data, 4*len, HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart1, ((uint8_t*)&crc), 2, HAL_MAX_DELAY);
   checkSendAck();
@@ -240,11 +254,11 @@ uint32_t hiReceive(void * data, uint32_t maxlen, hiDataFormat_t fmt, uint8_t * t
   hiDataFormat_t inFmt;
 
   // wait for start byte
-  waitForByte('<', 0);
+  waitForByte(DELIM_HOST_TO_MCU, 0);
   // while(1)
   // {
   //   HAL_UART_Receive(&huart1, &tmp[0], 1, HAL_MAX_DELAY);
-  //   if(tmp[0] == '<') break;
+  //   if(tmp[0] == DELIM_HOST_TO_MCU) break;
   // }
 
   // receive header
@@ -260,7 +274,7 @@ uint32_t hiReceive(void * data, uint32_t maxlen, hiDataFormat_t fmt, uint8_t * t
   if(fmt && (fmt != inFmt)) return 0;
 
   // send byte to ack transfer
-  tmp[0] = 'a';
+  tmp[0] = DELIM_ACK;
   HAL_UART_Transmit(&huart1, (uint8_t*)tmp, 1, HAL_MAX_DELAY);
 
   // read data
@@ -277,15 +291,26 @@ uint32_t hiReceive(void * data, uint32_t maxlen, hiDataFormat_t fmt, uint8_t * t
   {
     // printf("crc in %d crc out %d\n", crc_in, crc_out);
     // printf("CRCFAIL", crc_in, crc_out);
-    tmp[0] = 'C';
+    tmp[0] = DELIM_CRC_FAIL;
     HAL_UART_Transmit(&huart1, (uint8_t*)tmp, 1, HAL_MAX_DELAY);
     return 0;
   } 
 
   // success, return number of elements received
-  tmp[0] = '^';
+  tmp[0] = DELIM_CRC_OK;
   HAL_UART_Transmit(&huart1, (uint8_t*)tmp, 1, HAL_MAX_DELAY);
   return length;
+}
+
+/**
+ * @brief Send status byte to indicate MCU is ready to receive data/command
+ * @details 
+ */
+void hiSendMCUReady(void)
+{
+  uint8_t tmp; 
+  tmp = DELIM_MCU_READY;
+  HAL_UART_Transmit(&huart1, (uint8_t*)tmp, 1, HAL_MAX_DELAY);
 }
 
 /*------------------------------------------------------------------------------
@@ -304,7 +329,7 @@ static void sendDataTransferHeader(hiDataFormat_t fmt, uint8_t tag, uint32_t len
   uint8_t tmp[7];
 
   // assemble header
-  tmp[0] = '>';
+  tmp[0] = DELIM_MCU_TO_HOST;
   tmp[1] = fmt;
   tmp[2] = tag;
   tmp[3] = ((len >>  0) & 0x000000ff);
@@ -340,7 +365,7 @@ static int8_t checkSendAck(void)
 {
   uint8_t tmp[1];
   // wait for start byte
-  return waitForByte('^', 1000);
+  return waitForByte(DELIM_CRC_OK, 1000);
 }
 
 /**
