@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-30 15:12:39
+* @Last Modified time: 2020-05-01 10:57:47
 */
 
 #include "hostinterface.h"
@@ -33,22 +33,6 @@
 /*------------------------------------------------------------------------------
  * Types
  * ---------------------------------------------------------------------------*/
-typedef enum 
-{
-  CMD_VERSION = '0',
-  CMD_MIC_SAMPLE_PREPROCESSED_MANUAL = '1',
-  CMD_MIC_SAMPLE = 0x0,
-  CMD_MIC_SAMPLE_PREPROCESSED = 0x1,
-  CMD_MEL_ONE_BATCH = 0x2,
-  CMD_KWS_SINGLE_INFERENCE = 0x03,
-} hostCommandIDs_t;
-
-typedef struct 
-{
-  hostCommandIDs_t cmd;
-  uint8_t argCount; // argument in number of bytes
-} hostCommands_t;
-
 typedef enum
 {
   RET_CMD_OK = 0,
@@ -56,6 +40,12 @@ typedef enum
   RET_CMD_TOO_FEW_ARGUMENTS = 2,
 } returnCommands_t;
 
+typedef struct 
+{
+  uint8_t cmdByte;
+  int8_t (*funPtr)(uint8_t* args);
+  uint8_t nArgBytes;
+} hifCommand_t;
 
 /*------------------------------------------------------------------------------
  * Settings
@@ -70,26 +60,37 @@ typedef enum
 /*------------------------------------------------------------------------------
  * Private data
  * ---------------------------------------------------------------------------*/
-
-static const hostCommands_t commands [] = {
-  {CMD_VERSION, 0},
-  {CMD_MIC_SAMPLE, 2},
-  {CMD_MIC_SAMPLE_PREPROCESSED, 3},
-  {CMD_MIC_SAMPLE_PREPROCESSED_MANUAL, 0},
-  {CMD_MEL_ONE_BATCH, 0},
-  {CMD_KWS_SINGLE_INFERENCE, 0}
-};
-
 static const uint8_t fmtToNbytes[] = {1,1,2,2,4,4,4};
 
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
-static void runCommand(const hostCommands_t* cmd, uint8_t* args);
 static void sendDataTransferHeader(hiDataFormat_t fmt, uint8_t tag, uint32_t len);
 static uint16_t calcCcrSum(void * data, uint32_t len);
 static int8_t checkSendAck(void);
 static int8_t waitForByte (uint8_t b, uint32_t timeout);
+
+// wrappers
+static int8_t verPrintWrap(uint8_t* args);
+static int8_t micHostSampleRequestWrap(uint8_t* args);
+static int8_t micHostSampleRequestPreprocessedWrap(uint8_t* args);
+static int8_t micHostSampleRequestPreprocessedManualWrap(uint8_t* args);
+static int8_t audioMELSingleBatchWrap(uint8_t* args);
+static int8_t aiRunInferenceHifWrap(uint8_t* args);
+static int8_t aiPrintInfoWrap(uint8_t* args);
+
+static const hifCommand_t cmds [] = {
+  // cmdByte, Function pointer, arg count bytes
+  {'0', verPrintWrap, 0},
+  {'1', micHostSampleRequestPreprocessedManualWrap, 0},
+  {'2', aiPrintInfoWrap, 0},
+  {0x0, micHostSampleRequestWrap, 2},
+  {0x1, micHostSampleRequestPreprocessedWrap, 3},
+  {0x2, audioMELSingleBatchWrap, 0},
+  {0x3, aiRunInferenceHifWrap, 0},
+  // end
+  {NULL, NULL, NULL}
+};
 
 /*------------------------------------------------------------------------------
  * Publics
@@ -100,20 +101,23 @@ static int8_t waitForByte (uint8_t b, uint32_t timeout);
  */
 void hifRun(void)
 {
-  uint8_t rxData[16];
-  hostCommandIDs_t cmdId;
+  uint8_t argsBuf[16];
+  uint8_t cmdId;
   uint8_t ret;
-  const hostCommands_t *cmd;
+  const hifCommand_t *cmd;
 
   // wait for 1 data bytes to arrive
   HAL_UART_Receive(&huart1, &cmdId, 1, HAL_MAX_DELAY);
 
   // get number of arguments to expect
-  cmd = NULL;
-  for (int i = 0; i < sizeof(commands)/sizeof(hostCommands_t); i++)
-    if(commands[i].cmd == cmdId) cmd = &commands[i];
+  cmd = &cmds[0];
+  while(cmd->funPtr) {
+    if(cmd->cmdByte == cmdId) break;
+    cmd++;
+  }
+  
   // command not found, exit
-  if(!cmd)
+  if(!cmd->funPtr)
   {
     ret = RET_CMD_NOT_FOUND;
     HAL_UART_Transmit(&huart1, &ret, 1, HAL_MAX_DELAY);
@@ -121,9 +125,9 @@ void hifRun(void)
   }
 
   // fetch argument bytes
-  if(cmd->argCount>0)
+  if(cmd->nArgBytes>0)
   {
-    if (HAL_UART_Receive(&huart1, rxData, cmd->argCount, ARGUMENT_LISTEN_DELAY) != HAL_OK)
+    if (HAL_UART_Receive(&huart1, argsBuf, cmd->nArgBytes, ARGUMENT_LISTEN_DELAY) != HAL_OK)
     {
       // receive error
       ret = RET_CMD_TOO_FEW_ARGUMENTS;
@@ -137,7 +141,7 @@ void hifRun(void)
   HAL_UART_Transmit(&huart1, &ret, 1, HAL_MAX_DELAY);
 
   // execute command
-  runCommand(cmd, rxData);
+  cmd->funPtr(argsBuf);
 }
 
 /**
@@ -288,51 +292,6 @@ uint32_t hiReceive(void * data, uint32_t maxlen, hiDataFormat_t fmt, uint8_t * t
  * Privates
  * ---------------------------------------------------------------------------*/
 /**
- * @brief executes a given command
- * @details 
- * 
- * @param cmd pointer to command
- * @param args pointer to command arguments
- */
-static void runCommand(const hostCommands_t* cmd, uint8_t* args)
-{
-  uint16_t u16;
-  uint8_t u8;
-
-  switch(cmd->cmd)
-  {
-    case CMD_VERSION:
-      printf("%s / %s / %s / %s\n", verProgName, verVersion, verBuildDate, verGitSha);
-      break;
-    case CMD_MIC_SAMPLE:
-      // parse arguments
-      u16 = args[0]<<8 | args[1];
-      // call
-      micHostSampleRequest(u16);
-      break;
-    case CMD_MIC_SAMPLE_PREPROCESSED:
-      // parse arguments
-      u8 = args[0];
-      u16 = args[1]<<8 | args[2];
-      // call
-      micHostSampleRequestPreprocessed(u16, u8);
-      break;
-    case CMD_MIC_SAMPLE_PREPROCESSED_MANUAL:
-      micHostSampleRequestPreprocessed(10, 16);
-      break;
-    case CMD_MEL_ONE_BATCH:
-      audioMELSingleBatch();
-      break;
-    case CMD_KWS_SINGLE_INFERENCE:
-      aiRunInferenceHif();
-      break;
-    default:
-      // invalid command
-      return;
-  }
-}
-
-/**
  * @brief Send header of a datat ransmission MCU to host
  * @details 
  * 
@@ -421,6 +380,59 @@ static int8_t waitForByte (uint8_t b, uint32_t timeout)
   //     HAL_Delay(1);
   //   }
   // }
+}
+
+
+/*------------------------------------------------------------------------------
+ * Wrapppers, could get optimized0
+ * ---------------------------------------------------------------------------*/
+static int8_t verPrintWrap(uint8_t* args)
+{
+  (void)args;
+  verPrint();
+  return 0;
+}
+
+static int8_t micHostSampleRequestWrap(uint8_t* args)
+{
+  uint16_t u16;
+  u16 = args[0]<<8 | args[1];
+  // call
+  micHostSampleRequest(u16);
+  return 0;
+}
+static int8_t micHostSampleRequestPreprocessedWrap(uint8_t* args)
+{
+  uint16_t u16;
+  uint8_t u8;
+  u8 = args[0];
+  u16 = args[1]<<8 | args[2];
+  micHostSampleRequestPreprocessed(u16, u8);
+  return 0;
+}
+static int8_t micHostSampleRequestPreprocessedManualWrap(uint8_t* args)
+{
+  (void)args;
+  micHostSampleRequestPreprocessed(10, 16);
+  return 0;
+}
+static int8_t audioMELSingleBatchWrap(uint8_t* args)
+{
+  (void)args;
+  audioMELSingleBatch();
+  return 0;
+}
+static int8_t aiRunInferenceHifWrap(uint8_t* args)
+{
+  (void)args;
+  aiRunInferenceHif();
+  return 0;
+}
+static int8_t aiPrintInfoWrap(uint8_t* args)
+{
+  (void)args;
+  aiPrintInfo();
+  return 0;
 }
 
 /*------------------------------------------------------------------------------
