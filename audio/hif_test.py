@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-01 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-01 17:08:00
+# @Last Modified time: 2020-05-01 17:09:56
 
 import mcu_util as mcu
 from time import sleep
@@ -147,15 +147,6 @@ def cmd_mfcc_kws_frame():
   return 0
   
 
-
-
-  # mcu.sendData(net_input.reshape(-1), 0, progress=progress)
-  # mcu_pred, tag = mcu.receiveData()
-  # print('Received %s type with tag 0x%x len %d' % (mcu_pred.dtype, tag, mcu_pred.shape[0]))
-  # return mcu_pred
-
-  # print('--------------------------------------------------')
-
 ######################################################################
 # main
 ######################################################################
@@ -164,26 +155,26 @@ if __name__ == '__main__':
   done = 0
   ret -= cmd_version()
   done += 1
-  sleep(0.1)
+  sleep(0.5)
   ret -= cmd_mic_sample_processed_manual()
   done += 1
-  sleep(0.1)
+  sleep(0.5)
   ret -= cmd_mic_sample()
   done += 1
-  sleep(0.1)
+  sleep(0.5)
   ret -= cmd_mic_sample_preprocessed()
   done += 1
-  sleep(0.1)
+  sleep(0.5)
   ret -= cmd_mel_one_batch()
   done += 1
-  sleep(0.1)
+  sleep(0.5)
   ret -= cmd_kws_single_inference()
   done += 1
-  sleep(0.1)
+  sleep(0.5)
   ret -= cmd_mfcc_kws_frame()
   done += 1
-  sleep(0.1)
+  sleep(0.5)
 
   print('--------------------------------------------------')
-  print('Failed %d/%d tests' % (ret, done))
+  print('Passed %d/%d tests' % (done-ret, done))
   print('--------------------------------------------------')
