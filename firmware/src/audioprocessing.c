@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 14:54:57
+* @Last Modified time: 2020-05-01 16:13:36
 */
 #include "audioprocessing.h"
 
@@ -46,12 +46,6 @@ static dct2_instance_q15 dct2_q15_i;
 static arm_rfft_instance_q15 dct2_rfft_q15_i;
 
 /**
- * Input and output
- */
-static q15_t in_frame[MEL_SAMPLE_SIZE];
-static q15_t out_mfcc[MEL_N_MEL_BINS];
-
-/**
  * Room for FFT and spectrogram
  */
 static q15_t bufFft[2*MEL_SAMPLE_SIZE];
@@ -65,7 +59,6 @@ static q15_t bufDctInline[MEL_N_MEL_BINS];
  * Prototypes
  * ---------------------------------------------------------------------------*/
 
-static void cmpl_mag_sqd_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize);
 static void cmpl_mag_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize);
 static void dct2_q15 (const dct2_instance_q15 * S, q15_t * pState, q15_t * pInlineBuffer);
 
@@ -154,7 +147,6 @@ void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
   } 
   dct2_q15_i.N = MEL_N_MEL_BINS;
   dct2_q15_i.Nby2 = MEL_N_MEL_BINS/2;
-  dct2_q15_i.pTwiddle = dctTwiddleFactorsq15; // TODO: this is just a guess
   dct2_q15_i.pRfft = &dct2_rfft_q15_i;
   dct2_q15(&dct2_q15_i, bufDct, bufDctInline);
 
@@ -179,34 +171,17 @@ void audioDumpToHost(void)
 }
 
 /**
- * @brief Function used during development
- * @details 
- */
-void audioDevelop(void)
-{
-  uint32_t len;
-  uint8_t tag;
-
-  while(1)
-  {
-    len = hiReceive((void *)in_frame, 2*MEL_SAMPLE_SIZE, DATA_FORMAT_S16, &tag);
-
-    audioCalcMFCCs(in_frame, out_mfcc);
-
-    audioDumpToHost();
-  }
-}
-
-/**
  * @brief Runs single batch MEL coefficient calcualtion with host interface
  * @details 
  */
 void audioMELSingleBatch(void)
 {
-  uint32_t len;
   uint8_t tag;
 
-  len = hiReceive((void *)in_frame, 2*MEL_SAMPLE_SIZE, DATA_FORMAT_S16, &tag);
+  static q15_t in_frame[MEL_SAMPLE_SIZE];
+  static q15_t **out_mfcc;
+
+  (void)hiReceive((void *)in_frame, 2*MEL_SAMPLE_SIZE, DATA_FORMAT_S16, &tag);
 
   audioCalcMFCCs(in_frame, out_mfcc);
 
@@ -216,28 +191,7 @@ void audioMELSingleBatch(void)
 /*------------------------------------------------------------------------------
  * Privates
  * ---------------------------------------------------------------------------*/
-/**
- * @brief Take blockSize complex numbers stored [real, imag, real, image, ..] and calculate
- * the squared magnitude
- * @details 
- * 
- * @param pSrc source
- * @param pDst destination
- * @param blockSize number of complex input numbers
- */
-static void cmpl_mag_sqd_q15 (q15_t * pSrc, q15_t * pDst, uint32_t blockSize)
-{
-  q15_t in;
-  q31_t sum;
-  while(blockSize--)
-  {
-    in = *pSrc++;
-    sum = ((q31_t) in * in);
-    in = *pSrc++;
-    sum += ((q31_t) in * in);
-    *pDst++ = (q15_t)(sum>>16);
-  }
-}
+
 /**
  * @brief Take blockSize complex numbers stored [real, imag, real, image, ..] and calculate
  * the magnitude
@@ -283,7 +237,6 @@ static void dct2_q15(
   q15_t * pInlineBuffer)
 {
   uint32_t i;                                    /* Loop counter */
-  q15_t *weights = S->pTwiddle;                  /* Pointer to the Weights table */
   q15_t *pS1, *pS2, *pbuff;                      /* Temporary pointers for input buffer and pState buffer */
   q15_t in;                                      /* Temporary variable */
 
@@ -369,6 +322,7 @@ static void dct2_q15(
 
  /*----------------------------------------------------------------------    
   *  Step3: Multiply the FFT output with the weights.    
+  *  this is note done, I got expected result without this step
   *----------------------------------------------------------------------*/
   // arm_cmplx_mult_cmplx_q15(pState, weights, pState, S->N);
 
@@ -388,6 +342,7 @@ static void dct2_q15(
     in     = *pbuff++; // discard imaginary part
     i--;
   } while(i > 0u);
+  (void)in;
 }
 
 

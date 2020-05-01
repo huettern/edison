@@ -7,5 +7,5 @@
  * ---------------------------------------------------------------------------*/
 
 void appHostAudioProcess(uint32_t nSamples, uint8_t bits);
-int appHifMfccAndInference(uint8_t *args);
+int8_t appHifMfccAndInference(uint8_t *args);
 

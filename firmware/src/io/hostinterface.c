@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 14:24:59
+* @Last Modified time: 2020-05-01 16:15:38
 */
 
 #include "hostinterface.h"
@@ -103,7 +103,7 @@ static const hifCommand_t cmds [] = {
   {0x3, aiRunInferenceHifWrap, 0},
   {0x4, appHifMfccAndInference, 0},
   // end
-  {NULL, NULL, NULL}
+  {0, NULL, 0}
 };
 
 /*------------------------------------------------------------------------------
@@ -363,7 +363,6 @@ static uint16_t calcCcrSum(void * data, uint32_t len)
  */
 static int8_t checkSendAck(void)
 {
-  uint8_t tmp[1];
   // wait for start byte
   return waitForByte(DELIM_CRC_OK, 1000);
 }
@@ -386,25 +385,7 @@ static int8_t waitForByte (uint8_t b, uint32_t timeout)
     HAL_UART_Receive(&huart1, &tmp, 1, HAL_MAX_DELAY);
   } while(tmp != b);
 
-  // if(timeout)
-  // {
-  //   while(timeout--)
-  //   {
-  //     if(HAL_UART_Receive(&huart1, &tmp, 1, 0) == HAL_OK)
-  //       if(tmp == b) return 0;
-  //     HAL_Delay(1);
-  //   }
-  //   return -1;
-  // }
-  // else
-  // {
-  //   while(true)
-  //   {
-  //     if(HAL_UART_Receive(&huart1, &tmp, 1, 0) == HAL_OK)
-  //       if(tmp == b) return 0;
-  //     HAL_Delay(1);
-  //   }
-  // }
+  return 0;
 }
 
 

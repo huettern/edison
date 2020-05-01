@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 13:58:41
+* @Last Modified time: 2020-05-01 16:17:14
 */
 #include "ai.h"
 
@@ -109,9 +109,11 @@ void aiRunInferenceHif(void)
   out_data = malloc(NET_CUBE_KWS_OUTSIZE_BYTES);
 
   len = hiReceive(in_data, NET_CUBE_KWS_INSIZE_BYTES, DATA_FORMAT_F32, &tag);
+  (void)len;
 //   printf("Received %d elements with tag %d\n[ ", length, tag);
 
   ret = aiRunInference((void*)in_data, (void*)out_data);
+  (void)ret;
 
   hiSendF32(out_data, NET_CUBE_KWS_OUTSIZE, 0x17);
 
@@ -176,10 +178,6 @@ int aiRunInference(void* in_data, void* out_data)
  */
 static int cubeNetInit()
 {
-  int res = -1;
-  const char *nn_name;
-  int idx;
-  ai_error err;
  
   dwtIpInit();
   crcIpInit(); // <- THIS IS STRICTLY NECESSARY, or else, the network can't be created
@@ -187,6 +185,9 @@ static int cubeNetInit()
 
 
 #ifdef CUBE_VERIFICATION
+  int idx;
+  const char *nn_name;
+  int res = -1;
   /**
    * @brief Init for verification use
    */
@@ -214,6 +215,7 @@ static int cubeNetInit()
   return res;
 
 #else
+  ai_error err;
   /**
    * @brief Standard init
    */

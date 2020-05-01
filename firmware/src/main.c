@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 11:43:58
+* @Last Modified time: 2020-05-01 16:06:35
 */
 
 #include "main.h"
@@ -48,21 +48,6 @@ void _putchar(char character)
   */
 int main(void)
 {
-  int32_t* data;
-  int8_t* data8;
-  int32_t databuf[256];
-
-  uint8_t tmpu8[8];
-  int8_t tmps8[8];
-  uint16_t tmpu16[8];
-  int16_t tmps16[8];
-  uint32_t tmpu32[8];
-  int32_t tmps32[8];
-  float tmpf32[8];
-  
-  uint32_t length;
-  uint8_t tag;
-
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
@@ -122,6 +107,16 @@ int main(void)
 
   /* Host interface --------------------------------------------------------*/
 
+  // uint8_t tmpu8[8];
+  // int8_t tmps8[8];
+  // uint16_t tmpu16[8];
+  // int16_t tmps16[8];
+  // uint32_t tmpu32[8];
+  // int32_t tmps32[8];
+  // float tmpf32[8];
+  // uint32_t length;
+  // uint8_t tag;
+  
 
   // for(int i = 0; i < 6; i++)
   // {
@@ -263,6 +258,13 @@ int main(void)
   // }
 
 
+
+  /* mic test --------------------------------------------------------*/
+
+  // int32_t* data;
+  // int8_t* data8;
+  // int32_t databuf[256];
+  
   // micEndlessStream();
   // micReqSampling();
   // micSampleSinglePreprocessed(&data8, 5000);
@@ -273,36 +275,36 @@ int main(void)
   // }
 
   /* Infinite loop */
-  while (1)
-  {
-    // for(int i = 0; i < 256; i++)
-    // {
-    //   HAL_Delay(10);
-    //   micSampleSingle(&databuf[i], 1);
-    // }
-    micSampleSingle(&data, 10);
+  // while (1)
+  // {
+  //   // for(int i = 0; i < 256; i++)
+  //   // {
+  //   //   HAL_Delay(10);
+  //   //   micSampleSingle(&databuf[i], 1);
+  //   // }
+  //   micSampleSingle(&data, 10);
 
-    printf(">>>\n");
-    for(int i = 0; i < 10; i++)
-      printf("%032b %10d\n",data[i],data[i]);
-    printf("<<<\n");
+  //   printf(">>>\n");
+  //   for(int i = 0; i < 10; i++)
+  //     printf("%032b %10d\n",data[i],data[i]);
+  //   printf("<<<\n");
 
-    // printf("x=[");
-    // for(int i = 0; i < 10; i++)
-    //   printf("%d,",data[i]);
-    // printf("];\n");
+  //   // printf("x=[");
+  //   // for(int i = 0; i < 10; i++)
+  //   //   printf("%d,",data[i]);
+  //   // printf("];\n");
 
-    HAL_Delay(1000);
-    // HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-    HAL_GPIO_TogglePin(LED3_WIFI__LED4_BLE_GPIO_Port, LED3_WIFI__LED4_BLE_Pin);
-    HAL_Delay(1000);
+  //   HAL_Delay(1000);
+  //   // HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+  //   HAL_GPIO_TogglePin(LED3_WIFI__LED4_BLE_GPIO_Port, LED3_WIFI__LED4_BLE_Pin);
+  //   HAL_Delay(1000);
   
-    // printf("Start sampling...\n");
-    // micSampleSingle(data, 1);
-    // printf("%5d\n", data[0]);
+  //   // printf("Start sampling...\n");
+  //   // micSampleSingle(data, 1);
+  //   // printf("%5d\n", data[0]);
 
 
-  }
+  // }
   // while (1)
   // {
   //   HAL_Delay(500);

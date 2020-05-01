@@ -56,7 +56,7 @@
 #include "stm32l4xx.h"
 #include "app_x-cube-ai.h"
 #include "constants_ai.h"
-// #include "aiValidation.h"
+#include "aiValidation.h"
 #include "ai_datatypes_defines.h"
 
 /* USER CODE BEGIN includes */

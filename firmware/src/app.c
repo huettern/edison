@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 14:58:32
+* @Last Modified time: 2020-05-01 16:14:41
 */
 #include "app.h"
 #include <stdlib.h>
@@ -35,16 +35,14 @@
  * @param args 
  * @return 
  */
-int appHifMfccAndInference(uint8_t *args)
+int8_t appHifMfccAndInference(uint8_t *args)
 {
   (void)args;
-
   int ret;
   
   int16_t *in_data=NULL, *out_mfccs;
   float *out_data=NULL, *mfccs=NULL, tmpf;
   
-  uint32_t len;
   uint8_t tag;
   uint16_t in_x, in_y;
 
@@ -61,8 +59,7 @@ int appHifMfccAndInference(uint8_t *args)
   for(int frameCtr = 0; frameCtr < in_y; frameCtr++)
   {
     // 2. Calculate MFCC
-    len = hiReceive(in_data, AUD_MFCC_FRAME_SIZE_BYES, DATA_FORMAT_S16, &tag);    
-    // printf("Received %d elements with tag %d\n[ ", length, tag);
+    (void)hiReceive(in_data, AUD_MFCC_FRAME_SIZE_BYES, DATA_FORMAT_S16, &tag);    
 
     audioCalcMFCCs(in_data, &out_mfccs);
 
@@ -89,6 +86,8 @@ int appHifMfccAndInference(uint8_t *args)
   free(in_data);
   free(mfccs);
   free(out_data);
+
+  return ret;
 }
 
 /*------------------------------------------------------------------------------
