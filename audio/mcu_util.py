@@ -31,6 +31,7 @@ DELIM_ACK           = b'a'
 DELIM_CRC_FAIL      = b'C'
 DELIM_CRC_OK        = b'^'
 DELIM_MCU_READY     = b'R'
+DELIM_WRONG_DAT_FMT = b'F'
 
 # Used for sendCommand
 hif_commands = [
@@ -70,6 +71,12 @@ hif_commands = [
       'argc': 0
     },
   ]
+
+hef_cmd_ret = {
+  b'\0' : 'success',
+  b'\1' : 'cmd not found',
+  b'\2' : 'too few arguments',
+}
 
 def waitForByte(b, timeout=1000):
   """
@@ -227,8 +234,12 @@ def sendData(data, tag, progress=True):
   ser.write(hdr)
   ser.flush()
 
-  if waitForByte(DELIM_ACK) < 0:
-    print('mcu not ready for data, aborting')
+  ret = waitForBytes([DELIM_ACK, DELIM_WRONG_DAT_FMT])
+  if ret != DELIM_ACK:
+    errorstr = 'mcu not ready for data'
+    if ret == DELIM_WRONG_DAT_FMT:
+      errorstr += ' (Data format error)'
+    print(errorstr+', aborting!')
     return
 
   # send data
@@ -255,11 +266,13 @@ def sendData(data, tag, progress=True):
 
   # Read ack
   timeout = 500
-  ret = waitForBytes([DELIM_CRC_OK, DELIM_CRC_FAIL])
+  ret = waitForBytes([DELIM_CRC_OK, DELIM_CRC_FAIL, DELIM_WRONG_DAT_FMT])
   if ret != DELIM_CRC_OK:
     errorstr = 'Error: Transfer not acknowledged'
     if ret == DELIM_CRC_FAIL:
       errorstr += ' (CRC error)'
+    if ret == DELIM_WRONG_DAT_FMT:
+      errorstr += ' (Data format error)'
     print(errorstr)
     return
   # print('Transfer acknowledged')
@@ -274,15 +287,19 @@ def sendCommand(cmd_name, args=None):
       command = cmd
 
   ser.flush()
-  ser.write(command['cmd_byte']) # command byte
 
   if args:
-    ser.write(args) # number of samples
+    ser.write(command['cmd_byte']+args)
+  else:
+    ser.write(command['cmd_byte'])
 
   # poll for command status
-  ret = waitForBytes([b'\0', b'\1', b'\2'])
+  ret = waitForBytes([b'\0', b'\1', b'\2'], timeout=-1)
   if ret != b'\0':
-    print('Command not accepted (%d), exiting' % ret)
+    if ret in hef_cmd_ret.keys():
+      print('Command not accepted (%s), exiting' % hef_cmd_ret[ret])
+    else:
+      print('Command not accepted (%s), exiting' % 'unknown')
     return -1
   
   # print('Command accepted')

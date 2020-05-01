@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 16:15:38
+* @Last Modified time: 2020-05-01 17:01:36
 */
 
 #include "hostinterface.h"
@@ -59,6 +59,7 @@ typedef struct
 #define DELIM_CRC_FAIL      'C'
 #define DELIM_CRC_OK        '^'
 #define DELIM_MCU_READY     'R'
+#define DELIM_WRONG_DAT_FMT 'F'
 
 /*------------------------------------------------------------------------------
  * Settings
@@ -66,7 +67,7 @@ typedef struct
 /**
  * time to wait for command arguments to arrive before exiting
  */
-#define ARGUMENT_LISTEN_DELAY 100
+#define ARGUMENT_LISTEN_DELAY 1000
 
 #define CRC_SEED 0x1234
 
@@ -271,7 +272,12 @@ uint32_t hiReceive(void * data, uint32_t maxlen, hiDataFormat_t fmt, uint8_t * t
   nBytes = fmtToNbytes[inFmt-0x30]*length;
 
   // assert data type
-  if(fmt && (fmt != inFmt)) return 0;
+  if(fmt && (fmt != inFmt)) 
+  {
+    tmp[0] = DELIM_WRONG_DAT_FMT;
+    HAL_UART_Transmit(&huart1, (uint8_t*)tmp, 1, HAL_MAX_DELAY);
+    return 0;
+  }
 
   // send byte to ack transfer
   tmp[0] = DELIM_ACK;

@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 16:14:41
+* @Last Modified time: 2020-05-01 17:00:14
 */
 #include "app.h"
 #include <stdlib.h>
@@ -45,6 +45,7 @@ int8_t appHifMfccAndInference(uint8_t *args)
   
   uint8_t tag;
   uint16_t in_x, in_y;
+  uint32_t len;
 
   // get net info
   aiGetInputShape(&in_x, &in_y);
@@ -59,7 +60,8 @@ int8_t appHifMfccAndInference(uint8_t *args)
   for(int frameCtr = 0; frameCtr < in_y; frameCtr++)
   {
     // 2. Calculate MFCC
-    (void)hiReceive(in_data, AUD_MFCC_FRAME_SIZE_BYES, DATA_FORMAT_S16, &tag);    
+    len = hiReceive(in_data, AUD_MFCC_FRAME_SIZE_BYES, DATA_FORMAT_S16, &tag);    
+    printf("received %d \n", len);
 
     audioCalcMFCCs(in_data, &out_mfccs);
 
