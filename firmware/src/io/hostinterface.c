@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 17:01:36
+* @Last Modified time: 2020-05-03 09:22:28
 */
 
 #include "hostinterface.h"
@@ -98,6 +98,7 @@ static const hifCommand_t cmds [] = {
   {'0', verPrintWrap, 0},
   {'1', micHostSampleRequestPreprocessedManualWrap, 0},
   {'2', aiPrintInfoWrap, 0},
+  {'3', audioHifInfo, 0},
   {0x0, micHostSampleRequestWrap, 2},
   {0x1, micHostSampleRequestPreprocessedWrap, 3},
   {0x2, audioMELSingleBatchWrap, 0},

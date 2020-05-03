@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-01 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-01 17:09:56
+# @Last Modified time: 2020-05-03 09:23:39
 
 import mcu_util as mcu
 from time import sleep
@@ -25,6 +25,30 @@ def cmd_version():
   
 def cmd_mic_sample_processed_manual():
   cmd = 'mic_sample_processed_manual'
+  print('--------------------------------------------------')
+  print(' Testing command %s' % (cmd))
+  print('--------------------------------------------------')
+
+  if mcu.sendCommand(cmd) < 0:
+    print('FAIL')
+    return -1
+  print('SUCCESS')
+  return 0
+  
+def cmd_ai_info():
+  cmd = 'ai_info'
+  print('--------------------------------------------------')
+  print(' Testing command %s' % (cmd))
+  print('--------------------------------------------------')
+
+  if mcu.sendCommand(cmd) < 0:
+    print('FAIL')
+    return -1
+  print('SUCCESS')
+  return 0
+  
+def cmd_audio_info():
+  cmd = 'audio_info'
   print('--------------------------------------------------')
   print(' Testing command %s' % (cmd))
   print('--------------------------------------------------')

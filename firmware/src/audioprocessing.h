@@ -22,3 +22,4 @@ void audioInit(void);
 void audioCalcMFCCs(int16_t * inp, int16_t ** oup);
 void audioDumpToHost(void);
 void audioMELSingleBatch(void);
+int8_t audioHifInfo(uint8_t *args);

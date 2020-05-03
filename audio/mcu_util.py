@@ -46,6 +46,16 @@ hif_commands = [
       'argc': 0
     },
     {
+      'name': 'ai_info',
+      'cmd_byte': b'2',
+      'argc': 0
+    },
+    {
+      'name': 'audio_info',
+      'cmd_byte': b'3',
+      'argc': 0
+    },
+    {
       'name': 'mic_sample',
       'cmd_byte': b'\0',
       'argc': 2
@@ -309,7 +319,7 @@ def waitForMcuReady():
   """
     Waits for the MCU to send the ready delimiter
   """
-  waitForByte(DELIM_MCU_READY, timeout=1000)
+  return waitForByte(DELIM_MCU_READY, timeout=1000)
 
 def pingtest():
 
@@ -459,6 +469,44 @@ def pingpongtest():
   data, tag = receiveData()
   print('Received %s type with tag 0x%x: %s' % (data.dtype, tag, data))
 
+def getStats():
+  """
+    Fetches some status from MCU and returns a dict of info
+  """
+  ret = {}
+
+  # request audio info
+  if sendCommand('audio_info') < 0:
+    print('FAIL')
+    return -1
+  # read all
+  sleep(0.1)
+  while ser.in_waiting:
+    buf = ser.readline()
+    buf = buf.decode("utf-8").strip().replace(" ", "")
+    elms = buf.split(':')
+    if len(elms) == 2:
+      ret[elms[0]] = float(elms[1].replace("ms",""))
+  
+  # request AI info
+  if sendCommand('ai_info') < 0:
+    print('FAIL')
+    return -1
+  # read all
+  sleep(0.1)
+  while ser.in_waiting:
+    buf = ser.readline()
+    buf = buf.decode("utf-8").strip().replace(" ", "")
+    elms = buf.split(':')
+    if len(elms) == 2:
+      try:
+        ret[elms[0]] = float(elms[1].replace("ms",""))
+      except:
+        ret[elms[0]] = elms[1]
+  
+  return ret
+
+
 def vecToC(vec, prepad=3):
   """
     vector to c: [1,2,3] -> {1,2,3}
@@ -492,8 +540,9 @@ if __name__ == '__main__':
   import sys, os
   try:
     # pingtest()
-    pongtest()
+    # pongtest()
     # pingpongtest()
+    getStats()
   except KeyboardInterrupt:
     print('Interrupted')
     ser.close()

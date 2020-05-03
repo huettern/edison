@@ -2,13 +2,14 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 16:13:36
+* @Last Modified time: 2020-05-03 09:55:08
 */
 #include "audioprocessing.h"
 
 #include "arm_math.h"
 #include "arm_const_structs.h"
 #include "hostinterface.h"
+#include "util.h"
 
 #include "audio/mel_constants.h"
 
@@ -55,6 +56,8 @@ static q15_t bufMelSpect[MEL_N_MEL_BINS];
 static q15_t bufDct[2*MEL_N_MEL_BINS];
 static q15_t bufDctInline[MEL_N_MEL_BINS];
 
+static uint32_t lastProcessingTime;
+
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
@@ -90,6 +93,8 @@ void audioInit(void)
 void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
 {
   q31_t tmpq31;
+
+  uint8_t tid = utilTic();
 
   // ---------------------------------------------------------------
   // [1.] Calculate FFT
@@ -152,6 +157,8 @@ void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
 
   // Store output
   *oup = bufDctInline;
+
+  lastProcessingTime = utilToc(tid);
 }
 
 /**
@@ -186,6 +193,31 @@ void audioMELSingleBatch(void)
   audioCalcMFCCs(in_frame, out_mfcc);
 
   audioDumpToHost();
+}
+
+/**
+ * @brief Prints info about audio processing
+ * @details 
+ * 
+ * @param args 
+ * @return 
+ */
+int8_t audioHifInfo(uint8_t *args)
+{
+  (void)args;
+  printf("-------------------------------------------------------------\n");
+  printf("Audioprocessing information\n");
+  printf("  Audio Sample Size: %d\n", MEL_SAMPLE_SIZE);
+  printf("  Audio N Mel Bins: %d\n", MEL_N_MEL_BINS);
+  printf("  Audio N Spectrogram Bins: %d\n", MEL_N_SPECTROGRAM_BINS);
+  printf("  Audio Samplerate: %d\n", MEL_SAMPLE_RATE);
+  printf("  Audio Lower Edge Hz: %f\n", MEL_LOWER_EDGE_HZ);
+  printf("  Audio Upper Edge Hz: %f\n", MEL_UPPER_EDGE_HZ);
+  printf("  Audio Mel Matrix Scale: %d\n", MEL_MTX_SCALE);
+  printf("  Audio Mel Matrix Rows: %d\n", MEL_MTX_ROWS);
+  printf("  Audio Mel Matrix Cols: %d\n", MEL_MTX_COLS);
+  printf("  Audio Last Processing Time: %.2fms\n", (float)lastProcessingTime/1000.0);
+  return 0;
 }
 
 /*------------------------------------------------------------------------------

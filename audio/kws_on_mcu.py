@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-01 14:59:44
+# @Last Modified time: 2020-05-03 10:06:18
 
 import sys
 
@@ -52,6 +52,7 @@ frame_len = frame_length
 frame_step = frame_len
 frame_count = 0 # 0 for auto
 fft_len = frame_len
+n_frames = 1 + (sample_len - frame_length) // frame_step
 
 ######################################################################
 # plottery
@@ -107,15 +108,16 @@ def mfccAndInfereOnMCU(data, progress=False):
   """
   if mcu.sendCommand('mfcc_kws_frame') < 0:
     exit()
-  n_frames = 1 + (data.shape[0] - frame_length) // frame_step
 
   print('Sending %d frames' % (n_frames))
   for frame in tqdm(range(n_frames)):
     mcu.sendData(data[frame*frame_step:frame*frame_step+frame_length], 0, progress=False)
-    mcu.waitForMcuReady()
+    if mcu.waitForMcuReady() < 0:
+      printf('Wait for MCU timed out')
 
   # MCU now runs inference, wait for complete
-  mcu.waitForMcuReady()
+  if mcu.waitForMcuReady() < 0:
+    printf('Wait for MCU timed out')
 
   # MCU returns net input and output
   mcu_mfccs, tag = mcu.receiveData()
@@ -256,14 +258,19 @@ def frameInference():
   print('host prediction: %f mcu prediction: %f' % (host_preds[-1], mcu_preds[-1]))
 
   # reshape data to make plottable
-  mcu_mfcc = mcu_mfccss.reshape(62,13)
-  host_mfcc = net_input.reshape(62,13)
+  mcu_mfcc = mcu_mfccss.reshape(n_frames,num_mfcc)
+  host_mfcc = net_input.reshape(n_frames,num_mfcc)
   fig = plotTwoMfcc(host_mfcc, mcu_mfcc)
 
   # summarize
   mcu_preds = np.array(mcu_preds)
   host_preds = np.array(host_preds)
+  stats = mcu.getStats()
+  mcuInferenceTime = stats['lastinferencetime']
+  mcuMfccTime = stats['AudioLastProcessingTime']
   compare(host_preds, mcu_preds)
+  print('MCU Audio processing took %.2fms (%.2fms per frame)' % (n_frames*mcuInferenceTime, mcuInferenceTime))
+  print('MCU inference took %.2fms' % (mcuInferenceTime))
   plt.show()
 
 ######################################################################
