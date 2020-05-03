@@ -135,7 +135,7 @@ def serWriteWrap(b, progress=True):
   if progress:
     pbar.close()
 
-def receiveData():
+def receiveData(timeout=5000):
   """
     Listens for incomming data streams
   """
@@ -145,12 +145,10 @@ def receiveData():
   ret_tag = None
 
   # wait for start of frame
-  while(1):
-    sleep(0.01)
-    c = ser.read(1)
-    if c == DELIM_MCU_TO_HOST:
-      break
-
+  if waitForByte(DELIM_MCU_TO_HOST, timeout=timeout) < 0:
+    print('No transfer started by MCU, aborting')
+    return -1
+  
   # print("> received") # DBG
 
   # Wait for header arrived

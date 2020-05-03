@@ -26,6 +26,9 @@ CRC_HandleTypeDef hcrc;
 #define MAIN_TIM1_TICK_US 10
 TIM_HandleTypeDef htim1;
 
+#define LED_ON() HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET)
+#define LED_OFF() HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET)
+
 /*------------------------------------------------------------------------------
  * Defines
  * ---------------------------------------------------------------------------*/

@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-03 10:06:18
+# @Last Modified time: 2020-05-03 10:10:28
 
 import sys
 
@@ -269,7 +269,7 @@ def frameInference():
   mcuInferenceTime = stats['lastinferencetime']
   mcuMfccTime = stats['AudioLastProcessingTime']
   compare(host_preds, mcu_preds)
-  print('MCU Audio processing took %.2fms (%.2fms per frame)' % (n_frames*mcuInferenceTime, mcuInferenceTime))
+  print('MCU Audio processing took %.2fms (%.2fms per frame)' % (n_frames*mcuMfccTime, mcuMfccTime))
   print('MCU inference took %.2fms' % (mcuInferenceTime))
   plt.show()
 

@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-30 14:48:17
+# @Last Modified time: 2020-05-03 10:23:54
 
 import sys
 
@@ -347,7 +347,7 @@ if mode == 'single':
 
   ######################################################################
   # plot
-
+  print('MCU Audio processing took %.2fms' % (mcu.getStats()['AudioLastProcessingTime']))
   fig = plotCompare()
   plt.show()
 
@@ -463,5 +463,6 @@ if mode == 'file':
 
   print(type(mcu_spec[0]))
   print(mcu_spec.shape)
+  print('MCU Audio processing took %.2fms' % (mcu.getStats()['AudioLastProcessingTime']))
   fig = plotFileMode()
   plt.show()

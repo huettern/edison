@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-03 09:55:08
+* @Last Modified time: 2020-05-03 10:18:22
 */
 #include "audioprocessing.h"
 
@@ -95,6 +95,7 @@ void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
   q31_t tmpq31;
 
   uint8_t tid = utilTic();
+  LED_ON();
 
   // ---------------------------------------------------------------
   // [1.] Calculate FFT
@@ -158,6 +159,7 @@ void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
   // Store output
   *oup = bufDctInline;
 
+  LED_OFF();
   lastProcessingTime = utilToc(tid);
 }
 
