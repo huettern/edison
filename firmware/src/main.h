@@ -13,11 +13,16 @@
 #include "printf.h"
 
 /*------------------------------------------------------------------------------
+ * Global settings
+ * ---------------------------------------------------------------------------*/
+
+/*------------------------------------------------------------------------------
  * Publics
  * ---------------------------------------------------------------------------*/
 void Error_Handler(void);
 
 UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart4; // on arduino pins
 DFSDM_Channel_HandleTypeDef hdfsdm1_ch1;
 DFSDM_Filter_HandleTypeDef hdfsdm1_filter0;
 DMA_HandleTypeDef hdma_dfsdm1_flt0;
@@ -28,6 +33,13 @@ TIM_HandleTypeDef htim1;
 
 #define LED_ON() HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET)
 #define LED_OFF() HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET)
+
+/**
+ * With this we can switch where printf output should go
+ */
+UART_HandleTypeDef *printfUart;
+#define PRINTF_ON_ADRUINO() printfUart = &huart4
+#define PRINTF_ON_STLINK() printfUart = &huart1
 
 /*------------------------------------------------------------------------------
  * Defines

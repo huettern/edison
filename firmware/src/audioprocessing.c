@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-03 12:45:24
+* @Last Modified time: 2020-05-03 17:15:48
 */
 #include "audioprocessing.h"
 
@@ -10,6 +10,7 @@
 #include "arm_const_structs.h"
 #include "hostinterface.h"
 #include "util.h"
+#include "cyclecounter.h"
 
 #include "audio/mel_constants.h"
 
@@ -29,6 +30,20 @@ typedef struct
 /*------------------------------------------------------------------------------
  * Settings
  * ---------------------------------------------------------------------------*/
+/**
+ * @brief Enable this to show profiling on arduino Tx pin
+ */
+// #define CYCLE_PROFILING
+
+#ifdef CYCLE_PROFILING
+  #define prfStart(x) cycProfStart(x)
+  #define prfEvent(x) cycProfEvent(x)
+  #define prfStop() cycProfStop()
+#else
+  #define prfStart(x)
+  #define prfEvent(x)
+  #define prfStop()
+#endif
 
 /**
  * Uncomment to use real FFT functions. They dont produce the same clean results
@@ -105,6 +120,8 @@ void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
   uint8_t tid = utilTic();
   LED_ON();
 
+  prfStart("audioCalcMFCCs");  
+
   // ---------------------------------------------------------------
   // [1.] Calculate FFT
 #ifdef USE_REAL_FFT
@@ -121,10 +138,12 @@ void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
     bufFft[i] = inp[i/2];
   arm_cfft_q15(&arm_cfft_sR_q15_len1024, bufFft, 0, 1);
 #endif
+  prfEvent("fft");
 
   // ---------------------------------------------------------------
   // [2.] Perform magnitude value for spectrum
   cmpl_mag_q15(bufFft, bufSpect, 2*MEL_SAMPLE_SIZE);
+  prfEvent("cmpl_mag_q15");
 
   // ---------------------------------------------------------------
   // [3.] Dot product mel matrix with the positive values of the spectrum
@@ -163,6 +182,8 @@ void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
   }
 #endif
 
+  prfEvent("matrix mult");
+
   // ---------------------------------------------------------------
   // [4.] Here would the log(x) calculation come, let's leave it out for now..
 
@@ -180,11 +201,14 @@ void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
   dct2_q15_i.pRfft = &dct2_rfft_q15_i;
   dct2_q15(&dct2_q15_i, bufDct, bufDctInline);
 
+  prfEvent("dct2_q15");
+
   // Store output
   *oup = bufDctInline;
 
   LED_OFF();
   lastProcessingTime = utilToc(tid);
+  prfStop();
 }
 
 /**

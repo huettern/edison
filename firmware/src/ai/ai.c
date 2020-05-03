@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 16:17:14
+* @Last Modified time: 2020-05-03 17:15:59
 */
 #include "ai.h"
 
@@ -18,6 +18,7 @@
 #include "printf.h"
 #include "hostinterface.h"
 #include "util.h"
+#include "cyclecounter.h"
 
 /*------------------------------------------------------------------------------
  * Types
@@ -25,6 +26,20 @@
 /*------------------------------------------------------------------------------
  * Settings
  * ---------------------------------------------------------------------------*/
+/**
+ * @brief Enable this to show profiling on arduino Tx pin
+ */
+// #define CYCLE_PROFILING
+
+#ifdef CYCLE_PROFILING
+  #define prfStart(x) cycProfStart(x)
+  #define prfEvent(x) cycProfEvent(x)
+  #define prfStop() cycProfStop()
+#else
+  #define prfStart(x)
+  #define prfEvent(x)
+  #define prfStop()
+#endif
 
 #define AI_BUFFER_NULL(ptr_)  \
     AI_BUFFER_OBJ_INIT( \
@@ -105,20 +120,33 @@ void aiRunInferenceHif(void)
   uint32_t len;
   uint8_t tag;
 
+  prfStart("aiRunInferenceHif");
+
   in_data = malloc(NET_CUBE_KWS_INSIZE_BYTES);
   out_data = malloc(NET_CUBE_KWS_OUTSIZE_BYTES);
+
+  prfEvent("malloc");
 
   len = hiReceive(in_data, NET_CUBE_KWS_INSIZE_BYTES, DATA_FORMAT_F32, &tag);
   (void)len;
 //   printf("Received %d elements with tag %d\n[ ", length, tag);
 
+  prfEvent("receive");
+
   ret = aiRunInference((void*)in_data, (void*)out_data);
   (void)ret;
 
+  prfEvent("aiRunInference");
+
   hiSendF32(out_data, NET_CUBE_KWS_OUTSIZE, 0x17);
+
+  prfEvent("send");
 
   free(in_data);
   free(out_data);
+
+  prfEvent("free");
+  prfStop();
 }
 
 // /**

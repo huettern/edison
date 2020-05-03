@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-01 16:06:35
+* @Last Modified time: 2020-05-03 16:38:47
 */
 
 #include "main.h"
@@ -12,6 +12,7 @@
 #include "hostinterface.h"
 #include "audioprocessing.h"
 #include "ai.h"
+#include "cyclecounter.h"
 
 /*------------------------------------------------------------------------------
  * Private data
@@ -23,8 +24,10 @@
 static void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_USART1_UART_Init(void);
 static void MX_CRC_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_UART4_Init(void);
 
 /*------------------------------------------------------------------------------
  * Publics
@@ -39,7 +42,7 @@ static void MX_TIM1_Init(void);
 void _putchar(char character)
 {
   // send char to console etc.
-  HAL_UART_Transmit(&huart1, (uint8_t *)&character, 1, 1000);
+  HAL_UART_Transmit(printfUart, (uint8_t *)&character, 1, 1000);
 }
 
 /**
@@ -61,7 +64,15 @@ int main(void)
   MX_USART1_UART_Init();
   MX_CRC_Init();
   MX_TIM1_Init();
+  MX_UART4_Init();
   
+  PRINTF_ON_ADRUINO();
+  printf("%s / %s / %s / %s\n",
+             verProgName, verVersion,
+             verBuildDate, verGitSha);
+  printf("Hello Arduino!\n");
+
+  PRINTF_ON_STLINK();
   printf("%s / %s / %s / %s\n",
              verProgName, verVersion,
              verBuildDate, verGitSha);
@@ -85,6 +96,18 @@ int main(void)
 
   /* TESTS --------------------------------------------------------*/
   // audioDevelop();
+
+  /* Profiler --------------------------------------------------------*/
+  // cycProfStart("test");
+  // HAL_Delay(1000);
+  // cycProfEvent("HAL_Delay(1000)");
+  // HAL_Delay(10);
+  // cycProfEvent("HAL_Delay(10)");
+  // HAL_Delay(1);
+  // cycProfEvent("HAL_Delay(1)");
+  // HAL_Delay(5463);
+  // cycProfEvent("HAL_Delay(5463)");
+  // cycProfStop();
 
   /* Timer 1 --------------------------------------------------------*/
   // uint8_t id1, id2;
@@ -655,6 +678,30 @@ static void MX_TIM1_Init(void)
   }
   __HAL_TIM_ENABLE(&htim1);
   HAL_TIM_Base_Start(&htim1);
+}
+
+
+/**
+  * @brief UART4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_UART4_Init(void)
+{
+  huart4.Instance = UART4;
+  huart4.Init.BaudRate = 115200;
+  huart4.Init.WordLength = UART_WORDLENGTH_8B;
+  huart4.Init.StopBits = UART_STOPBITS_1;
+  huart4.Init.Parity = UART_PARITY_NONE;
+  huart4.Init.Mode = UART_MODE_TX_RX;
+  huart4.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart4.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart4.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart4.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart4) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /**

@@ -2,11 +2,6 @@
 
 #include "main.h"
 
-
-static volatile unsigned int *DWT_CYCCNT  ;
-static volatile unsigned int *DWT_CONTROL ;
-static volatile unsigned int *SCB_DEMCR   ;
-
 /**
  * @brief Resets the internal cycle counter to zero
  * @details 
@@ -30,3 +25,7 @@ void StopTimer(void);
  * @details 
  */
 unsigned int getCycles(void);
+
+void cycProfStart(const char *profile_name);
+void cycProfEvent(const char *event);
+void cycProfStop(void);
