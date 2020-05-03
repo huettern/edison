@@ -41,6 +41,12 @@ UART_HandleTypeDef *printfUart;
 #define PRINTF_ON_ADRUINO() printfUart = &huart4
 #define PRINTF_ON_STLINK() printfUart = &huart1
 
+#define fprintf(U, X, ...) \
+  UART_HandleTypeDef *old = printfUart; \
+  printfUart = U; \
+  printf(X, ##__VA_ARGS__); \
+  printfUart = old
+
 /*------------------------------------------------------------------------------
  * Defines
  * ---------------------------------------------------------------------------*/

@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-28 16:23:13
+* @Last Modified time: 2020-05-03 18:18:40
 */
 #include "microphone.h"
 
@@ -63,17 +63,24 @@ typedef struct
 const filterSettings_t fs5k = {33, 484, 0x00, OFFSET_DATA, DFSDM_FILTER_SINC3_ORDER,1};
 const filterSettings_t fs10k = {33, 242, 0x00, OFFSET_DATA, DFSDM_FILTER_SINC3_ORDER,1};
 const filterSettings_t fs44k = {33, 55, 0x00, OFFSET_DATA, DFSDM_FILTER_SINC3_ORDER,1};
+const filterSettings_t fs16k = {33, 152, 0x00, OFFSET_DATA, DFSDM_FILTER_SINC3_ORDER,1};
 const filterSettings_t fs8krs16 = {33, 242, 16, OFFSET_DATA, DFSDM_FILTER_SINC3_ORDER,1};
 
 
 /*------------------------------------------------------------------------------
  * Settings
  * ---------------------------------------------------------------------------*/
-#define RAW_BUFFER_SIZE 1000
-#define MIC_8BIT_BUF_SIZE 1000
-#define MIC_16BIT_BUF_SIZE 1000
 
-const filterSettings_t* filterSettings = &fs5k;
+/**
+ * In continuous mode, each block of sampels requested contains that many samples
+ */
+#define CONTINUOUS_MODE_SAMPLE_SIZE 1024
+
+#define RAW_BUFFER_SIZE (2*CONTINUOUS_MODE_SAMPLE_SIZE)
+#define MIC_8BIT_BUF_SIZE (2*CONTINUOUS_MODE_SAMPLE_SIZE)
+#define MIC_16BIT_BUF_SIZE (2*CONTINUOUS_MODE_SAMPLE_SIZE)
+
+const filterSettings_t* filterSettings = &fs16k;
 
 /*------------------------------------------------------------------------------
  * Private data
@@ -420,6 +427,59 @@ uint32_t micSampleSinglePreprocessed(void ** data, uint32_t n, uint8_t bits)
   else *data = proc16bitBuffer;
 
   return len;
+}
+
+/**
+ * @brief Starts continuous mode, see miContinuouscGet
+ * @details 
+ */
+void micContinuousStart (void)
+{
+  regConvCplt = false; regConvHalfCplt = false;
+  if(HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, dataBuffer, RAW_BUFFER_SIZE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+ * @brief Stops continuous mode, see miContinuouscGet
+ * @details [long description]
+ */
+void micContinuousStop (void)
+{
+  HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
+}
+
+/**
+ * @brief Blocking wait for samples, returns pointer to buffer where samples are stored
+ * frame size is fixed to CONTINUOUS_MODE_SAMPLE_SIZE
+ * @details [long description]
+ */
+int16_t* micContinuousGet (void)
+{
+  int16_t *outPtr16 = proc16bitBuffer;
+  int32_t *srcPtr;
+
+  // wait for complete
+  while( !regConvCplt && !regConvHalfCplt);
+
+  // get pointer to valid data
+  if(regConvHalfCplt)
+  {
+    regConvHalfCplt = false;
+    srcPtr = &dataBuffer[0];
+  }
+  else
+  {
+    regConvCplt = false;
+    srcPtr = &dataBuffer[RAW_BUFFER_SIZE/2];
+  }
+
+  // preprocess
+  preprocess16bit(outPtr16, srcPtr, RAW_BUFFER_SIZE/2); //dst, src, N
+
+  return outPtr16;
 }
 
 /*------------------------------------------------------------------------------

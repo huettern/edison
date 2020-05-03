@@ -80,6 +80,11 @@ hif_commands = [
       'cmd_byte': b'\4',
       'argc': 0
     },
+    {
+      'name': 'kws_mic',
+      'cmd_byte': b'4',
+      'argc': 0
+    },
   ]
 
 hef_cmd_ret = {
@@ -313,11 +318,11 @@ def sendCommand(cmd_name, args=None):
   # print('Command accepted')
   return 0
 
-def waitForMcuReady():
+def waitForMcuReady(timeout=1000):
   """
     Waits for the MCU to send the ready delimiter
   """
-  return waitForByte(DELIM_MCU_READY, timeout=1000)
+  return waitForByte(DELIM_MCU_READY, timeout=timeout)
 
 def pingtest():
 

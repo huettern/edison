@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-03 10:10:28
+# @Last Modified time: 2020-05-03 19:29:01
 
 import sys
 
@@ -13,6 +13,7 @@ if len(sys.argv) < 2:
   print('    single                   Single inference on random data')
   print('    fileinf <file>           Get file, run MFCC on host and inference on MCU')
   print('    file <file>              Get file, run MFCC and inference on host and on MCU')
+  print('    mic                      Record sample from onboard mic and do stuffs')
   exit()
 mode = sys.argv[1]
 args = sys.argv[2:]
@@ -21,6 +22,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 from tqdm import tqdm
+import simpleaudio as sa
+import scipy.io.wavfile as wavfile
 
 # import keras
 import tensorflow as tf
@@ -87,6 +90,44 @@ def plotTwoMfcc(mfcc_host, mfcc_mcu):
 
   return fig
 
+def plotAudioMfcc(audio, mfcc_host, mfcc_mcu):
+  t = np.linspace(0, audio.shape[0]/fs, audio.shape[0])
+  frames = np.arange(mfcc_mcu.shape[0])
+  melbin = np.arange(mfcc_mcu.shape[1])
+
+  fig = plt.figure(constrained_layout=True)
+  gs = fig.add_gridspec(2, 2)
+
+  ax = fig.add_subplot(gs[0, :])
+  ax.plot(t, audio, label='audio')
+  ax.grid(True)
+  ax.set_title('microphone data')
+  ax.set_xlabel('time [s]')
+  ax.set_ylabel('amplitude')
+  ax.legend()
+
+  vmin = mfcc_mcu.min()
+  vmax = mfcc_mcu.max()
+  ax = fig.add_subplot(gs[1, 1])
+  c = ax.pcolor(frames, melbin, mfcc_mcu.T, cmap='PuBu', vmin=vmin, vmax=vmax)
+  ax.grid(True)
+  ax.set_title('MCU MFCC')
+  ax.set_xlabel('frame')
+  ax.set_ylabel('Mel bin')
+  fig.colorbar(c, ax=ax)
+
+  vmin = mfcc_host.min()
+  vmax = mfcc_host.max()
+  ax = fig.add_subplot(gs[1, 0])
+  c = ax.pcolor(frames, melbin, mfcc_host.T, cmap='PuBu', vmin=vmin, vmax=vmax)
+  ax.grid(True)
+  ax.set_title('host MFCC')
+  ax.set_xlabel('frame')
+  ax.set_ylabel('Mel bin')
+  fig.colorbar(c, ax=ax)
+
+  return fig
+
 
 ######################################################################
 # functions
@@ -113,11 +154,11 @@ def mfccAndInfereOnMCU(data, progress=False):
   for frame in tqdm(range(n_frames)):
     mcu.sendData(data[frame*frame_step:frame*frame_step+frame_length], 0, progress=False)
     if mcu.waitForMcuReady() < 0:
-      printf('Wait for MCU timed out')
+      print('Wait for MCU timed out')
 
   # MCU now runs inference, wait for complete
   if mcu.waitForMcuReady() < 0:
-    printf('Wait for MCU timed out')
+    print('Wait for MCU timed out')
 
   # MCU returns net input and output
   mcu_mfccs, tag = mcu.receiveData()
@@ -126,6 +167,29 @@ def mfccAndInfereOnMCU(data, progress=False):
   print('Received %s type with tag 0x%x len %d' % (mcu_pred.dtype, tag, mcu_pred.shape[0]))
   
   return mcu_mfccs, mcu_pred
+
+def micAndAllOnMCU():
+  """
+    Records a sample from mic and processes it
+  """
+
+  if mcu.sendCommand('kws_mic') < 0:
+    exit()
+
+  # MCU now runs, wait for complete
+  if mcu.waitForMcuReady(timeout=5000) < 0:
+    print('Wait for MCU timed out')
+
+  # MCU returns mic data, mfcc and net output
+  mic_data, tag = mcu.receiveData()
+  print('Received %s type with tag 0x%x len %d' % (mic_data.dtype, tag, mic_data.shape[0]))
+  mcu_mfccs, tag = mcu.receiveData()
+  print('Received %s type with tag 0x%x len %d' % (mcu_mfccs.dtype, tag, mcu_mfccs.shape[0]))
+  mcu_pred, tag = mcu.receiveData()
+  print('Received %s type with tag 0x%x len %d' % (mcu_pred.dtype, tag, mcu_pred.shape[0]))
+  
+  return mic_data, mcu_mfccs.reshape(62, 13), mcu_pred
+
 
 def rmse(a, b):
   return np.sqrt(np.mean((a-b)**2))
@@ -210,9 +274,9 @@ def frameInference():
   mcu_preds = []
   mcu_mfccss = []
 
+  in_fs, data = wavfile.read(args[0])
+  
   if not from_file:
-
-    in_fs, data = wavfile.read(args[0])
 
     if (in_fs != fs):
       print('Sample rate of file %d doesn\'t match %d' % (in_fs, fs))
@@ -260,7 +324,10 @@ def frameInference():
   # reshape data to make plottable
   mcu_mfcc = mcu_mfccss.reshape(n_frames,num_mfcc)
   host_mfcc = net_input.reshape(n_frames,num_mfcc)
-  fig = plotTwoMfcc(host_mfcc, mcu_mfcc)
+  if not from_file:
+    fig = plotAudioMfcc(data, host_mfcc, mcu_mfcc)
+  else:
+    fig = plotTwoMfcc(host_mfcc, mcu_mfcc)
 
   # summarize
   mcu_preds = np.array(mcu_preds)
@@ -271,6 +338,45 @@ def frameInference():
   compare(host_preds, mcu_preds)
   print('MCU Audio processing took %.2fms (%.2fms per frame)' % (n_frames*mcuMfccTime, mcuMfccTime))
   print('MCU inference took %.2fms' % (mcuInferenceTime))
+  plt.show()
+
+def micInference():
+  """
+
+  """
+
+  # fetch data
+  mic_data, mcu_mfccs, mcu_pred = micAndAllOnMCU()
+
+  # Start playback
+  fs = 16000
+  play_obj = sa.play_buffer(mic_data, 1, 2, fs) # data, n channels, bytes per sample, fs
+  play_obj.wait_done()
+  wavfile.write(cache_dir+'/mic.wav', fs, mic_data)
+
+  # pad/cut data
+  if mic_data.shape[0] < sample_len:
+    mic_data = np.pad(mic_data, (0, sample_len-mic_data.shape[0]), mode='edge')
+  else:
+    mic_data = mic_data[:sample_len]
+
+  # Calculate MFCC
+  nSamples = mic_data.shape[0]
+  o_mfcc = mfu.mfcc_mcu(mic_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+    num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
+  data_mfcc = np.array([x['mfcc'][:num_mfcc] for x in o_mfcc])
+  # make fit shape and dtype
+  net_input = np.array(data_mfcc.reshape([1]+input_shape), dtype='float32')
+  
+  # make host prediction
+  host_pred = model.predict(net_input)[0][0]
+  print('Host prediction:', host_pred)
+
+  # plot
+  mcu_mfcc = mcu_mfccs.reshape(n_frames,num_mfcc)
+  host_mfcc = net_input.reshape(n_frames,num_mfcc)
+
+  fig = plotAudioMfcc(mic_data, host_mfcc, mcu_mfcc)
   plt.show()
 
 ######################################################################
@@ -286,6 +392,8 @@ if __name__ == '__main__':
     fileInference()
   if mode == 'file':
     frameInference()
+  if mode == 'mic':
+    micInference()
 
 
 
