@@ -505,28 +505,30 @@ def getStats():
   return ret
 
 
-def vecToC(vec, prepad=3):
+def vecToC(vec, prepad=3, maxwidth=80):
   """
     vector to c: [1,2,3] -> {1,2,3}
   """
   out = '{'
   if vec.dtype == 'float32' or vec.dtype == 'float64':
-    fmtstring = '%'+str(prepad)+'d,'
+    fmtstring = '%'+str(prepad)+'f,'
   else:
     fmtstring = '%'+str(prepad)+'d,'
   for el in vec:
+    if maxwidth and (len(out.split('\n')[-1]) >= maxwidth):
+      out += '\n'
     out += fmtstring % (el)
   out = out[:-1]
   out += '}'
   return out
 
-def mtxToC (matrix, prepad=3):
+def mtxToC (matrix, prepad=3, maxwidth=0):
   """
     takes a matrix and writes c syntax
   """
   rows = []
   for row in matrix:
-    rows.append(vecToC(row, prepad))
+    rows.append(vecToC(row, prepad, maxwidth))
   out = '{ \n'
   for row in rows:
     out += '  %s,\n' % (row)

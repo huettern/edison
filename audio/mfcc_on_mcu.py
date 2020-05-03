@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-03 10:23:54
+# @Last Modified time: 2020-05-03 11:24:43
 
 import sys
 
@@ -55,6 +55,46 @@ num_mfcc = 13
 # functions
 ######################################################################
 
+def melMtxToUnspares(mel_mtx):
+  """
+    convert mel matrix to unsparse form
+    melMtxCompact, melCompFStarts, melCompFCount = melMtxToUnspares(mel_mtx)
+  """
+
+  melMtxCompact = []
+  melCompFStarts = []
+  melCompFCount = []
+
+  # loop over cols which each represents an output mel as linear combination
+  # of input freqs
+  for ncol in range(mel_mtx.shape[1]):
+    vec = mel_mtx[:,ncol]
+    first_frq = vec.nonzero()[0][0]
+    nonzero_cnt = np.count_nonzero(vec)
+
+    vec_snippet = vec[first_frq:first_frq+nonzero_cnt]
+
+    melMtxCompact += vec_snippet.tolist()
+    melCompFStarts.append(first_frq)
+    melCompFCount.append(nonzero_cnt)
+
+    # if ncol == 0:
+    #   print(vec)
+    #   print(first_frq)
+    #   print(nonzero_cnt)
+    #   print(vec_snippet)
+
+  melMtxCompact = np.array(melMtxCompact, dtype='int16')
+  melCompFStarts = np.array(melCompFStarts, dtype='int16')
+  melCompFCount = np.array(melCompFCount, dtype='int16')
+
+  assert melCompFCount.sum() == melMtxCompact.size
+  
+  print('Reduced Mel matrix from %d elements to %d (-%.1f%%)' % 
+    (mel_mtx.size, melMtxCompact.size, 100-100.0/mel_mtx.size*melMtxCompact.size) )
+
+  return melMtxCompact, melCompFStarts, melCompFCount
+
 def calcCConstants():
   """
     Calcualte constants used for the C implementation
@@ -100,6 +140,19 @@ def calcCConstants():
   twiddle_factors_str += mcu.vecToC(factors_s16, prepad = 4)
   twiddle_factors_str += ';\n'
 
+  # unsparse method
+  melMtxCompact, melCompFStarts, melCompFCount = melMtxToUnspares(mel_mtx_s16)
+  mtxcomp_str = 'const q15_t melMtxCompact[%d] = \n' % (melMtxCompact.size)
+  mtxcomp_str += mcu.vecToC(melMtxCompact, prepad = 4)
+  mtxcomp_str += ';\n'
+  mtxcompfstart_str = 'const q15_t melCompFStarts[%d] = \n' % (melCompFStarts.size)
+  mtxcompfstart_str += mcu.vecToC(melCompFStarts, prepad = 4)
+  mtxcompfstart_str += ';\n'
+  mtxcompfcount_str = 'const q15_t melCompFCount[%d] = \n' % (melCompFCount.size)
+  mtxcompfcount_str += mcu.vecToC(melCompFCount, prepad = 4)
+  mtxcompfcount_str += ';\n'
+
+
   f = open(fname, 'w')
   f.write('#define MEL_SAMPLE_SIZE         %5d\n' % sample_size)
   f.write('#define MEL_N_MEL_BINS          %5d\n' % num_mel_bins)
@@ -115,6 +168,10 @@ def calcCConstants():
   f.write(log_lug_str)
   f.write('#define MEL_DCT_TWIDDLE_SIZE        %5d\n' % factors_s16.shape[0])
   f.write(twiddle_factors_str)
+  f.write('\n\n// Compact mel matrix\n')
+  f.write(mtxcomp_str)
+  f.write(mtxcompfstart_str)
+  f.write(mtxcompfcount_str)
   f.close()
 
 ######################################################################
@@ -261,7 +318,9 @@ def plotFileMode():
 ######################################################################
 # single
 ######################################################################
-if mode == 'single':
+def modeSingle():
+  global fs, y, host_fft, mcu_fft, mel_mtx, host_spec, mcu_spec, host_melspec, mcu_melspec, host_dct, mcu_dct
+  global host_dct_reorder, host_dct_fft, host_dct_makhoul
   # Create synthetic sample
   fs = sample_rate
   t = np.linspace(0,sample_size/fs, sample_size)
@@ -354,13 +413,16 @@ if mode == 'single':
 ######################################################################
 # Calculate C constants
 ######################################################################
-if mode == 'calc':
+def modeCalc():
   calcCConstants()
 
 ######################################################################
 # File
 ######################################################################
-if mode == 'file':
+def modeFile():
+  global fs, y, host_fft, mcu_fft, mel_mtx, host_spec, mcu_spec, host_melspec, mcu_melspec, host_dct, mcu_dct
+  global host_dct_reorder, host_dct_fft, host_dct_makhoul, nSamples, fname
+
   if len(sys.argv) < 3:
     print('Specify input file')
     exit()
@@ -445,24 +507,18 @@ if mode == 'file':
 
   ######################################################################
   # plot
-
-  print(np.median(host_dct[...,0] / mcu_dct[...,0]))
-  print(np.median(host_dct[1] / mcu_dct[1]))
-  print(np.median(host_dct[2] / mcu_dct[2]))
-  print(np.median(host_dct[3] / mcu_dct[3]))
-  print(np.median(host_dct[4] / mcu_dct[4]))
-  print(np.median(host_dct[5] / mcu_dct[5]))
-  print(np.median(host_dct[6] / mcu_dct[6]))
-  print(np.median(host_dct[7] / mcu_dct[7]))
-  print(np.median(host_dct[8] / mcu_dct[8]))
-  print(np.median(host_dct[9] / mcu_dct[9]))
-  print(np.median(host_dct[10] / mcu_dct[10]))
-  print(np.median(host_dct[11] / mcu_dct[11]))
-  print(np.median(host_dct[12] / mcu_dct[12]))
-  print(np.median(host_dct[13] / mcu_dct[13]))
-
-  print(type(mcu_spec[0]))
-  print(mcu_spec.shape)
   print('MCU Audio processing took %.2fms' % (mcu.getStats()['AudioLastProcessingTime']))
   fig = plotFileMode()
   plt.show()
+
+
+######################################################################
+# main
+######################################################################
+if __name__ == '__main__':
+  if mode == 'single':
+    modeSingle()
+  if mode == 'calc':
+    modeCalc()
+  if mode == 'file':
+    modeFile()

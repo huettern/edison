@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-03 10:18:22
+* @Last Modified time: 2020-05-03 12:45:24
 */
 #include "audioprocessing.h"
 
@@ -35,6 +35,14 @@ typedef struct
  * as the complex FFT
  */
 // #define USE_REAL_FFT
+
+/**
+ * Uncomment to use compact mel matrix that is not sparse. Reduces flash usage for
+ * coefficients by 95% and increases processing speed by 25%
+ * 213888B -> 183048B = 30.8KB flash saved
+ * 29.28ms -> 22.50ms =  6.78ms faster
+ */
+#define USE_MEL_MTX_COMPACT
 
 /*------------------------------------------------------------------------------
  * Private data
@@ -127,6 +135,21 @@ void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
   // mtxq15C.numRows = 1; mtxq15C.numCols = MEL_N_MEL_BINS; mtxq15C.pData = bufMelSpect;
   // arm_mat_mult_q15(&mtxq15A, &mtxq15B, &mtxq15C, NULL);
   // manual
+#ifdef USE_MEL_MTX_COMPACT
+  const q15_t *melMtxCoeff = &melMtxCompact[0];
+  for(int mel = 0; mel < MEL_N_MEL_BINS; mel++)
+  {
+    tmpq31 = 0;
+    for(uint32_t frq = melCompFStarts[mel]; frq < (melCompFStarts[mel]+melCompFCount[mel]); frq++)
+    {
+      tmpq31 += bufSpect[frq] * (*melMtxCoeff);
+      melMtxCoeff++;
+    }
+    // bufMelSpectManual[mel] = tmpq31;
+    // this shift is determined by experiment and depends on MEL_MTX_SCALE
+    bufMelSpect[mel] = (q15_t)(tmpq31>>6);
+  }
+#else
   for(int mel = 0; mel < MEL_N_MEL_BINS; mel++)
   {
     tmpq31 = 0;
@@ -138,7 +161,8 @@ void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
     // this shift is determined by experiment and depends on MEL_MTX_SCALE
     bufMelSpect[mel] = (q15_t)(tmpq31>>6);
   }
-  
+#endif
+
   // ---------------------------------------------------------------
   // [4.] Here would the log(x) calculation come, let's leave it out for now..
 
