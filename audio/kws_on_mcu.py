@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-04 13:55:36
+# @Last Modified time: 2020-05-04 17:35:04
 
 import sys
 
@@ -14,6 +14,8 @@ if len(sys.argv) < 2:
   print('    fileinf <file>           Get file, run MFCC on host and inference on MCU')
   print('    file <file>              Get file, run MFCC and inference on host and on MCU')
   print('    mic                      Record sample from onboard mic and do stuffs')
+  print('    host                     Record sample from host mic and do stuffs')
+  print('    hostcont                 Test net on host only using host mic')
   exit()
 mode = sys.argv[1]
 args = sys.argv[2:]
@@ -92,8 +94,12 @@ def plotTwoMfcc(mfcc_host, mfcc_mcu):
 
 def plotAudioMfcc(audio, mfcc_host, mfcc_mcu):
   t = np.linspace(0, audio.shape[0]/fs, audio.shape[0])
-  frames = np.arange(mfcc_mcu.shape[0])
-  melbin = np.arange(mfcc_mcu.shape[1])
+  if mfcc_mcu is not None:
+    frames = np.arange(mfcc_mcu.shape[0])
+    melbin = np.arange(mfcc_mcu.shape[1])
+  else:
+    frames = np.arange(mfcc_host.shape[0])
+    melbin = np.arange(mfcc_host.shape[1])
 
   fig = plt.figure(constrained_layout=True)
   gs = fig.add_gridspec(2, 2)
@@ -106,25 +112,27 @@ def plotAudioMfcc(audio, mfcc_host, mfcc_mcu):
   ax.set_ylabel('amplitude')
   ax.legend()
 
-  vmin = mfcc_mcu.min()
-  vmax = mfcc_mcu.max()
-  ax = fig.add_subplot(gs[1, 1])
-  c = ax.pcolor(frames, melbin, mfcc_mcu.T, cmap='PuBu', vmin=vmin, vmax=vmax)
-  ax.grid(True)
-  ax.set_title('MCU MFCC')
-  ax.set_xlabel('frame')
-  ax.set_ylabel('Mel bin')
-  fig.colorbar(c, ax=ax)
+  if mfcc_mcu is not None:
+    vmin = mfcc_mcu.min()
+    vmax = mfcc_mcu.max()
+    ax = fig.add_subplot(gs[1, 1])
+    c = ax.pcolor(frames, melbin, mfcc_mcu.T, cmap='PuBu', vmin=vmin, vmax=vmax)
+    ax.grid(True)
+    ax.set_title('MCU MFCC')
+    ax.set_xlabel('frame')
+    ax.set_ylabel('Mel bin')
+    fig.colorbar(c, ax=ax)
 
-  vmin = mfcc_host.min()
-  vmax = mfcc_host.max()
-  ax = fig.add_subplot(gs[1, 0])
-  c = ax.pcolor(frames, melbin, mfcc_host.T, cmap='PuBu', vmin=vmin, vmax=vmax)
-  ax.grid(True)
-  ax.set_title('host MFCC')
-  ax.set_xlabel('frame')
-  ax.set_ylabel('Mel bin')
-  fig.colorbar(c, ax=ax)
+  if mfcc_host is not None:
+    vmin = mfcc_host.min()
+    vmax = mfcc_host.max()
+    ax = fig.add_subplot(gs[1, 0])
+    c = ax.pcolor(frames, melbin, mfcc_host.T, cmap='PuBu', vmin=vmin, vmax=vmax)
+    ax.grid(True)
+    ax.set_title('host MFCC')
+    ax.set_xlabel('frame')
+    ax.set_ylabel('Mel bin')
+    fig.colorbar(c, ax=ax)
 
   return fig
 
@@ -373,12 +381,126 @@ def micInference():
   host_pred = model.predict(net_input)[0][0]
   print('Host prediction:', host_pred)
 
+  # store this valuable data!
+  import pathlib
+  pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
+  np.save(cache_dir+'/mcumic_mcu_pred.npy', mcu_pred)
+  np.save(cache_dir+'/mcumic_mcu_mfccs.npy', mcu_mfccs)
+  np.save(cache_dir+'/mcumic_net_input.npy', net_input)
+  np.save(cache_dir+'/mcumic_host_pred.npy', host_pred)
+  np.save(cache_dir+'/mcumic_mic_data.npy', mic_data)
+
   # plot
   mcu_mfcc = mcu_mfccs.reshape(n_frames,num_mfcc)
   host_mfcc = net_input.reshape(n_frames,num_mfcc)
 
   fig = plotAudioMfcc(mic_data, host_mfcc, mcu_mfcc)
   plt.show()
+
+def hostMic():
+  """
+    Sample from host mic, use this data to do inference on host and mcu
+  """
+  import sounddevice as sd
+  sd.default.samplerate = fs
+  sd.default.channels = 1
+
+  mic_data = np.array([], dtype='int16')
+
+  if not from_file:
+
+    with sd.Stream() as stream:
+      print('Listening...')
+      for frameCtr in tqdm(range(n_frames)):
+        frame, overflowed = stream.read(frame_length)
+        # print('read frame of size', len(frame), 'and type', type(frame), 'overflow', overflowed)
+        frame = ((2**16/2-1)*frame[:,0]).astype('int16')
+        # print(frame[:5])
+        mic_data = np.append(mic_data, frame.astype('int16'))
+
+    print('mic_data size', len(mic_data), 'type', type(mic_data), mic_data.dtype)
+
+    o_mfcc = mfu.mfcc_mcu(mic_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+      num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
+    data_mfcc = np.array([x['mfcc'][:num_mfcc] for x in o_mfcc])
+    # make fit shape and dtype
+    net_input = np.array(data_mfcc.reshape([1]+input_shape), dtype='float32')
+    
+    host_pred = model.predict(net_input)[0][0]
+
+    # MCU
+    mcu_mfccs, mcu_pred = mfccAndInfereOnMCU(mic_data, progress=True)
+
+    # store this valuable data!
+    import pathlib
+    pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
+    np.save(cache_dir+'/hostmic_mcu_pred.npy', mcu_pred)
+    np.save(cache_dir+'/hostmic_mcu_mfccs.npy', mcu_mfccs)
+    np.save(cache_dir+'/hostmic_net_input.npy', net_input)
+    np.save(cache_dir+'/hostmic_host_pred.npy', host_pred)
+    np.save(cache_dir+'/hostmic_mic_data.npy', mic_data)
+
+  else:
+    mcu_pred = np.load(cache_dir+'/hostmic_mcu_pred.npy')
+    mcu_mfccs = np.load(cache_dir+'/hostmic_mcu_mfccs.npy')
+    net_input = np.load(cache_dir+'/hostmic_net_input.npy')
+    host_pred = np.load(cache_dir+'/hostmic_host_pred.npy')
+    mic_data = np.load(cache_dir+'/hostmic_mic_data.npy')
+
+  # report
+  print('host prediction: %f mcu prediction: %f' % (host_pred, mcu_pred))
+
+  # plot
+  mcu_mfcc = np.array(mcu_mfccs).reshape(n_frames,num_mfcc)
+  host_mfcc = net_input.reshape(n_frames,num_mfcc)
+
+  fig = plotAudioMfcc(mic_data, host_mfcc, mcu_mfcc)
+  plt.show()
+
+def hostMicContinuous():
+  """
+    Sample continuous from host mic
+  """
+  import sounddevice as sd
+  sd.default.samplerate = fs
+  sd.default.channels = 1
+
+  mic_data = np.array([], dtype='int16')
+  net_input = np.array([], dtype='int16')
+  init = 1
+  frame_ctr = 0
+  mfcc = np.array([])
+  last_pred = 0
+
+  with sd.Stream() as stream:
+    print('Filling buffer...')
+    while True:
+      frame, overflowed = stream.read(frame_length)
+      # print('read frame of size', len(frame), 'and type', type(frame), 'overflow', overflowed)
+      frame = ((2**16/2-1)*frame[:,0]).astype('int16')
+      frame_ctr += 1
+
+      nSamples = 1024
+      o_mfcc = mfu.mfcc_mcu(frame, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+        num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
+      data_mfcc = np.array([x['mfcc'][:num_mfcc] for x in o_mfcc])
+
+      if init == 1:
+        net_input = np.append(net_input.ravel(), data_mfcc)
+        if (frame_ctr >= n_frames):
+          print('Live!')
+          init = 0
+
+      else:
+        net_input = np.array(net_input.reshape([1]+input_shape), dtype='float32')
+        host_pred = model.predict(net_input)[0][0]
+        net_input = np.append(data_mfcc, net_input.ravel()[:-num_mfcc])
+        progress = int(100*host_pred)*'+' + (100-int(100*host_pred))*'-'
+        print('\rprediction: %.3f %s' %(host_pred, progress) , end=" ")
+        print('')
+        last_pred = host_pred
+
+
 
 ######################################################################
 # main
@@ -395,6 +517,10 @@ if __name__ == '__main__':
     frameInference()
   if mode == 'mic':
     micInference()
+  if mode == 'host':
+    hostMic()
+  if mode == 'hostcont':
+    hostMicContinuous()
 
 
 
