@@ -259,7 +259,7 @@ $(BUILD_DIR)/obj/%.o: src/%.c
 	@rm -f $(BUILD_DIR)/obj/$*.d.tmp
 ifdef GEN_LST
 		@$(CC) -S -fverbose-asm $(CFLAGS) -w -o $(@:.o=.s) $<
-		@$(ASM) -alhnd $(@:.o=.s) > $(@:.o=.lst)
+		@$(ASM) -alhnd $(@:.o=.s) -o $(BUILD_DIR)/obj/a.out > $(@:.o=.lst)
 endif
 
 # assembler
