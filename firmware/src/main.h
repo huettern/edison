@@ -43,6 +43,8 @@ TIM_HandleTypeDef htim1;
 #define LED_ON() HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET)
 #define LED_OFF() HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET)
 
+#define IS_BTN_PRESSED() (!(BUTTON_EXTI13_GPIO_Port->IDR & BUTTON_EXTI13_Pin))
+
 /**
  * With this we can switch where printf output should go
  */

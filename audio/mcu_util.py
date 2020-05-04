@@ -82,6 +82,11 @@ hif_commands = [
     },
     {
       'name': 'kws_mic',
+      'cmd_byte': b'\5',
+      'argc': 0
+    },
+    {
+      'name': 'kws_mic_continuous',
       'cmd_byte': b'4',
       'argc': 0
     },

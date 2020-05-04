@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-04 14:38:18
+* @Last Modified time: 2020-05-04 15:03:01
 */
 #include "app.h"
 #include <stdlib.h>
@@ -184,6 +184,88 @@ int8_t appHifMicMfccInfere(uint8_t *args)
 
   return ret;
 }
+
+/**
+ * @brief Runs mic sample - mfcc - inference until button press or uart receive
+ * @details 
+ * 
+ * @param args 
+ * @return 
+ */
+int8_t appMicMfccInfereContinuous (uint8_t *args)
+{
+  int16_t *inFrame, *out_mfccs;
+  uint16_t in_x, in_y;
+  bool doAbort = false;
+  int ret;
+  float tmpf;
+
+  aiGetInputShape(&in_x, &in_y);
+
+  // start continuous mic sampling
+  micContinuousStart();
+
+  // fill buffer once
+  for (int frameCtr = 0; (frameCtr < in_y) && !doAbort; frameCtr++)
+  {
+    // get samples, this call is blocking
+    inFrame = micContinuousGet();
+
+    // calc mfccs
+    audioCalcMFCCs(inFrame, &out_mfccs); //*inp, **oup
+
+    // copy to net in buffer and cast to float
+    for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
+    {
+      tmpf = (float)out_mfccs[mfccCtr];
+      netInput[frameCtr*in_x + mfccCtr] = tmpf;
+    }
+
+    if(IS_BTN_PRESSED() || (huart1.Instance->ISR & UART_FLAG_RXNE) ) doAbort = true;
+  }
+
+  // now enter a loop where sampling and inference is done simultaneously
+  while(!doAbort)
+  {
+    // 3. Run inference
+    fprintf(&huart4, "inference..");
+    ret = aiRunInference((void*)netInput, (void*)netOutput);
+    fprintf(&huart4, "Prediction: %f status = %d\n", netOutput[0], ret);
+
+    // get samples, this call is blocking
+    inFrame = micContinuousGet();
+
+    // calc mfccs
+    audioCalcMFCCs(inFrame, &out_mfccs); //*inp, **oup
+
+    // shift net buffer contents one frame back
+    for(int netInCtr = 0; netInCtr < ( (in_x-1) * in_y); netInCtr++)
+    {
+      netInput[netInCtr + in_x] = netInput[netInCtr];
+    }
+
+    // copy new sample in at front
+    for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
+    {
+      tmpf = (float)out_mfccs[mfccCtr];
+      netInput[mfccCtr] = tmpf;
+    }
+
+    // check abort condition
+    if(IS_BTN_PRESSED() || (huart1.Instance->ISR & UART_FLAG_RXNE) ) doAbort = true;
+
+  }
+
+  // stop sampling
+  micContinuousStop();
+
+  // flush input
+  (void)huart1.Instance->RDR;
+
+  return ret;
+}
+
+
 /*------------------------------------------------------------------------------
  * Privates
  * ---------------------------------------------------------------------------*/
