@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-03 18:18:40
+* @Last Modified time: 2020-05-04 17:21:21
 */
 #include "microphone.h"
 
@@ -36,6 +36,7 @@
  * experimentally determined offset from output
  */
 #define OFFSET_DATA 316736
+#define GAIN 16
 
 typedef struct 
 {
@@ -535,7 +536,7 @@ static void preprocess16bit(int16_t * outPtr, int32_t * srcPtr, uint32_t nProces
   for(int i = 0; i < nProcess; i++)
   {
     // get only 16 bits of data
-    outPtr[i] = (int16_t)( (srcPtr[i] >> (16)) &0x0000ffff);
+    outPtr[i] = GAIN * (int16_t)( (srcPtr[i] >> (16)) &0x0000ffff);
   }
 }
 

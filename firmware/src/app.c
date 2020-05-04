@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-04 15:37:50
+* @Last Modified time: 2020-05-04 17:24:14
 */
 #include "app.h"
 #include <stdlib.h>
@@ -21,6 +21,11 @@
 /*------------------------------------------------------------------------------
  * Settings
  * ---------------------------------------------------------------------------*/
+
+/**
+ * @brief Consider network output above this thershold as hit
+ */
+#define TRUE_THRESHOLD 0.8
 
 /**
  * @brief Enable this to show profiling on arduino Tx pin
@@ -242,6 +247,9 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     //   fprintf(&huart1, "%d,", out_mfccs[mfccCtr]);
     // }
     fprintf(&huart1, "]\n");
+
+    if(netOutput[0] > TRUE_THRESHOLD) LED2_ORA();
+    else LED2_BLU();
 
     // get samples, this call is blocking
     inFrame = micContinuousGet();
