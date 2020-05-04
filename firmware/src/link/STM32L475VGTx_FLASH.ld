@@ -188,7 +188,30 @@ SECTIONS
     . = ALIGN(8);
   } >RAM
 
-  
+  /* Make use of second ram */
+  /* stuff placed in data is initialized and requires flash ROM space */
+  .fastram_data :
+  {
+    . = ALIGN(4);
+    _sfastram_data = .;        /* create a global symbol at data start */
+    *(.fastram_data)           /* .data sections */
+    *(.fastram_data*)          /* .data* sections */
+
+    . = ALIGN(4);
+    _efastram_data = .;        /* define a global symbol at data end */
+  } >RAM2 AT> FLASH
+
+  /* data uninitialized or initialized to zero go into BSS */
+  . = ALIGN(4);
+  .fastram_bss (NOLOAD) :
+  {
+    __fastram_bss_start__ = .;
+    *(.fastram_bss)
+    *(SORT_BY_ALIGNMENT(.fastram_bss*))
+    . = ALIGN(4);
+    __fastram_bss_end__ = .;
+  } >RAM2
+
 
   /* Remove information from the standard libraries */
   /DISCARD/ :

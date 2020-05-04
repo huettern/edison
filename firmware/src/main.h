@@ -16,6 +16,15 @@
  * Global settings
  * ---------------------------------------------------------------------------*/
 
+/**
+ * @brief Memory regions
+ */
+// stuff placed in data is initialized and requires flash ROM space
+#define FASTRAM_DATA            __attribute__ ((section(".fastram_data"), aligned(4)))
+// data uninitialized or initialized to zero go into BSS
+#define FASTRAM_BSS             __attribute__ ((section(".fastram_bss"), aligned(4)))
+
+
 /*------------------------------------------------------------------------------
  * Publics
  * ---------------------------------------------------------------------------*/

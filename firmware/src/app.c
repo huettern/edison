@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-04 14:05:02
+* @Last Modified time: 2020-05-04 14:24:53
 */
 #include "app.h"
 #include <stdlib.h>
@@ -142,7 +142,7 @@ int8_t appHifMicMfccInfere(uint8_t *args)
 
   static float mfccs[AI_NET_INSIZE_BYTES/4];
   static float out_data[AI_NET_OUTSIZE_BYTES/4];
-  static int16_t inFrameBuf[1024*16];
+  static FASTRAM_BSS int16_t inFrameBuf[1024*16];
 
   // get net info
   aiGetInputShape(&in_x, &in_y);
