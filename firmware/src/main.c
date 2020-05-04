@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-03 16:38:47
+* @Last Modified time: 2020-05-04 15:31:09
 */
 
 #include "main.h"
@@ -96,6 +96,28 @@ int main(void)
 
   /* TESTS --------------------------------------------------------*/
   // audioDevelop();
+
+  /* net input format --------------------------------------------------------*/
+  // static float netInput[AI_NET_INSIZE_BYTES/4];
+  // static float netOutput[AI_NET_OUTSIZE_BYTES/4];
+  // uint32_t ctr = 0;
+
+  // for(int i = 0; i < AI_NET_INSIZE_BYTES/4; i++) netInput[i] = 0;
+  // (void)aiRunInference((void*)netInput, (void*)netOutput);
+  // printf("all zero: %f inf\n", netOutput[0]);
+
+  // netInput[ctr] = 1.0;
+  // (void)aiRunInference((void*)netInput, (void*)netOutput);
+  // printf("[%03d] = 1.0: %f inf\n", ctr, netOutput[0]);
+
+  // for(int i = 0; i < AI_NET_INSIZE_BYTES/4; i++)
+  // {
+  //   netInput[ctr] = 1.0;
+  //   (void)aiRunInference((void*)netInput, (void*)netOutput);
+  //   printf("[%03d] = 1.0: %f inf\n", ctr, netOutput[0]);
+  //   netInput[ctr] = 0.0;
+  //   ctr++;
+  // }
 
   /* Profiler --------------------------------------------------------*/
   // cycProfStart("test");

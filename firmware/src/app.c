@@ -2,10 +2,11 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-04 15:03:01
+* @Last Modified time: 2020-05-04 15:37:50
 */
 #include "app.h"
 #include <stdlib.h>
+#include "arm_math.h"
 
 #include "printf.h"
 #include "microphone.h"
@@ -194,13 +195,15 @@ int8_t appHifMicMfccInfere(uint8_t *args)
  */
 int8_t appMicMfccInfereContinuous (uint8_t *args)
 {
-  int16_t *inFrame, *out_mfccs;
+  int16_t *inFrame, *out_mfccs, maxAmplitude, minAmplitude;
   uint16_t in_x, in_y;
+  uint32_t tmp32, dstIdx, srcIdx;
   bool doAbort = false;
   int ret;
   float tmpf;
 
-  aiGetInputShape(&in_x, &in_y);
+  aiGetInputShape(&in_x, &in_y); // x = 13, y = 62 (nframes)
+  fprintf(&huart1, "Input shape x,y: (%d,%d)\n", in_x, in_y);
 
   // start continuous mic sampling
   micContinuousStart();
@@ -218,7 +221,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
     {
       tmpf = (float)out_mfccs[mfccCtr];
-      netInput[frameCtr*in_x + mfccCtr] = tmpf;
+      netInput[frameCtr*in_y + mfccCtr] = tmpf;
     }
 
     if(IS_BTN_PRESSED() || (huart1.Instance->ISR & UART_FLAG_RXNE) ) doAbort = true;
@@ -227,10 +230,18 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
   // now enter a loop where sampling and inference is done simultaneously
   while(!doAbort)
   {
+    // get amplitude max
+    arm_max_q15(inFrame, 1024, &maxAmplitude, &tmp32);
+    arm_min_q15(inFrame, 1024, &minAmplitude, &tmp32);
+
     // 3. Run inference
-    fprintf(&huart4, "inference..");
     ret = aiRunInference((void*)netInput, (void*)netOutput);
-    fprintf(&huart4, "Prediction: %f status = %d\n", netOutput[0], ret);
+    fprintf(&huart1, "pred: %.3f ret: %d ampl: %d mfcc: [", netOutput[0], ret, maxAmplitude-minAmplitude);
+    // for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
+    // {
+    //   fprintf(&huart1, "%d,", out_mfccs[mfccCtr]);
+    // }
+    fprintf(&huart1, "]\n");
 
     // get samples, this call is blocking
     inFrame = micContinuousGet();
@@ -239,9 +250,11 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     audioCalcMFCCs(inFrame, &out_mfccs); //*inp, **oup
 
     // shift net buffer contents one frame back
-    for(int netInCtr = 0; netInCtr < ( (in_x-1) * in_y); netInCtr++)
+    dstIdx = (in_y-1)*in_x;
+    srcIdx = (in_y-2)*in_x;
+    for(int netInCtr = 0; netInCtr < ( (in_y-2)*in_x ); netInCtr++)
     {
-      netInput[netInCtr + in_x] = netInput[netInCtr];
+      netInput[dstIdx--] = netInput[srcIdx--];
     }
 
     // copy new sample in at front
