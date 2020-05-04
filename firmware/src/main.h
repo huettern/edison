@@ -41,11 +41,12 @@ UART_HandleTypeDef *printfUart;
 #define PRINTF_ON_ADRUINO() printfUart = &huart4
 #define PRINTF_ON_STLINK() printfUart = &huart1
 
+UART_HandleTypeDef *__main_old_uart;
 #define fprintf(U, X, ...) \
-  UART_HandleTypeDef *old = printfUart; \
+  __main_old_uart = printfUart; \
   printfUart = U; \
   printf(X, ##__VA_ARGS__); \
-  printfUart = old
+  printfUart = __main_old_uart
 
 /*------------------------------------------------------------------------------
  * Defines

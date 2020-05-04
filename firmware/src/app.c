@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-03 19:16:09
+* @Last Modified time: 2020-05-04 14:05:02
 */
 #include "app.h"
 #include <stdlib.h>
@@ -130,28 +130,27 @@ int8_t appHifMfccAndInference(uint8_t *args)
  * @param args 
  * @return 
  */
+
 int8_t appHifMicMfccInfere(uint8_t *args)
 {
   (void) args;
 
-  int16_t *inFrame, *out_mfccs, *inFrameBuf=NULL, *inFrameBufPtr;
+  int16_t *inFrame, *out_mfccs, *inFrameBufPtr;
   uint16_t in_x, in_y;
-  float *out_data=NULL, *mfccs=NULL, tmpf;
+  float tmpf;
   int ret;
+
+  static float mfccs[AI_NET_INSIZE_BYTES/4];
+  static float out_data[AI_NET_OUTSIZE_BYTES/4];
+  static int16_t inFrameBuf[1024*16];
 
   // get net info
   aiGetInputShape(&in_x, &in_y);
 
   // alocate memory
-  mfccs = malloc(AI_NET_INSIZE_BYTES);
-  out_data = malloc(AI_NET_OUTSIZE_BYTES);
-  inFrameBuf = malloc(2*1024*16);
-
-  if(!mfccs || !out_data || !inFrameBuf)
-  {
-    fprintf(&huart4, "malloc error!\n");
-    Error_Handler();
-  }
+  // mfccs = malloc(AI_NET_INSIZE_BYTES);
+  // out_data = malloc(AI_NET_OUTSIZE_BYTES);
+  // inFrameBuf = malloc(2*1024*16);
 
   // start continuous mic sampling
   micContinuousStart();
@@ -159,7 +158,7 @@ int8_t appHifMicMfccInfere(uint8_t *args)
   // get 62 * 1024 samples, because that is the net input
   // TODO: change to 62 iterations
   inFrameBufPtr = &inFrameBuf[0];
-  for (int frameCtr = 0; frameCtr < 16; frameCtr++)
+  for (int frameCtr = 0; frameCtr < 62; frameCtr++)
   {
     // get samples, this call is blocking
     inFrame = micContinuousGet();
@@ -168,9 +167,12 @@ int8_t appHifMicMfccInfere(uint8_t *args)
     audioCalcMFCCs(inFrame, &out_mfccs); //*inp, **oup
 
     // copy to storage
-    for(int i = 0; i < 1024; i++)
+    if(frameCtr < 16)
     {
-      *inFrameBufPtr++ = inFrame[i];
+      for(int i = 0; i < 1024; i++)
+      {
+        *inFrameBufPtr++ = inFrame[i];
+      }
     }
 
     // copy to net in buffer and cast to float
@@ -185,6 +187,7 @@ int8_t appHifMicMfccInfere(uint8_t *args)
   micContinuousStop();
 
   // 3. Run inference
+  fprintf(&huart4, "inference..");
   ret = aiRunInference((void*)mfccs, (void*)out_data);
 
   // signal host that we are ready
@@ -197,9 +200,9 @@ int8_t appHifMicMfccInfere(uint8_t *args)
 
   fprintf(&huart4, "Prediction: %f\n", out_data[0]);
 
-  free(inFrameBuf);
-  free(mfccs);
-  free(out_data);
+  // free(inFrameBuf);
+  // free(mfccs);
+  // free(out_data);
 
   return ret;
 }

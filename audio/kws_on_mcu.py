@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-03 19:29:01
+# @Last Modified time: 2020-05-04 13:55:36
 
 import sys
 
@@ -181,6 +181,7 @@ def micAndAllOnMCU():
     print('Wait for MCU timed out')
 
   # MCU returns mic data, mfcc and net output
+  # mic_data = np.array([0], dtype='int16')
   mic_data, tag = mcu.receiveData()
   print('Received %s type with tag 0x%x len %d' % (mic_data.dtype, tag, mic_data.shape[0]))
   mcu_mfccs, tag = mcu.receiveData()
