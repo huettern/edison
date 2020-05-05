@@ -2,16 +2,17 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-01 09:22:41
+# @Last Modified time: 2020-05-05 21:13:27
 
 import audioutils as au
 import mfcc_utils as mfu
 import keras
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
+from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, Softmax
+from keras.utils import to_categorical
 import numpy as np
 import matplotlib.pyplot as plt
-import os
+import os, sys
 import pathlib
 import librosa
 from tqdm import tqdm
@@ -22,7 +23,11 @@ try:
 except:
   pass
 
-cache_dir = '.cache/kws'
+if len(sys.argv) < 2:
+  print('specify mode')
+  exit()
+
+cache_dir = '.cache/kws_multi'
 verbose = 1
 
 # Limit in number of samples to take. make sure the correct wav files are present!
@@ -69,22 +74,90 @@ def get_model(inp_shape, num_classes):
     metrics=['accuracy'])
   return model
 
+def get_model_multiclass(inp_shape, num_classes):
+  """
+    CNN model for spotting multiple keywords
+  """
+  print("Building model with input shape %s and %d classes" % (inp_shape, num_classes))
+
+  # first_filter_width = 8
+  # first_filter_height = 10
+  # first_filter_count = 8
+  
+  # first_conv_stride_x = 2
+  # first_conv_stride_y = 2
+
+  # model = Sequential()
+  # model.add(Conv2D(first_filter_count, 
+  #   kernel_size=(first_filter_width, first_filter_height),
+  #   strides=(first_conv_stride_x, first_conv_stride_y),
+  #   use_bias=True,
+  #   activation='relu', 
+  #   padding='same', 
+  #   input_shape=inp_shape) )
+  
+  # dropout_rate = 0.25
+  # model.add(Dropout(dropout_rate))
+  # model.add(Flatten())
+  # model.add(Dense(num_classes))
+  # model.add(Softmax())
+  # model.compile(loss='categorical_crossentropy', 
+  #   optimizer='adam', 
+  #   metrics=['accuracy'])
+
+
+  first_filter_width = 8
+  first_filter_height = 20
+  first_filter_count = 64
+  first_conv_stride_x = 1
+  first_conv_stride_y = 1
+
+  model = Sequential()
+  model.add(Conv2D(first_filter_count, 
+    kernel_size=(first_filter_width, first_filter_height),
+    strides=(first_conv_stride_x, first_conv_stride_y),
+    use_bias=True,
+    activation='relu', 
+    padding='same', 
+    input_shape=inp_shape) )
+  
+  dropout_rate = 0.25
+  model.add(Dropout(dropout_rate))
+
+  second_filter_width = 4
+  second_filter_height = 10
+  second_filter_count = 64
+  second_conv_stride_x = 1
+  second_conv_stride_y = 1
+
+  model.add(Conv2D(second_filter_count, 
+    kernel_size=(second_filter_width, second_filter_height),
+    strides=(second_conv_stride_x, second_conv_stride_y),
+    use_bias=True,
+    activation='relu', 
+    padding='same', 
+    input_shape=inp_shape) )
+  
+  dropout_rate = 0.25
+  model.add(Dropout(dropout_rate))
+
+  model.add(Flatten())
+  model.add(Dense(num_classes))
+  model.add(Softmax())
+  
+  model.compile(loss='categorical_crossentropy', 
+    optimizer='adam', 
+    metrics=['accuracy'])
+  
+  return model
+
+
 ##################################################
 # Training
-def train(model, batchSize = 10, epochs = 30):
-  train_set = x_train_mfcc
-  train_labels = y_train
-  test_set = x_test_mfcc
-  test_labels = y_test
+def train(model, x, y, vx, vy, batchSize = 10, epochs = 30):
 
-  input_shape=(train_set[0].shape)
-  print (input_shape)
-  print(type(x_train_mfcc))
-
-  model.fit(train_set, train_labels, batch_size=batchSize, epochs=epochs, 
-    verbose=verbose, validation_data=(test_set, test_labels))
-
-  return train_set, train_labels, test_set, test_labels
+  model.fit(x, y, batch_size=batchSize, epochs=epochs, 
+    verbose=verbose, validation_data=(vx, vy))
 
 
 ##################################################
@@ -297,6 +370,80 @@ def load_data_mculike():
   # return
   return x_train_mfcc, x_test_mfcc, y_train, y_test
 
+
+def load_data_mculike_multi(kwds):
+  """
+    Load data and compute MFCC with scaled and custom implementation as it is done on the MCU
+  """
+  # if in cache, use it
+  try:
+    x_train_mfcc = np.load(cache_dir+'/x_train_mfcc_mcu.npy')
+    x_test_mfcc = np.load(cache_dir+'/x_test_mfcc_mcu.npy')
+    x_val_mfcc = np.load(cache_dir+'/x_val_mfcc_mcu.npy')
+    y_train = np.load(cache_dir+'/y_train_mcu.npy')
+    y_test = np.load(cache_dir+'/y_test_mcu.npy')
+    y_val = np.load(cache_dir+'/y_val_mcu.npy')
+    assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
+    print('Load data from cache success!')
+
+  except:
+    # failed, load from source wave files
+    x_train, y_train, x_test, y_test, x_validation, y_val = au.load_speech_commands(keywords=kwds, sample_len=2*16000)
+
+
+    sample_len_seconds = 2.0
+    fs = 16000.0
+    mel_mtx_scale = 128
+    lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 32
+    frame_length = 1024
+    num_mfcc = 13
+    nSamples = int(sample_len_seconds*fs)
+    frame_len = frame_length
+    frame_step = frame_len
+    frame_count = 0 # 0 for auto
+    fft_len = frame_len
+
+    # calculate MFCCs of training and test x data
+    o_mfcc_train = []
+    o_mfcc_test = []
+    o_mfcc_val = []
+    print('starting mfcc calculation')
+    for data in tqdm(x_train):
+      o_mfcc = mfu.mfcc_mcu(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+        num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
+      o_mfcc_train.append([x['mfcc'][:num_mfcc] for x in o_mfcc])
+    for data in tqdm(x_test):
+      o_mfcc = mfu.mfcc_mcu(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+        num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
+      o_mfcc_test.append([x['mfcc'][:num_mfcc] for x in o_mfcc])
+    for data in tqdm(x_validation):
+      o_mfcc = mfu.mfcc_mcu(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+        num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
+      o_mfcc_val.append([x['mfcc'][:num_mfcc] for x in o_mfcc])
+
+    # add dimension to get (x, y, 1) from to make conv2D input layer happy
+    x_train_mfcc = np.expand_dims(np.array(o_mfcc_train), axis = -1)
+    x_test_mfcc = np.expand_dims(np.array(o_mfcc_test), axis = -1)
+    x_val_mfcc = np.expand_dims(np.array(o_mfcc_val), axis = -1)
+
+    # convert labels to categorial one-hot coded
+    y_train = to_categorical(y_train, num_classes=None)
+    y_test = to_categorical(y_test, num_classes=None)
+    y_val = to_categorical(y_val, num_classes=None)
+
+    # store data
+    print('Store mfcc data')
+    pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
+    np.save(cache_dir+'/x_train_mfcc_mcu.npy', x_train_mfcc)
+    np.save(cache_dir+'/x_test_mfcc_mcu.npy', x_test_mfcc)
+    np.save(cache_dir+'/x_val_mfcc_mcu.npy', x_val_mfcc)
+    np.save(cache_dir+'/y_train_mcu.npy', y_train)
+    np.save(cache_dir+'/y_test_mcu.npy', y_test)
+    np.save(cache_dir+'/y_val_mcu.npy', y_val)
+
+  # return
+  return x_train_mfcc, x_test_mfcc, x_val_mfcc, y_train, y_test, y_val
+
 ##################################################
 # plottery
 def plotInputDifference(mfccs, names):
@@ -363,7 +510,7 @@ def plotInputDifference(mfccs, names):
   fig.savefig('test2png.png', dpi=100)
   plt.show()
 
-def plotSomeMfcc(x_train, x_test):
+def plotSomeMfcc(x_train, x_test, y_train=None, y_test=None, keywords=None):
   """
     Plot a grid of MFCCs to check train and test data
   """
@@ -375,11 +522,18 @@ def plotSomeMfcc(x_train, x_test):
 
   vmin = 0
   vmax = 1500
+  
+  import random 
 
   for i in range(8):
     ax=axs[i//2, i%2]
+    i = random.randint(0,x_train.shape[0])
     data = np.squeeze(x_train[i,:,:].T, axis=0)
-    c = ax.pcolor(frames, melbin, data, cmap='PuBu', vmin=vmin, vmax=vmax, label=('x_train[%d]' % (i)))
+    if y_train is not None:
+      lbl = ('x_train[%d]:%s' % (i, keywords[np.argmax(y_train[i])]))
+    else:
+      lbl = ('x_train[%d]' % (i))
+    c = ax.pcolor(frames, melbin, data, cmap='PuBu', vmin=vmin, vmax=vmax, label=lbl)
     ax.grid(True)
     ax.legend()
     ax.set_xlabel('frame')
@@ -388,8 +542,13 @@ def plotSomeMfcc(x_train, x_test):
 
   for i in range(8):
     ax=axs[i//2, 2+i%2]
+    i = random.randint(0,x_test.shape[0])
     data = np.squeeze(x_test[i,:,:].T, axis=0)
-    c = ax.pcolor(frames, melbin, data, cmap='PuBu', vmin=vmin, vmax=vmax, label=('x_test[%d]' % (i)))
+    if y_test is not None:
+      lbl = ('x_test[%d]:%s' % (i, keywords[np.argmax(y_test[i])]))
+    else:
+      lbl = ('x_test[%d]' % (i))
+    c = ax.pcolor(frames, melbin, data, cmap='PuBu', vmin=vmin, vmax=vmax, label=lbl)
     ax.grid(True)
     ax.legend()
     ax.set_xlabel('frame')
@@ -400,50 +559,113 @@ def plotSomeMfcc(x_train, x_test):
 
 ##################################################
 # MAIN
+# The old model using snips dataset
 ##################################################
+if sys.argv[1] == 'snips':
+  # x_train_mfcc, x_test_mfcc, y_train, y_test = load_data()
+  # x_train_mfcc2, x_test_mfcc2, y_train2, y_test2 = load_data2()
+  # x_train_mfcc3, x_test_mfcc3, y_train3, y_test3 = load_data3()
+  # x_test_mfcc2 = x_test_mfcc2.transpose((0,2,1,3))
+  # print(x_test_mfcc.shape)
+  # print(x_test_mfcc2.shape)
+  # print(x_test_mfcc3.shape)
+  # plotInputDifference([x_test_mfcc, x_test_mfcc2, x_test_mfcc3], ['custom implemetation', 'librosa', 'tensorflow'])
+  # exit()
 
-# x_train_mfcc, x_test_mfcc, y_train, y_test = load_data()
-# x_train_mfcc2, x_test_mfcc2, y_train2, y_test2 = load_data2()
-# x_train_mfcc3, x_test_mfcc3, y_train3, y_test3 = load_data3()
-# x_test_mfcc2 = x_test_mfcc2.transpose((0,2,1,3))
-# print(x_test_mfcc.shape)
-# print(x_test_mfcc2.shape)
-# print(x_test_mfcc3.shape)
-# plotInputDifference([x_test_mfcc, x_test_mfcc2, x_test_mfcc3], ['custom implemetation', 'librosa', 'tensorflow'])
-# exit()
 
+  # x_train_mfcc, x_test_mfcc, y_train, y_test = load_data()
+  x_train_mfcc, x_test_mfcc, y_train, y_test = load_data_mculike()
 
-# x_train_mfcc, x_test_mfcc, y_train, y_test = load_data()
-x_train_mfcc, x_test_mfcc, y_train, y_test = load_data_mculike()
+  assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
+  print('x train shape: ', x_train_mfcc.shape)
+  print('x test shape: ', x_test_mfcc.shape)
+  print('y train shape: ', y_train.shape)
+  print('y test shape: ', y_test.shape)
 
-assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
-print('x train shape: ', x_train_mfcc.shape)
-print('x test shape: ', x_test_mfcc.shape)
-print('y train shape: ', y_train.shape)
-print('y test shape: ', y_test.shape)
+  # fig, axs = plotSomeMfcc(x_train_mfcc, x_test_mfcc)
+  # plt.show()
+  # exit()
 
-# fig, axs = plotSomeMfcc(x_train_mfcc, x_test_mfcc)
-# plt.show()
-# exit()
+  ##################################################
+  # Build model
+  model = get_model(inp_shape=x_train_mfcc.shape[1:], num_classes = 1)
+  model.summary()
+  train_set, train_labels, test_set, test_labels = train(model, 
+    x_train_mfcc, y_train, x_test_mfcc, y_test, batchSize = batchSize, epochs = epochs)
+  model.summary()
+  y_pred = np.rint(model.predict(x_test_mfcc).reshape((-1,))).astype(int)
+
+  print('Prediction:')
+  print(y_pred)
+  print('True:')
+  print(y_test)
+
+  print('Confusion matrix:')
+  print(confusion_matrix(y_test, y_pred))
+  # model.evaluate(test_set, y_test)
+  from datetime import datetime
+  dte = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+  fname = cache_dir+'/kws_model_'+dte+'.h5'
+  model.save(fname)
+  print('Model saved as %s' % (fname))
 
 ##################################################
-# Build model
-model = get_model(inp_shape=x_train_mfcc.shape[1:], num_classes = 1)
-model.summary()
-train_set, train_labels, test_set, test_labels = train(model, batchSize = batchSize, epochs = epochs)
-model.summary()
-y_pred = np.rint(model.predict(x_test_mfcc).reshape((-1,))).astype(int)
+# MAIN
+# for multiple possible keywords
+##################################################
+if sys.argv[1] == 'multi':
 
-print('Prediction:')
-print(y_pred)
-print('True:')
-print(y_test)
+  # load data
+  keywords = ['cat','marvin','left','zero']
+  x_train_mfcc, x_test_mfcc, x_val_mfcc, y_train, y_test, y_val = load_data_mculike_multi(keywords)
+  
+  print('x train shape: ', x_train_mfcc.shape)
+  print('x test shape: ', x_test_mfcc.shape)
+  print('y train shape: ', y_train.shape)
+  print('y test shape: ', y_test.shape)
 
-print('Confusion matrix:')
-print(confusion_matrix(y_test, y_pred))
-# model.evaluate(test_set, y_test)
-from datetime import datetime
-dte = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-fname = cache_dir+'/kws_model_'+dte+'.h5'
-model.save(fname)
-print('Model saved as %s' % (fname))
+  if sys.argv[2] == 'train':
+    # build model
+    model = get_model_multiclass(inp_shape=x_train_mfcc.shape[1:], num_classes = len(keywords))
+
+    # train model
+    model.summary()
+    train(model, x_train_mfcc, y_train, x_val_mfcc, y_val, batchSize = batchSize, epochs = epochs)
+
+    # store model
+    from datetime import datetime
+    dte = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+    fname = cache_dir+'/kws_model_'+dte+'.h5'
+    model.save(fname)
+    print('Model saved as %s' % (fname))
+
+  else:
+    # load model
+    model = tf.keras.models.load_model(sys.argv[2])
+    model.summary()
+
+  # fig, axs = plotSomeMfcc(x_train_mfcc, x_test_mfcc, y_train, y_test, keywords)
+  # plt.show()
+  # exit()
+
+  y_pred = model.predict(x_test_mfcc)
+  y_pred = 1.0*(y_pred > 0.5) 
+  
+  # print(y_pred)
+  # print(y_pred.shape)
+  # print(y_test)
+  # print(y_test.shape)
+
+  print('Confusion matrix:')
+  cmtx = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
+  print(cmtx)
+
+  # true positive
+  tp = np.sum(np.diagonal(cmtx))
+  # total number of predictions
+  tot = np.sum(cmtx)
+
+  print('Correct predicionts: %d/%d (%.2f%%)' % (tp, tot, 100.0/tot*tp))
+
+
+
