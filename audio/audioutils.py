@@ -2,10 +2,117 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:47
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-20 08:25:07
+# @Last Modified time: 2020-05-05 17:44:21
 
 snipsDataPath = "/Users/noah/git/mlmcu-project/audio/data/snips/"
 # snipsDataPath = '/media/spare/data/hey_snips_research_6k_en_train_eval_clean_ter'
+
+scDataPath = '.cache/speech_commands_v0.02'
+# scDataPath = '.cache/tmp'
+scDownloadURL = 'http://download.tensorflow.org/data/speech_commands_v0.02.tar.gz'
+
+def load_speech_commands(keywords = ['cat','marvin','left','zero'], sample_len=2*16000):
+  """
+    Loads samples from 
+    http://download.tensorflow.org/data/speech_commands_v0.02.tar.gz
+
+    keywords a list of which keywords to load
+  """
+  import os
+  import tarfile
+  import urllib
+  from os import path
+  from scipy.io import wavfile
+  from tqdm import tqdm
+  import numpy as np
+
+  # if directory does not exist
+  if not path.exists(scDataPath):
+    print('Please download dataset from', scDownloadURL, 'and extract it to', scDataPath)
+    return -1
+
+  
+  # all files
+  from pathlib import Path
+  all_data = [str(x) for x in list(Path(scDataPath).rglob("*.wav"))]
+  
+  # print(all_data)
+
+  with open(scDataPath+'/'+"testing_list.txt") as fd:
+    test_data = [scDataPath+'/'+x.strip() for x in fd.readlines()]
+  with open(scDataPath+'/'+"validation_list.txt") as fd:
+    validation_data = [scDataPath+'/'+x.strip() for x in fd.readlines()]
+
+  print('use only samples that are in keywords')
+  all_data = [x for x in all_data if x.split('/')[-2] in keywords]
+  test_data = [x for x in test_data if x.split('/')[-2] in keywords]
+  validation_data = [x for x in validation_data if x.split('/')[-2] in keywords]
+
+  print('scrap data files that are not in test/validation data')
+  train_data = [x for x in all_data if x not in test_data]
+  train_data = [x for x in train_data if x not in validation_data]
+
+  fs, _ = wavfile.read(train_data[0])
+
+  # print(train_data)
+  # print(test_data)
+  # print(validation_data)
+
+  print("Loading data: trainsize=%d  testsize=%d  validationsize=%d fs=%.0f" % 
+    (len(train_data), len(test_data), len(validation_data), fs))
+
+  cut_cnt = 0
+  def extract(fnames, sample_len):
+    x_list = []
+    y_list = []
+    for i in tqdm(range(len(fnames))): 
+      fs, data = wavfile.read(fnames[i])
+      x = data.copy()
+
+
+      # Cut/pad sample
+      if x.shape[0] < sample_len:
+        x = np.pad(x, (0, sample_len-x.shape[0]), mode='edge')
+      else:
+        cut_cnt += 1
+        x = x[:sample_len]
+
+      # add to sample list
+      x_list.append(x)
+      y_list.append(keywords.index(fnames[i].split('/')[-2]))
+      
+    return np.asarray(x_list), np.asarray(y_list)
+
+
+  # Will store data here
+  x_train, y_train = extract(train_data, sample_len)
+  x_test, y_test = extract(test_data, sample_len)
+  x_validation, y_validation = extract(validation_data, sample_len)
+  print('Had to cut',cut_cnt,'samples')
+
+  print('sample count for train/test/validation')
+  for i in range(len(keywords)):
+    print(keywords[i],'counts',np.count_nonzero(y_train==i),np.count_nonzero(y_test==i),np.count_nonzero(y_validation==i))
+
+
+  # play some to check
+  # import simpleaudio as sa
+  # import random
+  # for i in range(5):
+  #   i = random.randint(0, len(x_train)-1)
+  #   print('train keyword',keywords[y_train[i]])
+  #   play_obj = sa.play_buffer(x_train[i], 1, 2, fs) # data, n channels, bytes per sample, fs
+  #   play_obj.wait_done()
+  #   i = random.randint(0, len(x_test)-1)
+  #   print('test keyword',keywords[y_test[i]])
+  #   play_obj = sa.play_buffer(x_test[i], 1, 2, fs) # data, n channels, bytes per sample, fs
+  #   play_obj.wait_done()
+  #   i = random.randint(0, len(x_validation)-1)
+  #   print('validation keyword',keywords[y_validation[i]])
+  #   play_obj = sa.play_buffer(x_validation[i], 1, 2, fs) # data, n channels, bytes per sample, fs
+  #   play_obj.wait_done()
+  
+  return x_train, y_train, x_test, y_test, x_validation, y_validation
 
 def load_snips_data(sample_len=4*16000, trainsize = 1000, testsize = 100):
   """
@@ -90,3 +197,9 @@ def load_snips_data(sample_len=4*16000, trainsize = 1000, testsize = 100):
 
   return x_train, y_train, x_test, y_test
 
+
+######################################################################
+# main
+######################################################################
+if __name__ == '__main__':
+  load_speech_commands()
