@@ -35,6 +35,36 @@ python mfcc_on_mcu.py file data/heysnips_true_16k_16b.wav
 
 ![](doc/img/mfcc_snips.png)
 
+### Inference on MCU
+A sound file on the host can be sent to the MCU where it is processed and a single inference is run. The result is compared with the same operations on the host.
+
+```bash
+python kws_on_mcu.py file data/heysnips_true_16k_16b.wav
+# host prediction: 0.000000 mcu prediction: 0.000001
+# _________________________________________________________________
+# Number of inferences run: 1
+# Deviation: max -74633.805% min -74633.805% avg -74633.805%
+# rmse 0.000
+# _________________________________________________________________
+# MCU Audio processing took 974.02ms (15.71ms per frame)
+# MCU inference took 34.26ms
+```
+
+![](doc/img/mfcc_inference.png)
+
+### Inference with microphone data on MCU
+Run entire pipeline on MCU with mircophone data.
+
+```bash
+python kws_on_mcu.py mic
+# Host prediction: 0.85339564 MCU prediction: 0.117089234
+```
+
+![](doc/img/kws_mic.png)
+
+### Continuous inference with Microphone
+Open the serial port from the ST-link board with `115200` baud and send a `4` character. This starts a continuous inference with
+data from the microphone.
 
 ## From `h5` to MCU
 

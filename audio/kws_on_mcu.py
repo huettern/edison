@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-04 17:35:04
+# @Last Modified time: 2020-05-06 13:28:05
 
 import sys
 
@@ -167,6 +167,8 @@ def mfccAndInfereOnMCU(data, progress=False):
   # MCU now runs inference, wait for complete
   if mcu.waitForMcuReady() < 0:
     print('Wait for MCU timed out')
+
+  print('Inference complete')
 
   # MCU returns net input and output
   mcu_mfccs, tag = mcu.receiveData()
@@ -379,7 +381,7 @@ def micInference():
   
   # make host prediction
   host_pred = model.predict(net_input)[0][0]
-  print('Host prediction:', host_pred)
+  print('Host prediction:', host_pred, 'MCU prediction:', mcu_pred[0])
 
   # store this valuable data!
   import pathlib
