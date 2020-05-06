@@ -36,8 +36,10 @@
  * Settings of the used net
  */
 #ifdef NET_TYPE_CUBE
+  #define AI_NET_INNUM           NET_CUBE_KWS_IN_NUM
   #define AI_NET_INSIZE           NET_CUBE_KWS_INSIZE
   #define AI_NET_INSIZE_BYTES     NET_CUBE_KWS_INSIZE_BYTES
+  #define AI_NET_OUTNUM           NET_CUBE_KWS_OUT_NUM
   #define AI_NET_OUTSIZE           NET_CUBE_KWS_OUTSIZE
   #define AI_NET_OUTSIZE_BYTES     NET_CUBE_KWS_OUTSIZE_BYTES
 #endif

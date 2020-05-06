@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    kws.h
   * @author  AST Embedded Analytics Research Platform
-  * @date    Fri May  1 09:24:39 2020
+  * @date    Wed May  6 16:10:15 2020
   * @brief   AI Tool Automatic Code Generator for Embedded NN computing
   ******************************************************************************
   * @attention
@@ -28,26 +28,26 @@
 
 #define AI_KWS_IN_NUM       (1)
 #define AI_KWS_IN { \
-  AI_BUFFER_OBJ_INIT(AI_BUFFER_FORMAT_FLOAT, 62, 13, 1, 1, NULL), \
+  AI_BUFFER_OBJ_INIT(AI_BUFFER_FORMAT_FLOAT, 31, 13, 1, 1, NULL), \
 }
 #define AI_KWS_IN_SIZE { \
-  (62 * 13 * 1), \
+  (31 * 13 * 1), \
 }
-#define AI_KWS_IN_1_SIZE  (62 * 13 * 1)
-#define AI_KWS_IN_1_SIZE_BYTES  ((62 * 13 * 1) * 4)
+#define AI_KWS_IN_1_SIZE  (31 * 13 * 1)
+#define AI_KWS_IN_1_SIZE_BYTES  ((31 * 13 * 1) * 4)
 
 
 
 
 #define AI_KWS_OUT_NUM      (1)
 #define AI_KWS_OUT { \
-  AI_BUFFER_OBJ_INIT(AI_BUFFER_FORMAT_FLOAT, 1, 1, 1, 1, NULL), \
+  AI_BUFFER_OBJ_INIT(AI_BUFFER_FORMAT_FLOAT, 1, 1, 4, 1, NULL), \
 }
 #define AI_KWS_OUT_SIZE { \
-  (1 * 1 * 1), \
+  (1 * 1 * 4), \
 }
-#define AI_KWS_OUT_1_SIZE  (1 * 1 * 1)
-#define AI_KWS_OUT_1_SIZE_BYTES  ((1 * 1 * 1) * 4)
+#define AI_KWS_OUT_1_SIZE  (1 * 1 * 4)
+#define AI_KWS_OUT_1_SIZE_BYTES  ((1 * 1 * 4) * 4)
 
 
 AI_API_DECLARE_BEGIN

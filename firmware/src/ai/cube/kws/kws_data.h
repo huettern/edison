@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    kws_data.h
   * @author  AST Embedded Analytics Research Platform
-  * @date    Fri May  1 09:24:39 2020
+  * @date    Wed May  6 16:10:15 2020
   * @brief   AI Tool Automatic Code Generator for Embedded NN computing
   ******************************************************************************
   * @attention
@@ -26,9 +26,9 @@
 
 #define AI_KWS_DATA_CONFIG           AI_HANDLE_NULL
 
-#define AI_KWS_DATA_ACTIVATIONS_SIZE     (13568)
+#define AI_KWS_DATA_ACTIVATIONS_SIZE     (3424)
 
-#define AI_KWS_DATA_WEIGHTS_SIZE         (12548)
+#define AI_KWS_DATA_WEIGHTS_SIZE         (22656)
 
 #define AI_KWS_DATA_ACTIVATIONS(ptr_)  \
   AI_BUFFER_OBJ_INIT( \

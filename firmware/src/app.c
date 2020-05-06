@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-04 17:24:14
+* @Last Modified time: 2020-05-06 16:18:26
 */
 #include "app.h"
 #include <stdlib.h>
@@ -69,6 +69,7 @@ int8_t appHifMfccAndInference(uint8_t *args)
 {
   (void)args;
   int ret;
+  uint32_t tmp32 = 0;
   
   int16_t *out_mfccs;
   float tmpf;
@@ -108,7 +109,9 @@ int8_t appHifMfccAndInference(uint8_t *args)
   // 3. Run inference
   fprintf(&huart4, "inference..");
   ret = aiRunInference((void*)netInput, (void*)netOutput);
-  fprintf(&huart4, "Prediction: %f\n", netOutput[0]);
+  fprintf(&huart4, "Prediction: ");
+  for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++) {fprintf(&huart4, "%.2f ", netOutput[tmp32]);}
+    fprintf(&huart4, "\n");
   prfEvent("inference");
   hiSendMCUReady();
 
@@ -137,6 +140,7 @@ int8_t appHifMicMfccInfere(uint8_t *args)
   uint16_t in_x, in_y;
   float tmpf;
   int ret;
+  uint32_t tmp32 = 0;
 
   // get net info
   aiGetInputShape(&in_x, &in_y);
@@ -144,10 +148,9 @@ int8_t appHifMicMfccInfere(uint8_t *args)
   // start continuous mic sampling
   micContinuousStart();
 
-  // get 62 * 1024 samples, because that is the net input
-  // TODO: change to 62 iterations
+  // get in_y * 1024 samples, because that is the net input
   inFrameBufPtr = &inFrameBuf[0];
-  for (int frameCtr = 0; frameCtr < 62; frameCtr++)
+  for (int frameCtr = 0; frameCtr < in_y; frameCtr++)
   {
     // get samples, this call is blocking
     inFrame = micContinuousGet();
@@ -178,7 +181,9 @@ int8_t appHifMicMfccInfere(uint8_t *args)
   // 3. Run inference
   fprintf(&huart4, "inference..");
   ret = aiRunInference((void*)netInput, (void*)netOutput);
-  fprintf(&huart4, "Prediction: %f\n", netOutput[0]);
+  fprintf(&huart4, "Prediction: ");
+  for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++) {fprintf(&huart4, "%.2f ", netOutput[tmp32]);}
+    fprintf(&huart4, "\n");
 
   // signal host that we are ready
   hiSendMCUReady();
@@ -241,12 +246,13 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
 
     // 3. Run inference
     ret = aiRunInference((void*)netInput, (void*)netOutput);
-    fprintf(&huart1, "pred: %.3f ret: %d ampl: %d mfcc: [", netOutput[0], ret, maxAmplitude-minAmplitude);
-    // for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
-    // {
-    //   fprintf(&huart1, "%d,", out_mfccs[mfccCtr]);
-    // }
-    fprintf(&huart1, "]\n");
+    fprintf(&huart1, "pred: [ ");
+    for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++)
+    {
+      fprintf(&huart1, "%.2f ", netOutput[tmp32]);
+    }
+    fprintf(&huart1, "] ret: %d ampl: %d", ret, maxAmplitude-minAmplitude);
+    fprintf(&huart1, "\n");
 
     if(netOutput[0] > TRUE_THRESHOLD) LED2_ORA();
     else LED2_BLU();

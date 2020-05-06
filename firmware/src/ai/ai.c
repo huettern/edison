@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-03 17:15:59
+* @Last Modified time: 2020-05-06 16:05:44
 */
 #include "ai.h"
 
@@ -49,13 +49,6 @@
 
 // memory required for (intermediate) activations
 #define NET_CUBE_KWS_ACTIVATIONS_SIZE AI_KWS_DATA_ACTIVATIONS_SIZE
-
-// input format
-// format, height, width, channels, n batches, data
-// AI_BUFFER_FORMAT_FLOAT, 62, 32, 1, 1, NULL
-// output format
-// format, height, width, channels, n batches, data
-// AI_BUFFER_FORMAT_FLOAT, 1, 1, 1, 1, NULL
 
 
 /*------------------------------------------------------------------------------
