@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-06 13:28:05
+# @Last Modified time: 2020-05-06 16:29:03
 
 import sys
 
@@ -34,7 +34,7 @@ import mfcc_utils as mfu
 import mcu_util as mcu
 
 cache_dir = '.cache/kws_mcu'
-model_file = '../firmware/src/ai/cube/kws/kws_model_2020-05-01_09:22:51.h5'
+model_file = '../firmware/src/ai/cube/kws/kws_model_medium_embedding_conv.h5'
 from_file = 0
 
 # Load trained model
@@ -46,7 +46,7 @@ input_size = np.prod(input_shape)
 
 # Settings
 fs = 16000
-sample_len_seconds = 4
+sample_len_seconds = 2
 sample_len = sample_len_seconds*fs
 mel_mtx_scale = 128
 lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 32
@@ -199,7 +199,7 @@ def micAndAllOnMCU():
   mcu_pred, tag = mcu.receiveData()
   print('Received %s type with tag 0x%x len %d' % (mcu_pred.dtype, tag, mcu_pred.shape[0]))
   
-  return mic_data, mcu_mfccs.reshape(62, 13), mcu_pred
+  return mic_data, mcu_mfccs.reshape(31, 13), mcu_pred
 
 
 def rmse(a, b):
@@ -270,7 +270,9 @@ def fileInference():
   host_preds.append(model.predict(net_input)[0][0])
   mcu_preds.append(infereOnMCU(net_input))
 
-  print('host prediction: %f mcu prediction: %f' % (host_preds[-1], mcu_preds[-1]))
+  np.set_printoptions(precision=3)
+  print('host prediction:',host_preds[-1],
+    'mcu prediction:',mcu_preds[-1])
 
   mcu_preds = np.array(mcu_preds)
   host_preds = np.array(host_preds)
@@ -304,7 +306,7 @@ def frameInference():
       num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
     data_mfcc = np.array([x['mfcc'][:num_mfcc] for x in o_mfcc])
     net_input = np.array(data_mfcc.reshape([1]+input_shape), dtype='float32')
-    host_preds.append(model.predict(net_input)[0][0])
+    host_preds.append(model.predict(net_input)[0,:])
 
     # Calculate MFCC and compute on MCU
     mcu_mfccs, mcu_pred = mfccAndInfereOnMCU(data, progress=True)
@@ -330,7 +332,9 @@ def frameInference():
     host_preds = np.load(cache_dir+'/frame_host_preds.npy')
 
   # report
-  print('host prediction: %f mcu prediction: %f' % (host_preds[-1], mcu_preds[-1]))
+  np.set_printoptions(precision=3)
+  print('host prediction:',host_preds[-1],
+    'mcu prediction:',mcu_preds[-1])
 
   # reshape data to make plottable
   mcu_mfcc = mcu_mfccss.reshape(n_frames,num_mfcc)

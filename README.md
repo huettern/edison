@@ -84,6 +84,7 @@ data from the microphone.
 12. Generate code with Makefile toolchain
 13. To copy the generated code from cube to the firmware directory, run in `firmware`
 ```bash
+make import-cubeai-net
 make clean && make -j8 OPMODE=CUBE_VERIFICATION
 ```
 14. Flash target
