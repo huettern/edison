@@ -12,10 +12,11 @@ import mfcc_utils as mfu
 
 cache_dir = '.cache/kws_mcu'
 model_file = '../firmware/src/ai/cube/kws/kws_model_medium_embedding_conv.h5'
+model_file ='train/.cache/kws_keras/kws_model_medium_embedding_conv_2020-05-07_17:26:28.h5'
 
-
-keywords = ['cat','marvin','left','zero']
-threshold = 0.99
+# keywords = ['cat','marvin','left','zero']
+keywords = np.load('train/.cache/kws_keras'+'/keywords.npy')
+threshold = 0.6
 
 # Load trained model
 model = tf.keras.models.load_model(model_file)
@@ -74,7 +75,8 @@ def kwsThd(tstvar):
 
         if (host_pred.max() > threshold):
           spotted_kwd = keywords[np.argmax(host_pred)]
-          print('Spotted', spotted_kwd)
+          if spotted_kwd[0] != '_':
+            print('Spotted', spotted_kwd)
         np.set_printoptions(suppress=True)
         # print(host_pred)
         last_pred = host_pred

@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-07 14:42:01
+# @Last Modified time: 2020-05-07 17:38:35
 
 import sys
 
@@ -35,6 +35,8 @@ import mfcc_utils as mfu
 
 cache_dir = '.cache/kws_mcu'
 model_file = '../firmware/src/ai/cube/kws/kws_model_medium_embedding_conv.h5'
+model_file ='train/.cache/kws_keras/kws_model_medium_embedding_conv_2020-05-07_17:26:28.h5'
+keywords = np.load('train/.cache/kws_keras'+'/keywords.npy')
 from_file = 0
 
 # Load trained model
@@ -483,6 +485,7 @@ def hostMicContinuous():
   sd.default.channels = 1
 
   keywords = ['cat','marvin','left','zero']
+  keywords = np.load('train/.cache/kws_keras'+'/keywords.npy')
   threshold = 0.8
 
   mic_data = np.array([], dtype='int16')
@@ -534,13 +537,8 @@ def hostMicSingle():
   """
   import sounddevice as sd
 
-  fig = plt.figure()
-
   sd.default.samplerate = fs
   sd.default.channels = 1
-
-  keywords = ['cat','marvin','left','zero']
-  threshold = 0.8
 
   mic_data = np.array([], dtype='int16')
   net_input = np.array([], dtype='int16')
@@ -548,6 +546,10 @@ def hostMicSingle():
   frame_ctr = 0
   mfcc = np.array([])
   last_pred = 0
+
+  keywords = np.load('train/.cache/kws_keras'+'/keywords.npy')
+  print('keywords:',keywords)
+  threshold = 0.5
 
   with sd.Stream() as stream:
     print('Filling buffer...')
@@ -577,7 +579,7 @@ def hostMicSingle():
         # print('')
         if (host_pred.max() > threshold):
           spotted_kwd = keywords[np.argmax(host_pred)]
-          print('Spotted', spotted_kwd)
+          print('Spotted', spotted_kwd, 'with %.2f%% confidence' % (100.0*host_pred.max()))
         np.set_printoptions(suppress=True)
         print(host_pred)
         last_pred = host_pred
