@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:47
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-07 16:35:00
+# @Last Modified time: 2020-05-07 16:53:36
 
 snipsDataPath = "/Users/noah/git/mlmcu-project/audio/data/snips/"
 # snipsDataPath = '/media/spare/data/hey_snips_research_6k_en_train_eval_clean_ter'
@@ -136,6 +136,7 @@ def load_speech_commands(keywords = ['cat','marvin','left','zero'],
       'and validation', np.array_split(xtest_noise, 2)[1].shape[0], 'noise samples')
 
   # Load coldwords from wav files
+  print('Start loading coldwords')
   if coldwords is not None:
     keywords += ['_cold']
     x_list = []

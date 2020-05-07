@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-07 16:34:24
+# @Last Modified time: 2020-05-07 17:03:16
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -343,10 +343,11 @@ def get_model(inp_shape, num_classes):
     model.add(Dense(num_classes, activation=None, use_bias=True))
     model.add(Softmax())
 
-  model.compile(loss='categorical_crossentropy', 
-    optimizer='adam', 
-    metrics=['accuracy'])
+  # sgd = SGD( lr = 0.02)
+  opt = tf.keras.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
 
+  model.compile(optimizer=opt, loss ='categorical_crossentropy', metrics=['accuracy'])
+  
   return model
 
 
@@ -357,9 +358,14 @@ def train(model, x, y, vx, vy, batchSize = 10, epochs = 30):
   logdir = "/tmp/edison/train/" + datetime.now().strftime("%Y%m%d-%H%M%S")
   tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir)
 
-  train_history = model.fit(x, y, batch_size=batchSize, epochs=epochs, 
-    verbose=verbose, validation_data=(vx, vy),
-    callbacks=[tensorboard_callback])
+  
+  early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10)
+  reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=1, min_lr=0.00001)
+  csv_logger = tf.keras.callbacks.CSVLogger(cache_dir+'/training_'+model_arch+'_'+datetime.now().strftime("%Y%m%d-%H%M%S")+'.log')
+
+  train_history = model.fit(x, y, batch_size = batchSize, epochs = epochs, 
+    verbose = verbose, validation_data = (vx, vy), 
+    callbacks = [tensorboard_callback, early_stopping, reduce_lr, csv_logger])
 
   return train_history
 
@@ -379,6 +385,7 @@ def load_data(keywords, coldwords, noise):
     y_train = np.load(cache_dir+'/y_train_mcu.npy')
     y_test = np.load(cache_dir+'/y_test_mcu.npy')
     y_val = np.load(cache_dir+'/y_val_mcu.npy')
+    keywords = np.load(cache_dir+'/keywords.npy')
     assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
     print('Load data from cache success!')
 
@@ -436,6 +443,7 @@ def load_data(keywords, coldwords, noise):
     np.save(cache_dir+'/y_train_mcu.npy', y_train)
     np.save(cache_dir+'/y_test_mcu.npy', y_test)
     np.save(cache_dir+'/y_val_mcu.npy', y_val)
+    np.save(cache_dir+'/keywords.npy', keywords)
 
   # return
   return x_train_mfcc, x_test_mfcc, x_val_mfcc, y_train, y_test, y_val, keywords
@@ -499,13 +507,18 @@ def plotSomeMfcc(x_train, x_test, y_train=None, y_test=None, keywords=None):
 keywords = ['cat','marvin','left','zero']
 coldwords=['bed','bird','stop','visual']
 noise=['_background_noise_']
+keywords = ['cat']
+coldwords=['bird']
+noise=['_background_noise_']
 x_train_mfcc, x_test_mfcc, x_val_mfcc, y_train, y_test, y_val, keywords = load_data(keywords, coldwords, noise)
 
 
 print('x train shape: ', x_train_mfcc.shape)
 print('x test shape: ', x_test_mfcc.shape)
+print('x validation shape: ', x_val_mfcc.shape)
 print('y train shape: ', y_train.shape)
 print('y test shape: ', y_test.shape)
+print('y validation shape: ', y_val.shape)
 
 if sys.argv[1] == 'train':
   # build model
