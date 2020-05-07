@@ -2,21 +2,26 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:47
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-05 17:44:21
+# @Last Modified time: 2020-05-07 16:35:00
 
 snipsDataPath = "/Users/noah/git/mlmcu-project/audio/data/snips/"
 # snipsDataPath = '/media/spare/data/hey_snips_research_6k_en_train_eval_clean_ter'
 
 scDataPath = '.cache/speech_commands_v0.02'
-# scDataPath = '.cache/tmp'
+# scDataPath = 'train/.cache/speech_commands_v0.02'
 scDownloadURL = 'http://download.tensorflow.org/data/speech_commands_v0.02.tar.gz'
 
-def load_speech_commands(keywords = ['cat','marvin','left','zero'], sample_len=2*16000):
+def load_speech_commands(keywords = ['cat','marvin','left','zero'], 
+  sample_len=2*16000, coldwords=['bed','bird','stop','visual'], noise=['_background_noise_'],
+  playsome=False):
   """
     Loads samples from 
     http://download.tensorflow.org/data/speech_commands_v0.02.tar.gz
 
     keywords a list of which keywords to load
+
+    coldwords   specify directories that are used and classified as coldwords
+    noise       specify directory used as noise sources
   """
   import os
   import tarfile
@@ -69,7 +74,6 @@ def load_speech_commands(keywords = ['cat','marvin','left','zero'], sample_len=2
       fs, data = wavfile.read(fnames[i])
       x = data.copy()
 
-
       # Cut/pad sample
       if x.shape[0] < sample_len:
         x = np.pad(x, (0, sample_len-x.shape[0]), mode='edge')
@@ -88,31 +92,134 @@ def load_speech_commands(keywords = ['cat','marvin','left','zero'], sample_len=2
   x_train, y_train = extract(train_data, sample_len)
   x_test, y_test = extract(test_data, sample_len)
   x_validation, y_validation = extract(validation_data, sample_len)
+
+  # Load noise from wav files
+  if noise is not None:
+    keywords += ['_noise']
+    # print('extracting noise')
+    x_list = []
+    y_list = []
+    for noise_folder in noise:
+      # list of files used as noise
+      noise_data = [str(x) for x in list(Path(scDataPath+'/'+noise_folder).rglob("*.wav"))]
+
+      for fname in noise_data:
+        print('working on file',fname)
+        # load data
+        fs, data = wavfile.read(fname)
+        x = data.copy()
+        # print('  file shape',data.shape)
+        # split noise samples in junks of sample_len
+        n_smp = x.shape[0] // sample_len
+        # print('  create nchunks ', n_smp)
+        for smp in range(n_smp):
+          x_list.append(x[smp*sample_len:(1+smp)*sample_len])
+          y_list.append(keywords.index('_noise'))
+
+    x_list = np.asarray(x_list)
+    y_list = np.asarray(y_list)
+
+    # split into train/test
+    from sklearn.model_selection import train_test_split
+    xtrain_noise, xtest_noise, ytrain_noise, ytest_noise = train_test_split(x_list, y_list, test_size=0.33, random_state=42)
+
+    # Append noise to train/test/validation sets
+    x_train = np.append(x_train, xtrain_noise, axis=0)
+    y_train = np.append(y_train, ytrain_noise, axis=0)
+    x_test = np.append(x_test, np.array_split(xtest_noise, 2)[0], axis=0)
+    y_test = np.append(y_test, np.array_split(ytest_noise, 2)[0], axis=0)
+    x_validation = np.append(x_validation, np.array_split(xtest_noise, 2)[1], axis=0)
+    y_validation = np.append(y_validation, np.array_split(ytest_noise, 2)[1], axis=0)
+
+    print('Added to train',xtrain_noise.shape[0],
+      'test', np.array_split(xtest_noise, 2)[0].shape[0], 
+      'and validation', np.array_split(xtest_noise, 2)[1].shape[0], 'noise samples')
+
+  # Load coldwords from wav files
+  if coldwords is not None:
+    keywords += ['_cold']
+    x_list = []
+    y_list = []
+    for cold_folder in coldwords:
+      # list of files used as noise
+      cold_data = [str(x) for x in list(Path(scDataPath+'/'+cold_folder).rglob("*.wav"))]
+
+      for fname in cold_data:
+        # load data
+        fs, data = wavfile.read(fname)
+        x = data.copy()
+
+        # Cut/pad sample
+        if x.shape[0] < sample_len:
+          x = np.pad(x, (0, sample_len-x.shape[0]), mode='edge')
+        else:
+          cut_cnt += 1
+          x = x[:sample_len]
+        # add to sample list
+        x_list.append(x)
+        y_list.append(keywords.index('_cold'))
+
+    x_list = np.asarray(x_list)
+    y_list = np.asarray(y_list)
+
+    # split into train/test
+    from sklearn.model_selection import train_test_split
+    xtrain_cold, xtest_cold, ytrain_cold, ytest_cold = train_test_split(x_list, y_list, test_size=0.33, random_state=42)
+
+    # Append noise to train/test/validation sets
+    x_train = np.append(x_train, xtrain_cold, axis=0)
+    y_train = np.append(y_train, ytrain_cold, axis=0)
+    x_test = np.append(x_test, np.array_split(xtest_cold, 2)[0], axis=0)
+    y_test = np.append(y_test, np.array_split(ytest_cold, 2)[0], axis=0)
+    x_validation = np.append(x_validation, np.array_split(xtest_cold, 2)[1], axis=0)
+    y_validation = np.append(y_validation, np.array_split(ytest_cold, 2)[1], axis=0)
+
+    print('Added to train',xtrain_cold.shape[0],
+      'test', np.array_split(xtest_cold, 2)[0].shape[0], 
+      'and validation', np.array_split(xtest_cold, 2)[1].shape[0], 'cold samples')
+
+
+  # play some to check
+  if playsome:
+    import simpleaudio as sa
+    import random
+    i = len(x_train)-1
+    print('train keyword',keywords[y_train[i]])
+    play_obj = sa.play_buffer(x_train[i], 1, 2, fs) # data, n channels, bytes per sample, fs
+    play_obj.wait_done()
+    i = len(x_test)-1
+    print('test keyword',keywords[y_test[i]])
+    play_obj = sa.play_buffer(x_test[i], 1, 2, fs) # data, n channels, bytes per sample, fs
+    play_obj.wait_done()
+    i = len(x_validation)-1
+    print('validation keyword',keywords[y_validation[i]])
+    play_obj = sa.play_buffer(x_validation[i], 1, 2, fs) # data, n channels, bytes per sample, fs
+    play_obj.wait_done()
+    for i in range(5):
+      i = random.randint(0, len(x_train)-1)
+      print('train keyword',keywords[y_train[i]])
+      play_obj = sa.play_buffer(x_train[i], 1, 2, fs) # data, n channels, bytes per sample, fs
+      play_obj.wait_done()
+      i = random.randint(0, len(x_test)-1)
+      print('test keyword',keywords[y_test[i]])
+      play_obj = sa.play_buffer(x_test[i], 1, 2, fs) # data, n channels, bytes per sample, fs
+      play_obj.wait_done()
+      i = random.randint(0, len(x_validation)-1)
+      print('validation keyword',keywords[y_validation[i]])
+      play_obj = sa.play_buffer(x_validation[i], 1, 2, fs) # data, n channels, bytes per sample, fs
+      play_obj.wait_done()
+  
   print('Had to cut',cut_cnt,'samples')
 
   print('sample count for train/test/validation')
   for i in range(len(keywords)):
-    print(keywords[i],'counts',np.count_nonzero(y_train==i),np.count_nonzero(y_test==i),np.count_nonzero(y_validation==i))
+    print('  ',keywords[i],'counts',np.count_nonzero(y_train==i),np.count_nonzero(y_test==i),np.count_nonzero(y_validation==i))
 
+  print("Returning data: trainsize=%d  testsize=%d  validationsize=%d with keywords" % 
+    (x_train.shape[0], x_test.shape[0], x_validation.shape[0]))
+  print(keywords)
 
-  # play some to check
-  # import simpleaudio as sa
-  # import random
-  # for i in range(5):
-  #   i = random.randint(0, len(x_train)-1)
-  #   print('train keyword',keywords[y_train[i]])
-  #   play_obj = sa.play_buffer(x_train[i], 1, 2, fs) # data, n channels, bytes per sample, fs
-  #   play_obj.wait_done()
-  #   i = random.randint(0, len(x_test)-1)
-  #   print('test keyword',keywords[y_test[i]])
-  #   play_obj = sa.play_buffer(x_test[i], 1, 2, fs) # data, n channels, bytes per sample, fs
-  #   play_obj.wait_done()
-  #   i = random.randint(0, len(x_validation)-1)
-  #   print('validation keyword',keywords[y_validation[i]])
-  #   play_obj = sa.play_buffer(x_validation[i], 1, 2, fs) # data, n channels, bytes per sample, fs
-  #   play_obj.wait_done()
-  
-  return x_train, y_train, x_test, y_test, x_validation, y_validation
+  return x_train, y_train, x_test, y_test, x_validation, y_validation, keywords
 
 def load_snips_data(sample_len=4*16000, trainsize = 1000, testsize = 100):
   """

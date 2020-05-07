@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-06 16:29:03
+# @Last Modified time: 2020-05-07 14:42:01
 
 import sys
 
@@ -16,6 +16,7 @@ if len(sys.argv) < 2:
   print('    mic                      Record sample from onboard mic and do stuffs')
   print('    host                     Record sample from host mic and do stuffs')
   print('    hostcont                 Test net on host only using host mic')
+  print('    hostsingle               Test net on host only using host mic and single frame')
   exit()
 mode = sys.argv[1]
 args = sys.argv[2:]
@@ -31,7 +32,6 @@ import scipy.io.wavfile as wavfile
 import tensorflow as tf
 
 import mfcc_utils as mfu
-import mcu_util as mcu
 
 cache_dir = '.cache/kws_mcu'
 model_file = '../firmware/src/ai/cube/kws/kws_model_medium_embedding_conv.h5'
@@ -144,6 +144,8 @@ def infereOnMCU(net_input, progress=False):
   """
     Upload, process and download inference
   """
+  import mcu_util as mcu
+
   if mcu.sendCommand('kws_single_inference') < 0:
     exit()
   mcu.sendData(net_input.reshape(-1), 0, progress=progress)
@@ -155,6 +157,8 @@ def mfccAndInfereOnMCU(data, progress=False):
   """
     Upload, process and download inference of raw audio data
   """
+  import mcu_util as mcu
+
   if mcu.sendCommand('mfcc_kws_frame') < 0:
     exit()
 
@@ -182,6 +186,7 @@ def micAndAllOnMCU():
   """
     Records a sample from mic and processes it
   """
+  import mcu_util as mcu
 
   if mcu.sendCommand('kws_mic') < 0:
     exit()
@@ -283,6 +288,8 @@ def frameInference():
   """
     Reads file, computes mfcc and kws on mcu and host
   """
+  import mcu_util as mcu
+
   host_preds = []
   mcu_preds = []
   mcu_mfccss = []
@@ -468,8 +475,72 @@ def hostMicContinuous():
     Sample continuous from host mic
   """
   import sounddevice as sd
+
+  fig = plt.figure()
+  ax1 = fig.add_subplot(1,1,1)
+
   sd.default.samplerate = fs
   sd.default.channels = 1
+
+  keywords = ['cat','marvin','left','zero']
+  threshold = 0.8
+
+  mic_data = np.array([], dtype='int16')
+  net_input = np.array([], dtype='int16')
+  init = 1
+  frame_ctr = 0
+  mfcc = np.array([])
+  last_pred = 0
+
+  with sd.Stream() as stream:
+    print('Filling buffer...')
+    while True:
+      frame, overflowed = stream.read(frame_length)
+      # print('read frame of size', len(frame), 'and type', type(frame), 'overflow', overflowed)
+      frame = ((2**16/2-1)*frame[:,0]).astype('int16')
+      frame_ctr += 1
+
+      nSamples = 1024
+      o_mfcc = mfu.mfcc_mcu(frame, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+        num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
+      data_mfcc = np.array([x['mfcc'][:num_mfcc] for x in o_mfcc])
+
+      ax1.clear()
+      ax1.plot(frame)
+      plt.draw()
+
+      if init == 1:
+        net_input = np.append(net_input.ravel(), data_mfcc)
+        if (frame_ctr >= n_frames):
+          print('Live!')
+          init = 0
+
+      else:
+        net_input = np.array(net_input.reshape([1]+input_shape), dtype='float32')
+        host_pred = model.predict(net_input)[0]
+        net_input = np.append(data_mfcc, net_input.ravel()[:-num_mfcc])
+        # progress = int(100*host_pred)*'+' + (100-int(100*host_pred))*'-'
+        # print('\rprediction: %.3f %s' %(host_pred, progress) , end=" ")
+        # print('')
+        if (host_pred.max() > threshold):
+          spotted_kwd = keywords[np.argmax(host_pred)]
+          print('Spotted', spotted_kwd)
+        last_pred = host_pred
+
+
+def hostMicSingle():
+  """
+    Sample continuous from host mic
+  """
+  import sounddevice as sd
+
+  fig = plt.figure()
+
+  sd.default.samplerate = fs
+  sd.default.channels = 1
+
+  keywords = ['cat','marvin','left','zero']
+  threshold = 0.8
 
   mic_data = np.array([], dtype='int16')
   net_input = np.array([], dtype='int16')
@@ -499,12 +570,22 @@ def hostMicContinuous():
 
       else:
         net_input = np.array(net_input.reshape([1]+input_shape), dtype='float32')
-        host_pred = model.predict(net_input)[0][0]
+        host_pred = model.predict(net_input)[0]
         net_input = np.append(data_mfcc, net_input.ravel()[:-num_mfcc])
-        progress = int(100*host_pred)*'+' + (100-int(100*host_pred))*'-'
-        print('\rprediction: %.3f %s' %(host_pred, progress) , end=" ")
-        print('')
+        # progress = int(100*host_pred)*'+' + (100-int(100*host_pred))*'-'
+        # print('\rprediction: %.3f %s' %(host_pred, progress) , end=" ")
+        # print('')
+        if (host_pred.max() > threshold):
+          spotted_kwd = keywords[np.argmax(host_pred)]
+          print('Spotted', spotted_kwd)
+        np.set_printoptions(suppress=True)
+        print(host_pred)
         last_pred = host_pred
+        host_mfcc = net_input.reshape(n_frames,num_mfcc)
+        plotAudioMfcc(frame, host_mfcc, None)
+        plt.show()
+        return
+
 
 
 
@@ -527,6 +608,8 @@ if __name__ == '__main__':
     hostMic()
   if mode == 'hostcont':
     hostMicContinuous()
+  if mode == 'hostsingle':
+    hostMicSingle()
 
 
 

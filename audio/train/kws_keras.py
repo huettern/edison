@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-06 15:49:54
+# @Last Modified time: 2020-05-07 16:34:24
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -130,7 +130,7 @@ model_arch = 'medium_embedding_conv'
 
 # training parameters
 batchSize = 100
-epochs  = 500
+epochs  = 50
 
 # cut/padd each sample to that many seconds
 sample_len_seconds = 2.0
@@ -367,7 +367,7 @@ def train(model, x, y, vx, vy, batchSize = 10, epochs = 30):
 ##################################################
 # load data
 
-def load_data(kwds):
+def load_data(keywords, coldwords, noise):
   """
     Load data and compute MFCC with scaled and custom implementation as it is done on the MCU
   """
@@ -384,8 +384,8 @@ def load_data(kwds):
 
   except:
     # failed, load from source wave files
-    x_train, y_train, x_test, y_test, x_validation, y_val = au.load_speech_commands(keywords=kwds, sample_len=2*16000)
-
+    x_train, y_train, x_test, y_test, x_validation, y_val, keywords = au.load_speech_commands(
+      keywords=keywords, sample_len=2*16000, coldwords=coldwords, noise=noise, playsome=False)
 
     sample_len_seconds = 2.0
     fs = 16000.0
@@ -438,7 +438,7 @@ def load_data(kwds):
     np.save(cache_dir+'/y_val_mcu.npy', y_val)
 
   # return
-  return x_train_mfcc, x_test_mfcc, x_val_mfcc, y_train, y_test, y_val
+  return x_train_mfcc, x_test_mfcc, x_val_mfcc, y_train, y_test, y_val, keywords
 
 ##################################################
 # plottery
@@ -497,7 +497,10 @@ def plotSomeMfcc(x_train, x_test, y_train=None, y_test=None, keywords=None):
 
 # load data
 keywords = ['cat','marvin','left','zero']
-x_train_mfcc, x_test_mfcc, x_val_mfcc, y_train, y_test, y_val = load_data(keywords)
+coldwords=['bed','bird','stop','visual']
+noise=['_background_noise_']
+x_train_mfcc, x_test_mfcc, x_val_mfcc, y_train, y_test, y_val, keywords = load_data(keywords, coldwords, noise)
+
 
 print('x train shape: ', x_train_mfcc.shape)
 print('x test shape: ', x_test_mfcc.shape)

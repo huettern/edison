@@ -19,6 +19,8 @@ cd train/
 
 ### Models
 
+Inspired by https://github.com/tensorflow/tensorflow/blob/5d595477cc94a78c364e81810beb3753ae756607/tensorflow/examples/speech_commands/models.py#L673
+
 | Name                  | Total params | MACC       | ROM                    | RAM      | Exec time          |
 |:----------------------|:-------------|:-----------|:-----------------------|:---------|:-------------------|
 | conv_model            | 202,884      | 22,567,292 | 792KB                  | 39KiB    | 1623ms -> too slow |
