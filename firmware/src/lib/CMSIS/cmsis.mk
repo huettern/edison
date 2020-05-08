@@ -23,6 +23,7 @@ CMSIS_CSRC +=	$(CMSIS)/DSP_Lib/Source/StatisticsFunctions/arm_min_q31.c
 CMSIS_CSRC +=	$(CMSIS)/DSP_Lib/Source/StatisticsFunctions/arm_max_q31.c
 CMSIS_CSRC +=	$(CMSIS)/DSP_Lib/Source/StatisticsFunctions/arm_min_q15.c
 CMSIS_CSRC +=	$(CMSIS)/DSP_Lib/Source/StatisticsFunctions/arm_max_q15.c
+CMSIS_CSRC +=	$(CMSIS)/DSP_Lib/Source/StatisticsFunctions/arm_max_f32.c
 
 # CMSIS_CSRC +=	$(CMSIS)/DSP_Lib/Source/MatrixFunctions/arm_mat_sub_q31.c
 # CMSIS_CSRC +=	$(CMSIS)/DSP_Lib/Source/MatrixFunctions/arm_mat_add_f32.c

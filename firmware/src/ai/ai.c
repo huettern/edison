@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-06 16:05:44
+* @Last Modified time: 2020-05-08 13:24:26
 */
 #include "ai.h"
 
@@ -54,6 +54,8 @@
 /*------------------------------------------------------------------------------
  * Private data
  * ---------------------------------------------------------------------------*/
+
+const char* const aiKeywords[] = {"cat", "marvin", "left", "zero", "_cold"};
 
 /**
  * CUBE
@@ -187,6 +189,11 @@ int aiRunInference(void* in_data, void* out_data)
   
   lastInferenceTimeUs = utilToc(id);
   return ret;
+}
+
+const char* aiGetKeywordFromIndex(uint32_t idx)
+{
+  return aiKeywords[idx];
 }
 
 /*------------------------------------------------------------------------------
