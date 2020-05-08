@@ -149,8 +149,9 @@ def receiveData(timeout=5000):
   """
     Listens for incomming data streams
   """
-  ser.reset_input_buffer()
-  ser.reset_output_buffer()
+  # should not reset buffers if MCU has already started sending...
+  # ser.reset_input_buffer()
+  # ser.reset_output_buffer()
   ret_data = None
   ret_tag = None
 
