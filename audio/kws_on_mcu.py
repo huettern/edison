@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-07 17:38:35
+# @Last Modified time: 2020-05-08 14:50:18
 
 import sys
 
@@ -17,6 +17,7 @@ if len(sys.argv) < 2:
   print('    host                     Record sample from host mic and do stuffs')
   print('    hostcont                 Test net on host only using host mic')
   print('    hostsingle               Test net on host only using host mic and single frame')
+  print('    miccont                  Continuous sample on MCU with net input history')
   exit()
 mode = sys.argv[1]
 args = sys.argv[2:]
@@ -34,9 +35,10 @@ import tensorflow as tf
 import mfcc_utils as mfu
 
 cache_dir = '.cache/kws_mcu'
-model_file = '../firmware/src/ai/cube/kws/kws_model_medium_embedding_conv.h5'
-model_file ='train/.cache/kws_keras/kws_model_medium_embedding_conv_2020-05-07_17:26:28.h5'
-keywords = np.load('train/.cache/kws_keras'+'/keywords.npy')
+# model_file = '../firmware/src/ai/cube/kws/kws_model_medium_embedding_conv.h5'
+# model_file ='train/.cache/kws_keras/kws_model_medium_embedding_conv_2020-05-07_17:26:28.h5'
+model_file ='/Users/noah/Downloads/kws_leg.h5'
+keywords = np.load('train/.cache/kws_keras/arch_mfcc_mcu'+'/keywords.npy')
 from_file = 0
 
 # Load trained model
@@ -138,6 +140,53 @@ def plotAudioMfcc(audio, mfcc_host, mfcc_mcu):
 
   return fig
 
+def plotManyMfcc(mfcc):
+  frames = np.arange(mfcc.shape[1])
+  melbin = np.arange(mfcc.shape[2])
+
+  rows = int(np.ceil(np.sqrt(mfcc.shape[0])))
+  cols = int(np.ceil(mfcc.shape[0] / rows))
+
+  print('rows',rows,'cols',cols)
+
+  fig = plt.figure(constrained_layout=True)
+  gs = fig.add_gridspec(rows, cols)
+
+  for i in range(mfcc.shape[0]):
+    vmin = mfcc.min()
+    vmax = mfcc.max()
+    ax = fig.add_subplot(gs[i//cols, i%cols])
+    c = ax.pcolor(frames, melbin, mfcc[i].T, cmap='PuBu', vmin=vmin, vmax=vmax)
+    ax.grid(True)
+    ax.set_title(str(i))
+    ax.set_xlabel('frame')
+    ax.set_ylabel('Mel bin')
+    fig.colorbar(c, ax=ax)
+
+  return fig
+
+######################################################################
+# helper
+######################################################################
+def report(host_pred, mcu_pred):
+  rmserror = rmse(host_pred, mcu_pred)
+  np.set_printoptions(precision=3, suppress=True)
+  print('keywords:',keywords)
+  print('host prediction:',host_pred,keywords[host_pred.argmax()])
+  print('mcu prediction: ',mcu_pred,keywords[mcu_pred.argmax()])
+  print('rmse:', rmserror)
+
+def rmse(a, b):
+  return np.sqrt(np.mean((a-b)**2))
+
+def compare(host_preds, mcu_preds):
+  deviaitons = 100.0 * (1.0 - (mcu_preds+1e-9) / (host_preds+1e-9) )
+
+  print('_________________________________________________________________')
+  print('Number of inferences run: %d' % (len(host_preds)))
+  print("Deviation: max %.3f%% min %.3f%% avg %.3f%% \nrmse %.3f" % (
+    deviaitons.max(), deviaitons.min(), np.mean(deviaitons), rmse(mcu_preds, host_preds)))
+  print('_________________________________________________________________')
 
 ######################################################################
 # functions
@@ -209,19 +258,6 @@ def micAndAllOnMCU():
   return mic_data, mcu_mfccs.reshape(31, 13), mcu_pred
 
 
-def rmse(a, b):
-  return np.sqrt(np.mean((a-b)**2))
-
-def compare(host_preds, mcu_preds):
-  deviaitons = 100.0 * (1.0 - (mcu_preds+1e-9) / (host_preds+1e-9) )
-
-  print('_________________________________________________________________')
-  print('Number of inferences run: %d' % (len(host_preds)))
-  print("Deviation: max %.3f%% min %.3f%% avg %.3f%% \nrmse %.3f" % (
-    deviaitons.max(), deviaitons.min(), np.mean(deviaitons), rmse(mcu_preds, host_preds)))
-  print('_________________________________________________________________')
-
-
 def singleInference(repeat = 1):
   """
     Run a single inference on MCU
@@ -236,12 +272,13 @@ def singleInference(repeat = 1):
     net_input = np.array(np.random.rand(input_size).reshape([1]+input_shape), dtype='float32')
 
     # predict on CPU
-    host_preds.append(model.predict(net_input)[0][0])
+    host_preds.append(model.predict(net_input)[0])
 
     # predict on MCU
     mcu_preds.append(infereOnMCU(net_input))
-    rmserror = rmse(host_preds[-1], mcu_preds[-1])
-    print('host prediction: %f mcu prediction: %f rmse: %.3f' % (host_preds[-1], mcu_preds[-1], rmserror))
+    
+    # report
+    report(host_preds[-1], mcu_preds[-1])
     
   mcu_preds = np.array(mcu_preds)
   host_preds = np.array(host_preds)
@@ -274,12 +311,10 @@ def fileInference():
   net_input = np.array(data_mfcc.reshape([1]+input_shape), dtype='float32')
   
   # predict on CPU and MCU
-  host_preds.append(model.predict(net_input)[0][0])
+  host_preds.append(model.predict(net_input)[0])
   mcu_preds.append(infereOnMCU(net_input))
 
-  np.set_printoptions(precision=3)
-  print('host prediction:',host_preds[-1],
-    'mcu prediction:',mcu_preds[-1])
+  report(host_preds[-1], mcu_preds[-1])
 
   mcu_preds = np.array(mcu_preds)
   host_preds = np.array(host_preds)
@@ -341,9 +376,7 @@ def frameInference():
     host_preds = np.load(cache_dir+'/frame_host_preds.npy')
 
   # report
-  np.set_printoptions(precision=3)
-  print('host prediction:',host_preds[-1],
-    'mcu prediction:',mcu_preds[-1])
+  report(host_preds[-1], mcu_preds[-1])
 
   # reshape data to make plottable
   mcu_mfcc = mcu_mfccss.reshape(n_frames,num_mfcc)
@@ -393,8 +426,10 @@ def micInference():
   net_input = np.array(data_mfcc.reshape([1]+input_shape), dtype='float32')
   
   # make host prediction
-  host_pred = model.predict(net_input)[0][0]
-  print('Host prediction:', host_pred, 'MCU prediction:', mcu_pred[0])
+  host_pred = model.predict(net_input)[0]
+
+  # report
+  report(host_pred, mcu_pred)
 
   # store this valuable data!
   import pathlib
@@ -441,7 +476,7 @@ def hostMic():
     # make fit shape and dtype
     net_input = np.array(data_mfcc.reshape([1]+input_shape), dtype='float32')
     
-    host_pred = model.predict(net_input)[0][0]
+    host_pred = model.predict(net_input)[0]
 
     # MCU
     mcu_mfccs, mcu_pred = mfccAndInfereOnMCU(mic_data, progress=True)
@@ -463,7 +498,7 @@ def hostMic():
     mic_data = np.load(cache_dir+'/hostmic_mic_data.npy')
 
   # report
-  print('host prediction: %f mcu prediction: %f' % (host_pred, mcu_pred))
+  report(host_pred, mcu_pred)
 
   # plot
   mcu_mfcc = np.array(mcu_mfccs).reshape(n_frames,num_mfcc)
@@ -484,8 +519,6 @@ def hostMicContinuous():
   sd.default.samplerate = fs
   sd.default.channels = 1
 
-  keywords = ['cat','marvin','left','zero']
-  keywords = np.load('train/.cache/kws_keras'+'/keywords.npy')
   threshold = 0.8
 
   mic_data = np.array([], dtype='int16')
@@ -588,7 +621,18 @@ def hostMicSingle():
         plt.show()
         return
 
+def mcuMicCont():
+  import mcu_util as mcu
 
+  if mcu.sendCommand('kws_mic_continuous') < 0:
+    exit()
+
+  mcu_net_inp, tag = mcu.receiveData(timeout=10000)
+  print('Received %s type with tag 0x%x len %d' % (mcu_net_inp.dtype, tag, mcu_net_inp.shape[0]))
+
+  mcu_net_inp = mcu_net_inp.reshape((-1,31,13))
+  plotManyMfcc(mcu_net_inp[:,:,:])
+  plt.show()
 
 
 ######################################################################
@@ -612,7 +656,8 @@ if __name__ == '__main__':
     hostMicContinuous()
   if mode == 'hostsingle':
     hostMicSingle()
-
+  if mode == 'miccont':
+    mcuMicCont()
 
 
 
