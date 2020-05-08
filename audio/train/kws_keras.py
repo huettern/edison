@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-07 17:09:44
+# @Last Modified time: 2020-05-08 14:51:02
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -124,9 +124,17 @@ verbose = 1
 #           v
 #       [BiasAdd]<-(bias)
 #           v
+#
+# legacy: Total params: 4,846
+# Conv2D
+# MaxPooling2D
+# Dropout
+# Flatten
+# Dense
+# Softmax
 
 
-model_arch = 'medium_embedding_conv'
+model_arch = 'legacy'
 
 # training parameters
 batchSize = 100
@@ -343,8 +351,18 @@ def get_model(inp_shape, num_classes):
     model.add(Dense(num_classes, activation=None, use_bias=True))
     model.add(Softmax())
 
-  # sgd = SGD( lr = 0.02)
-  opt = tf.keras.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
+  if model_arch == 'legacy':
+    model = Sequential()
+    model.add(Conv2D(8, kernel_size=(8, 8), activation='relu', padding='same', input_shape=inp_shape, strides=(1,1)))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+    model.add(Flatten())
+    model.add(Dense(num_classes))
+    model.add(Softmax())
+
+  # opt = tf.keras.optimizers.SGD(lr=1e-5)
+  # opt = tf.keras.optimizers.Adam(learning_rate=0.0001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
+  opt = tf.keras.optimizers.Adam(learning_rate=0.001)
 
   model.compile(optimizer=opt, loss ='categorical_crossentropy', metrics=['accuracy'])
   
@@ -355,12 +373,12 @@ def get_model(inp_shape, num_classes):
 # Training
 def train(model, x, y, vx, vy, batchSize = 10, epochs = 30):
   
-  logdir = "/tmp/edison/train/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+  logdir = "/tmp/edison/train/"
   tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir)
 
   
-  early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10)
-  reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=1, min_lr=0.00001)
+  early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=4)
+  reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=1, min_lr=1e-9)
   csv_logger = tf.keras.callbacks.CSVLogger(cache_dir+'/training_'+model_arch+'_'+datetime.now().strftime("%Y%m%d-%H%M%S")+'.log')
 
   train_history = model.fit(x, y, batch_size = batchSize, epochs = epochs, 
@@ -411,16 +429,18 @@ def load_data(keywords, coldwords, noise):
     o_mfcc_test = []
     o_mfcc_val = []
     print('starting mfcc calculation')
+    mfcc_fun = mfu.mfcc_mcu
+    # mfcc_fun = mfu.mfcc_tf
     for data in tqdm(x_train):
-      o_mfcc = mfu.mfcc_mcu(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+      o_mfcc = mfcc_fun(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
         num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
       o_mfcc_train.append([x['mfcc'][:num_mfcc] for x in o_mfcc])
     for data in tqdm(x_test):
-      o_mfcc = mfu.mfcc_mcu(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+      o_mfcc = mfcc_fun(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
         num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
       o_mfcc_test.append([x['mfcc'][:num_mfcc] for x in o_mfcc])
     for data in tqdm(x_validation):
-      o_mfcc = mfu.mfcc_mcu(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+      o_mfcc = mfcc_fun(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
         num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
       o_mfcc_val.append([x['mfcc'][:num_mfcc] for x in o_mfcc])
 
@@ -506,8 +526,10 @@ def plotSomeMfcc(x_train, x_test, y_train=None, y_test=None, keywords=None):
 # load data
 keywords = ['cat','marvin','left','zero']
 coldwords=['bed','bird','stop','visual']
-noise=['_background_noise_']
+# noise=['_background_noise_']
+noise=None
 x_train_mfcc, x_test_mfcc, x_val_mfcc, y_train, y_test, y_val, keywords = load_data(keywords, coldwords, noise)
+print(keywords)
 
 
 print('x train shape: ', x_train_mfcc.shape)

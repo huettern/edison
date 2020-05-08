@@ -29,3 +29,4 @@ Inspired by https://github.com/tensorflow/tensorflow/blob/5d595477cc94a78c364e81
 | tiny_conv             | 4,236        | 76,228     | 16.97 KB               | 3.6 KB   | 8.392ms            |
 | tiny_embedding_conv   | 5,812        | 78,836     | 23.25 KB               | 1.47 KB  | 8.789ms            |
 | medium_embedding_conv | 5,664        | 218,840    | 22.66 KB               | 3.42 KB  | 22.202ms           |
+| legacy                | 4,846        | 216,858    | 19.38 KB               | 3.71 KB  | 26.317ms           |
