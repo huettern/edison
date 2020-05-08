@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:23:59
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-04-28 21:09:22
+# @Last Modified time: 2020-05-08 14:07:22
 
 import numpy as np
 from scipy.fftpack import dct
@@ -202,7 +202,7 @@ def mfcc(data, \
 def mfcc_tf(data, \
   fs, nSamples, frame_len, frame_step, frame_count, \
   fft_len, \
-  mel_nbins, mel_lower_hz, mel_upper_hz):
+  mel_nbins, mel_lower_hz, mel_upper_hz, unused=None):
   """
   Calculate same mfcc using tensor flow functions
   """

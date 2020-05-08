@@ -12,7 +12,7 @@ import mfcc_utils as mfu
 
 cache_dir = '.cache/kws_mcu'
 model_file = '../firmware/src/ai/cube/kws/kws_model_medium_embedding_conv.h5'
-model_file ='train/.cache/kws_keras/kws_model_medium_embedding_conv_2020-05-07_17:26:28.h5'
+model_file ='/Users/noah/Downloads/kws_leg.h5'
 
 # keywords = ['cat','marvin','left','zero']
 keywords = np.load('train/.cache/kws_keras'+'/keywords.npy')
