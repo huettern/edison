@@ -106,6 +106,7 @@ BUILD_DIR = build
 ##############################################################################
 # CMSIS
 CMSIS = src/lib/CMSIS
+CMSIS_OPT = -O3
 include $(CMSIS)/cmsis.mk
 #
 ##############################################################################
@@ -113,6 +114,7 @@ include $(CMSIS)/cmsis.mk
 ##############################################################################
 # HAL
 HAL = src/lib/stm32f4/drivers/STM32L4xx_HAL_Driver
+HAL_OPT = -O3
 include $(HAL)/hal.mk
 #
 ##############################################################################
@@ -189,6 +191,9 @@ INC = $(C_INCLUDES) $(AS_INCLUDES)
 ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) $(GCC_FLAGS)
 CFLAGS  = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) $(GCC_FLAGS)
 
+CMSISCFLAGS  = $(MCU) $(C_DEFS) $(CMSIS_INC) $(CMSIS_OPT) $(GCC_FLAGS)
+HALCFLAGS  = $(MCU) $(C_DEFS) $(C_INCLUDES) $(HAL_OPT) $(GCC_FLAGS)
+
 # debug?
 ifeq ($(DEBUG), 1)
 	CFLAGS += -g -gdwarf-2
@@ -260,6 +265,18 @@ $(BUILD_DIR)/$(TARGET).hex: $(BUILD_DIR)/$(TARGET).elf
 $(BUILD_DIR)/$(TARGET).bin: $(BUILD_DIR)/$(TARGET).elf
 	@echo "BIN\t$(notdir $@)"
 	@$(BIN) $< $@  
+
+# c compiler for CMSIS directory
+$(BUILD_DIR)/obj/lib/CMSIS/%.o: src/lib/CMSIS/%.c
+	@echo "CC (CMSIS)\t$(notdir $<)"
+	@mkdir -p $(dir $@)
+	@$(CC) $(CMSISCFLAGS) -c $< -o $@
+
+# c compiler for HAL directory
+$(BUILD_DIR)/obj/lib/stm32f4/%.o: src/lib/stm32f4/%.c
+	@echo "CC (HAL)\t$(notdir $<)"
+	@mkdir -p $(dir $@)
+	@$(CC) $(HALCFLAGS) -c $< -o $@
 
 # c compiler
 $(BUILD_DIR)/obj/%.o: src/%.c
