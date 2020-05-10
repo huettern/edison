@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    kws.c
   * @author  AST Embedded Analytics Research Platform
-  * @date    Sun May 10 11:16:38 2020
+  * @date    Sun May 10 15:23:13 2020
   * @brief   AI Tool Automatic Code Generator for Embedded NN computing
   ******************************************************************************
   * @attention
@@ -46,14 +46,14 @@
 #define AI_NET_OBJ_INSTANCE g_kws
  
 #undef AI_KWS_MODEL_SIGNATURE
-#define AI_KWS_MODEL_SIGNATURE     "e59d51f7ec964d1cc748dd5293d8096f"
+#define AI_KWS_MODEL_SIGNATURE     "850bd3f7e9af59dcc51eb98790aca1b9"
 
 #ifndef AI_TOOLS_REVISION_ID
 #define AI_TOOLS_REVISION_ID     "(rev-5.0.0)"
 #endif
 
 #undef AI_TOOLS_DATE_TIME
-#define AI_TOOLS_DATE_TIME   "Sun May 10 11:16:38 2020"
+#define AI_TOOLS_DATE_TIME   "Sun May 10 15:23:13 2020"
 
 #undef AI_TOOLS_COMPILE_TIME
 #define AI_TOOLS_COMPILE_TIME    __DATE__ " " __TIME__
