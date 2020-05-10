@@ -36,9 +36,9 @@ LDSCRIPT  = src/link/STM32L475VGTx_FLASH.ld
 # buil options
 
 # debug build?
-DEBUG = 0
+DEBUG = 1
 # optimization
-OPT = -O3
+OPT = -O0
 # flags for gcc
 GCC_FLAGS = -Wall -fdata-sections -ffunction-sections
 # generate listings for each source
