@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-08 14:50:18
+# @Last Modified time: 2020-05-10 15:19:43
 
 import sys
 
@@ -37,8 +37,8 @@ import mfcc_utils as mfu
 cache_dir = '.cache/kws_mcu'
 # model_file = '../firmware/src/ai/cube/kws/kws_model_medium_embedding_conv.h5'
 # model_file ='train/.cache/kws_keras/kws_model_medium_embedding_conv_2020-05-07_17:26:28.h5'
-model_file ='/Users/noah/Downloads/kws_leg.h5'
-keywords = np.load('train/.cache/kws_keras/arch_mfcc_mcu'+'/keywords.npy')
+model_file ='models/kws_model_medium_embedding_conv.h5'
+keywords = np.load('verification/keywords.npy')
 from_file = 0
 
 # Load trained model

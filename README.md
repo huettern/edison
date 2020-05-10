@@ -19,15 +19,25 @@ output shape (1, 1, 6)
 
 ### Methods
 
+To compare differenc methods, a few keywords are used to perform on MCU. The rmse values are then averaged.
+
+```bash
+python kws_on_mcu.py file verification/marvin.wav | grep rmse
+python kws_on_mcu.py file verification/zero.wav | grep rmse
+python kws_on_mcu.py file verification/cat.wav | grep rmse
+python kws_on_mcu.py file verification/left.wav | grep rmse
+python kws_on_mcu.py file verification/stop.wav | grep rmse
+```
+
 #### Keras, CubeAI
 The net is build with keras and implemented using CubeAI. No quantization/compression is done.
 
 ### Results
 
-| Method        | Inference time | MFCC time | `DEBUG` | Opt   | MACC   | RAM    | ROM     |
-|:--------------|:---------------|:----------|:--------|:------|:-------|:-------|:--------|
-| Keras, CubeAI | 22.54ms        | 18.25ms   | 1       | `-O0` | 219638 | 3.42KB | 25.74KB |
-| Keras, CubeAI | 22.53ms        | 2.97ms    | 0       | `-O3` | 219638 | 3.42KB | 25.74KB |
+| Method        | Inference time | MFCC time | `DEBUG` | Opt   | MACC   | RAM    | ROM     | RMSE avg      |
+|:--------------|:---------------|:----------|:--------|:------|:-------|:-------|:--------|:--------------|
+| Keras, CubeAI | 22.54ms        | 18.25ms   | 1       | `-O0` | 219638 | 3.42KB | 25.74KB | 0.01195651532 |
+| Keras, CubeAI | 22.53ms        | 2.97ms    | 0       | `-O3` | 219638 | 3.42KB | 25.74KB | 0.01195651532 |
 
 
 ## Experimenting with MFCC
@@ -96,7 +106,7 @@ python kws_on_mcu.py mic
 Open the serial port from the ST-link board with `115200` baud and send a `4` character. This starts a continuous inference with
 data from the microphone.
 
-## From `h5` to MCU
+## From Model to MCU
 
 ### Using CubeMX
 
@@ -122,6 +132,19 @@ make clean && make -j8 OPMODE=CUBE_VERIFICATION
 make flash
 ```
 15. In Cube, hit validate on target to get funky stuff
+
+### NNoM
+
+**Use tensorflow 1.x for NNoM!!!**
+```bash
+pip install tensorflow==1.15
+```
+
+After creating weights file, go to firmware directory and run
+```bash
+make import-nnom-net
+make clean && make -j8 OPMODE=NNOM_VERIFICATION
+```
 
 ### Test
 To test a net on the MCU and compare it to the host, use the `kws_on_mcu.py` program. Several modes exits:

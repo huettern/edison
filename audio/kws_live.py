@@ -19,10 +19,9 @@ if len(sys.argv) < 2:
   exit()
 
 cache_dir = '.cache/kws_mcu'
-model_file = 'train/.cache/kws_keras/kws_model_legacy_2020-05-08_14:29:01.h5'
-# model_file ='/Users/noah/Downloads/kws_leg.h5'
+model_file = 'models/kws_model_medium_embedding_conv.h5'
 
-keywords = np.load('train/.cache/kws_keras'+'/keywords.npy')
+keywords = np.load('verification/keywords.npy')
 threshold = 0.6
 
 # Load trained model

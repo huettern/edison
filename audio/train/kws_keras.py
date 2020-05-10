@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-10 11:38:39
+# @Last Modified time: 2020-05-10 12:22:35
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -197,7 +197,7 @@ def get_model(inp_shape, num_classes):
     first_conv_stride_y = 2
 
     model = Sequential()
-    model.add(Conv2D(first_filter_count, 
+    model.add(tf.keras.layers.Conv2D(first_filter_count, 
       kernel_size=(first_filter_width, first_filter_height),
       strides=(first_conv_stride_x, first_conv_stride_y),
       use_bias=True,
@@ -206,8 +206,8 @@ def get_model(inp_shape, num_classes):
       input_shape=inp_shape) )
     
     dropout_rate = 0.25
-    model.add(Dropout(dropout_rate))
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=None, padding='same'))
+    model.add(tf.keras.layers.Dropout(dropout_rate))
+    model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=None, padding='same'))
 
     second_filter_width = 4
     second_filter_height = 4
@@ -215,7 +215,7 @@ def get_model(inp_shape, num_classes):
     second_conv_stride_x = 1
     second_conv_stride_y = 1
 
-    model.add(Conv2D(second_filter_count, 
+    model.add(tf.keras.layers.Conv2D(second_filter_count, 
       kernel_size=(second_filter_width, second_filter_height),
       strides=(second_conv_stride_x, second_conv_stride_y),
       use_bias=True,
@@ -223,11 +223,11 @@ def get_model(inp_shape, num_classes):
       padding='same' ) )
     
     dropout_rate = 0.25
-    model.add(Dropout(dropout_rate))
+    model.add(tf.keras.layers.Dropout(dropout_rate))
 
-    model.add(Flatten())
-    model.add(Dense(num_classes))
-    model.add(Softmax())
+    model.add(tf.keras.layers.Flatten())
+    model.add(tf.keras.layers.Dense(num_classes))
+    model.add(tf.keras.layers.Softmax())
     
 
   if model_arch == 'tiny_embedding_conv':
