@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 15:40:05
+* @Last Modified time: 2020-05-10 15:45:02
 */
 #include "app.h"
 #include <stdlib.h>
@@ -57,7 +57,7 @@ static float netOutput[AI_NET_OUTSIZE_BYTES/4];
 static FASTRAM_BSS int16_t tmpBuf[1024*16]; // fills entire region
 
 static int16_t * inFrameBuf = tmpBuf;
-static float * netInBuf = (float*)tmpBuf;
+// static float * netInBuf = (float*)tmpBuf;
 
 
 /*------------------------------------------------------------------------------
@@ -211,7 +211,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
   int16_t *inFrame, *out_mfccs, maxAmplitude, minAmplitude;
   uint16_t in_x, in_y;
   uint32_t tmp32, dstIdx, srcIdx;
-  uint32_t netInBufOff = 0;
+  // uint32_t netInBufOff = 0;
   bool doAbort = false;
   int ret;
   float tmpf;
@@ -248,9 +248,9 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     ret = aiRunInference((void*)netInput, (void*)netOutput);
 
     // store net input
-    for(int i = 0; i < in_x*in_y; i++)
-      netInBuf[i+netInBufOff] = netInput[i];
-    netInBufOff += in_x*in_y;
+    // for(int i = 0; i < in_x*in_y; i++)
+    //   netInBuf[i+netInBufOff] = netInput[i];
+    // netInBufOff += in_x*in_y;
 
     // report
     fprintf(&huart1, "pred: [ ");
@@ -283,7 +283,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     // check abort condition
     if(IS_BTN_PRESSED() || (huart1.Instance->ISR & UART_FLAG_RXNE) ) doAbort = true;
 
-    if(netInBufOff > 12*in_x*in_y) doAbort = true;
+    // if(netInBufOff > 12*in_x*in_y) doAbort = true;
   }
 
   // stop sampling
@@ -293,7 +293,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
   (void)huart1.Instance->RDR;
 
   // send net input history
-  hiSendF32(netInBuf, 12*AI_NET_INSIZE, 0x20);
+  // hiSendF32(netInBuf, 12*AI_NET_INSIZE, 0x20);
 
   return ret;
 }
