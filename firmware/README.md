@@ -1,5 +1,10 @@
 # Edison Firmware
 
+## Disclaimer
+```
+This directory contains source code from other projects. Please refer to the corresponding folders for license notices.
+```
+
 
 ## CMSIS DSP lessons learned
 `arm_cfft_q15` 

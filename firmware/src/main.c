@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-04 15:31:09
+* @Last Modified time: 2020-05-10 13:17:43
 */
 
 #include "main.h"
@@ -12,7 +12,9 @@
 #include "hostinterface.h"
 #include "audioprocessing.h"
 #include "ai.h"
+#include "ai_nnom.h"
 #include "cyclecounter.h"
+
 
 /*------------------------------------------------------------------------------
  * Private data
@@ -83,7 +85,10 @@ int main(void)
   MX_X_CUBE_AI_Init();
   while(1) MX_X_CUBE_AI_Process();
 #endif
-  
+    
+#ifdef NNOM_VERIFICATION
+  aiNnomTest();
+#endif
 
   aiInitialize();
   aiPrintInfo();
