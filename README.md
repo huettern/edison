@@ -1,5 +1,35 @@
 # Edison - Low Power Voice Commands [![Build Status](https://travis-ci.com/noah95/edison.svg?token=W9DfQq55LKsHhNiMPYw5&branch=master)](https://travis-ci.com/noah95/edison)
 
+## Comparing networks
+Different implementation techniques are compared.
+
+### Reference model
+The reference `medium_embedding_conv` model contains two conv2D layers and a fully connected output layer. It matches 4 keywords and is trained on hot/coldwords and noise.
+
+```
+keywords = ['cat','marvin','left','zero']
+coldwords=['bed','bird','stop','visual']
+noise=['_background_noise_']
+
+input shape (31, 13, 1)
+output shape (1, 1, 6)
+```
+
+![](doc/img/medium_embedding_conv.png)
+
+### Methods
+
+#### Keras, CubeAI
+The net is build with keras and implemented using CubeAI. No quantization/compression is done.
+
+### Results
+
+| Method        | Inference time | MFCC time | `DEBUG` | Opt   | MACC   | RAM    | ROM     |
+|:--------------|:---------------|:----------|:--------|:------|:-------|:-------|:--------|
+| Keras, CubeAI | 22.54ms        | 18.25ms   | 1       | `-O0` | 219638 | 3.42KB | 25.74KB |
+| Keras, CubeAI | 22.53ms        | 2.97ms    | 0       | `-O3` | 219638 | 3.42KB | 25.74KB |
+
+
 ## Experimenting with MFCC
 
 ### Understanding MFCC
