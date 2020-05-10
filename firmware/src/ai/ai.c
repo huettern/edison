@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 11:39:58
+* @Last Modified time: 2020-05-10 16:07:09
 */
 #include "ai.h"
 
@@ -60,34 +60,37 @@ const char* const aiKeywords[] = {"cat", "marvin", "left", "zero", "_noise", "_c
 /**
  * CUBE
  */
-#ifdef CUBE_VERIFICATION
-static struct ai_network_exec_ctx {
-    ai_handle network;
-    ai_network_report report;
-} net_exec_ctx[AI_MNETWORK_NUMBER] = {0};
-#endif
-// Handle to the net
-static ai_handle kws;
-// input and output buffers
-static ai_buffer ai_input[NET_CUBE_KWS_IN_NUM] = NET_CUBE_KWS_INPUT ;
-static ai_buffer ai_output[NET_CUBE_KWS_OUT_NUM] = NET_CUBE_KWS_OUTPUT ;
+#if NET_TYPE == NET_TYPE_CUBE
+  #ifdef CUBE_VERIFICATION
+  static struct ai_network_exec_ctx {
+      ai_handle network;
+      ai_network_report report;
+  } net_exec_ctx[AI_MNETWORK_NUMBER] = {0};
+  #endif
+  // Handle to the net
+  static ai_handle kws;
+  // input and output buffers
+  static ai_buffer ai_input[NET_CUBE_KWS_IN_NUM] = NET_CUBE_KWS_INPUT ;
+  static ai_buffer ai_output[NET_CUBE_KWS_OUT_NUM] = NET_CUBE_KWS_OUTPUT ;
 
-static ai_u8 activations[NET_CUBE_KWS_ACTIVATIONS_SIZE];
-
+  static ai_u8 activations[NET_CUBE_KWS_ACTIVATIONS_SIZE];
+#endif 
+  
 static uint32_t lastInferenceTimeUs;
 
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
 
-static int cubeNetInit(void);
-static int cubeNetRun(const void *in_data, void *out_data);
-static void printCubeNetInfo(void);
+#if NET_TYPE == NET_TYPE_CUBE
+  static int cubeNetInit(void);
+  static int cubeNetRun(const void *in_data, void *out_data);
+  static void printCubeNetInfo(void);
 
-#ifdef CUBE_VERIFICATION
-static int aiBootstrap(const char *nn_name, const int idx);
-#endif
-
+  #ifdef CUBE_VERIFICATION
+  static int aiBootstrap(const char *nn_name, const int idx);
+  #endif
+#endif 
 /*------------------------------------------------------------------------------
  * Publics
  * ---------------------------------------------------------------------------*/
@@ -98,7 +101,9 @@ static int aiBootstrap(const char *nn_name, const int idx);
  */
 int aiInitialize(void)
 {
+#if NET_TYPE == NET_TYPE_CUBE
   cubeNetInit();
+#endif
   return 0;
 }
 
@@ -150,7 +155,9 @@ void aiRunInferenceHif(void)
 //  */
 void aiPrintInfo(void)
 {
+#if NET_TYPE == NET_TYPE_CUBE
   printCubeNetInfo();
+#endif
 }
 
 /**
@@ -162,10 +169,12 @@ void aiPrintInfo(void)
  */
 void aiGetInputShape(uint16_t *x, uint16_t *y)
 {
+#if NET_TYPE == NET_TYPE_CUBE
   ai_network_report rep;
   (void)ai_kws_get_info(kws, &rep);
   *x = rep.inputs[0].width;
   *y = rep.inputs[0].height;
+#endif
 }
 
 /**
@@ -183,8 +192,10 @@ int aiRunInference(void* in_data, void* out_data)
 
   uint8_t id = utilTic();
 
-#ifdef NET_TYPE_CUBE
+#if NET_TYPE == NET_TYPE_CUBE
   ret = cubeNetRun((void*)in_data, (void*)out_data);
+#elif NET_TYPE == NET_TYPE_NNOM
+
 #endif
   
   lastInferenceTimeUs = utilToc(id);
@@ -199,6 +210,13 @@ const char* aiGetKeywordFromIndex(uint32_t idx)
 /*------------------------------------------------------------------------------
  * Privates
  * ---------------------------------------------------------------------------*/
+
+
+/*------------------------------------------------------------------------------
+ * CUBE NET
+ * ---------------------------------------------------------------------------*/
+
+#if NET_TYPE == NET_TYPE_CUBE
 
 /**
  * @brief Init network from Cube AI
@@ -397,6 +415,8 @@ static int aiBootstrap(const char *nn_name, const int idx)
 
   return 0;
 }
+#endif
+
 #endif
 
 /*------------------------------------------------------------------------------

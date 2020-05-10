@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 15:45:02
+* @Last Modified time: 2020-05-10 16:01:17
 */
 #include "app.h"
 #include <stdlib.h>
@@ -49,9 +49,14 @@
 
 static uint8_t netInputChunk[AI_NET_INSIZE_BYTES];
 
-#ifdef NET_TYPE_CUBE
-static float * netInput = (float *)netInputChunk;
+
+
+#if NET_TYPE == NET_TYPE_CUBE
+  static float * netInput = (float*)netInputChunk;
+#elif NET_TYPE == NET_TYPE_NNOM
+  static int8_t * netInput = (int8_t*)netInputChunk;
 #endif
+
 
 static float netOutput[AI_NET_OUTSIZE_BYTES/4];
 static FASTRAM_BSS int16_t tmpBuf[1024*16]; // fills entire region
@@ -83,7 +88,6 @@ int8_t appHifMfccAndInference(uint8_t *args)
   uint32_t tmp32 = 0;
   
   int16_t *out_mfccs;
-  float tmpf;
   
   uint8_t tag;
   uint16_t in_x, in_y;
@@ -123,8 +127,10 @@ int8_t appHifMfccAndInference(uint8_t *args)
   hiSendMCUReady();
 
   // 4. report back mfccs and net out
-  hiSendF32(netInput, AI_NET_INSIZE, 0x20);
-  hiSendF32(netOutput, AI_NET_OUTSIZE, 0x21);
+  #if NET_TYPE == NET_TYPE_CUBE
+    hiSendF32(netInput, AI_NET_INSIZE, 0x20);
+    hiSendF32(netOutput, AI_NET_OUTSIZE, 0x21);
+  #endif
   
   prfStop();
   return ret;
@@ -145,7 +151,6 @@ int8_t appHifMicMfccInfere(uint8_t *args)
 
   int16_t *inFrame, *out_mfccs, *inFrameBufPtr;
   uint16_t in_x, in_y;
-  float tmpf;
   int ret;
   uint32_t tmp32 = 0;
 
@@ -193,8 +198,10 @@ int8_t appHifMicMfccInfere(uint8_t *args)
 
   // 4. report back mfccs and net out
   hiSendS16(inFrameBuf, 1024*16, 0x30);
-  hiSendF32(netInput, AI_NET_INSIZE, 0x31);
-  hiSendF32(netOutput, AI_NET_OUTSIZE, 0x32);
+  #if NET_TYPE == NET_TYPE_CUBE
+    hiSendF32(netInput, AI_NET_INSIZE, 0x31);
+    hiSendF32(netOutput, AI_NET_OUTSIZE, 0x32);
+  #endif
 
   return ret;
 }
@@ -210,7 +217,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
 {
   int16_t *inFrame, *out_mfccs, maxAmplitude, minAmplitude;
   uint16_t in_x, in_y;
-  uint32_t tmp32, dstIdx, srcIdx;
+  uint32_t tmp32;
   // uint32_t netInBufOff = 0;
   bool doAbort = false;
   int ret;
@@ -404,14 +411,20 @@ int8_t appMicMfccInfereBlocks (uint8_t *args)
  */
 void mfccToNetInput(int16_t* mfcc, uint16_t in_x, uint16_t in_y, uint32_t xoffset)
 { 
-#ifdef NET_TYPE_CUBE
+
   // copy to net in buffer and cast to float
+#if NET_TYPE == NET_TYPE_CUBE
   for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
   {
     netInput[xoffset*in_x + mfccCtr] = (float)mfcc[mfccCtr];
   }
+#elif NET_TYPE == NET_TYPE_NNOM
+  for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
+  {
+    netInput[xoffset*in_x + mfccCtr] = (int8_t)(mfcc[mfccCtr] / 256);
+  }
 #endif
-
+  
 }
 
 /**
