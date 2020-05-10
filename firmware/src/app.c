@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-08 15:09:06
+* @Last Modified time: 2020-05-10 15:40:05
 */
 #include "app.h"
 #include <stdlib.h>
@@ -47,17 +47,25 @@
  * ---------------------------------------------------------------------------*/
 
 
-static float netInput[AI_NET_INSIZE_BYTES/4];
+static uint8_t netInputChunk[AI_NET_INSIZE_BYTES];
+
+#ifdef NET_TYPE_CUBE
+static float * netInput = (float *)netInputChunk;
+#endif
+
 static float netOutput[AI_NET_OUTSIZE_BYTES/4];
 static FASTRAM_BSS int16_t tmpBuf[1024*16]; // fills entire region
 
 static int16_t * inFrameBuf = tmpBuf;
-// static float * netInBuf = (float*)tmpBuf;
+static float * netInBuf = (float*)tmpBuf;
 
 
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
+void mfccToNetInput(int16_t* mfcc, uint16_t in_x, uint16_t in_y, uint32_t xoffset);
+void mfccToNetInputPush(int16_t* mfcc, uint16_t in_x, uint16_t in_y);
+
 /*------------------------------------------------------------------------------
  * Publics
  * ---------------------------------------------------------------------------*/
@@ -95,12 +103,9 @@ int8_t appHifMfccAndInference(uint8_t *args)
 
     audioCalcMFCCs(inFrameBuf, &out_mfccs);
 
+
     // copy to net in buffer and cast to float
-    for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
-    {
-      tmpf = (float)out_mfccs[mfccCtr];
-      netInput[frameCtr*in_x + mfccCtr] = tmpf;
-    }
+    mfccToNetInput(out_mfccs, in_x, in_y, frameCtr);
 
     // signal host that we are ready
     hiSendMCUReady();
@@ -170,11 +175,7 @@ int8_t appHifMicMfccInfere(uint8_t *args)
     }
 
     // copy to net in buffer and cast to float
-    for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
-    {
-      tmpf = (float)out_mfccs[mfccCtr];
-      netInput[frameCtr*in_x + mfccCtr] = tmpf;
-    }
+    mfccToNetInput(out_mfccs, in_x, in_y, frameCtr);
   } 
 
   // stop sampling
@@ -210,7 +211,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
   int16_t *inFrame, *out_mfccs, maxAmplitude, minAmplitude;
   uint16_t in_x, in_y;
   uint32_t tmp32, dstIdx, srcIdx;
-  // uint32_t netInBufOff = 0;
+  uint32_t netInBufOff = 0;
   bool doAbort = false;
   int ret;
   float tmpf;
@@ -231,11 +232,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     audioCalcMFCCs(inFrame, &out_mfccs); //*inp, **oup
 
     // copy to net in buffer and cast to float
-    for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
-    {
-      tmpf = (float)out_mfccs[mfccCtr];
-      netInput[frameCtr*in_x + mfccCtr] = tmpf;
-    }
+    mfccToNetInput(out_mfccs, in_x, in_y, frameCtr);
 
     if(IS_BTN_PRESSED() || (huart1.Instance->ISR & UART_FLAG_RXNE) ) doAbort = true;
   }
@@ -251,9 +248,9 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     ret = aiRunInference((void*)netInput, (void*)netOutput);
 
     // store net input
-    // for(int i = 0; i < in_x*in_y; i++)
-    //   netInBuf[i+netInBufOff] = netInput[i];
-    // netInBufOff += in_x*in_y;
+    for(int i = 0; i < in_x*in_y; i++)
+      netInBuf[i+netInBufOff] = netInput[i];
+    netInBufOff += in_x*in_y;
 
     // report
     fprintf(&huart1, "pred: [ ");
@@ -281,24 +278,12 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     audioCalcMFCCs(inFrame, &out_mfccs); //*inp, **oup
 
     // shift net buffer contents one frame back
-    dstIdx = (in_y-1)*in_x;
-    srcIdx = (in_y-2)*in_x;
-    for(int netInCtr = 0; netInCtr < ( (in_y-1)*in_x ); netInCtr++)
-    {
-      netInput[dstIdx--] = netInput[srcIdx--];
-    }
-
-    // copy new sample in at front
-    for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
-    {
-      tmpf = (float)out_mfccs[mfccCtr];
-      netInput[mfccCtr] = tmpf;
-    }
+    mfccToNetInputPush(out_mfccs, in_x, in_y);
 
     // check abort condition
     if(IS_BTN_PRESSED() || (huart1.Instance->ISR & UART_FLAG_RXNE) ) doAbort = true;
 
-    // if(netInBufOff > 12*in_x*in_y) doAbort = true;
+    if(netInBufOff > 12*in_x*in_y) doAbort = true;
   }
 
   // stop sampling
@@ -308,7 +293,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
   (void)huart1.Instance->RDR;
 
   // send net input history
-  // hiSendF32(netInBuf, 12*AI_NET_INSIZE, 0x20);
+  hiSendF32(netInBuf, 12*AI_NET_INSIZE, 0x20);
 
   return ret;
 }
@@ -350,11 +335,7 @@ int8_t appMicMfccInfereBlocks (uint8_t *args)
       audioCalcMFCCs(inFrame, &out_mfccs); //*inp, **oup
 
       // copy to net in buffer and cast to float
-      for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
-      {
-        tmpf = (float)out_mfccs[mfccCtr];
-        netInput[frameCtr*in_x + mfccCtr] = tmpf;
-      }
+      mfccToNetInput(out_mfccs, in_x, in_y, frameCtr);
 
       if(IS_BTN_PRESSED() || (huart1.Instance->ISR & UART_FLAG_RXNE) ) doAbort = true;
     }
@@ -412,6 +393,52 @@ int8_t appMicMfccInfereBlocks (uint8_t *args)
 /*------------------------------------------------------------------------------
  * Privates
  * ---------------------------------------------------------------------------*/
+/**
+ * @brief Copies mfcc to net input buffer depending on used network
+ * @details 
+ * 
+ * @param mfcc pointer to MFCC buffer
+ * @param in_x net x size
+ * @param in_y net y size
+ * @param xoffset x offset in network input
+ */
+void mfccToNetInput(int16_t* mfcc, uint16_t in_x, uint16_t in_y, uint32_t xoffset)
+{ 
+#ifdef NET_TYPE_CUBE
+  // copy to net in buffer and cast to float
+  for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
+  {
+    netInput[xoffset*in_x + mfccCtr] = (float)mfcc[mfccCtr];
+  }
+#endif
+
+}
+
+/**
+ * @brief Net dependent rotate and push of new MFCCs to net in buffer
+ * @details 
+ * 
+ * @param mfcc pointer to MFCC buffer
+ * @param in_x net x size
+ * @param in_y net y size
+ * @param xoffset x offset in network input
+ */
+void mfccToNetInputPush(int16_t* mfcc, uint16_t in_x, uint16_t in_y)
+{ 
+  uint32_t dstIdx = (in_y-1)*in_x;
+  uint32_t srcIdx = (in_y-2)*in_x;
+
+  // move back
+  for(int netInCtr = 0; netInCtr < ( (in_y-1)*in_x ); netInCtr++)
+  {
+    netInput[dstIdx--] = netInput[srcIdx--];
+  }
+
+  // copy new sample in at front
+  mfccToNetInput(mfcc, in_x, in_y, 0);
+}
+
+
 /*------------------------------------------------------------------------------
  * Callbacks
  * ---------------------------------------------------------------------------*/
