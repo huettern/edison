@@ -4,17 +4,24 @@ import matplotlib.pyplot as plt
 from scipy.io import wavfile
 import simpleaudio as sa
 import threading
+from time import sleep
 
-# import keras
 import tensorflow as tf
-
 import mfcc_utils as mfu
 
-cache_dir = '.cache/kws_mcu'
-model_file = '../firmware/src/ai/cube/kws/kws_model_medium_embedding_conv.h5'
-model_file ='/Users/noah/Downloads/kws_leg.h5'
+import sys
+if len(sys.argv) < 2:
+  print('Usage:')
+  print('  kws_live.py <mode>')
+  print('    Modes:')
+  print('    host                   Run live inference on host')
+  print('    mcu                    Run live inference on mcu')
+  exit()
 
-# keywords = ['cat','marvin','left','zero']
+cache_dir = '.cache/kws_mcu'
+model_file = 'train/.cache/kws_keras/kws_model_legacy_2020-05-08_14:29:01.h5'
+# model_file ='/Users/noah/Downloads/kws_leg.h5'
+
 keywords = np.load('train/.cache/kws_keras'+'/keywords.npy')
 threshold = 0.6
 
@@ -24,6 +31,8 @@ model.summary()
 
 input_shape = model.input.shape.as_list()[1:]
 input_size = np.prod(input_shape)
+output_shape = model.output.shape.as_list()[1:]
+output_size = np.prod(output_shape)
 
 # Settings
 fs = 16000
@@ -40,7 +49,19 @@ frame_count = 0 # 0 for auto
 fft_len = frame_len
 n_frames = 1 + (sample_len - frame_length) // frame_step
 
-def kwsThd(tstvar):
+# data buffer
+xdata = [0]
+ydata = [np.zeros((1,output_size))]
+
+# abort when
+abort_after = 100
+
+######################################################################
+# Host 
+######################################################################
+def kwsHostThd(xdata, ydata):
+  global abort_after
+
   mic_data = np.array([], dtype='int16')
   net_input = np.array([], dtype='int16')
   init = 1
@@ -49,7 +70,7 @@ def kwsThd(tstvar):
   last_pred = 0
 
   import sounddevice as sd
-  with sd.Stream() as stream:
+  with sd.Stream(samplerate=fs, channels=1) as stream:
     print('Filling buffer...')
     while True:
       frame, overflowed = stream.read(frame_length)
@@ -83,43 +104,122 @@ def kwsThd(tstvar):
         
         host_mfcc = net_input.reshape(n_frames,num_mfcc)
 
-def animate(i,tstvar, frame):
-  ax1.clear()
-  print(frame)
-  print(tstvar)
-  ax1.plot(frame)
+        # plotting
+        xdata.append(xdata[-1] + frame_length/fs)
+        ydata.append( np.array(host_pred).reshape(1,output_size) )
 
-# import matplotlib.pyplot as plt 
-# import matplotlib.animation as animation
-# import numpy as np
+        abort_after -= 1
+        if abort_after == 0:
+          return
 
-# data = np.loadtxt(".cache/example.txt", delimiter=",")
-# x = data[:,0]
-# y = data[:,1]
+
+######################################################################
+# MCU
+######################################################################
+
+def kwsMCUThd(xdata, ydata):
+  global abort_after
+
+  init = 1
+  frame_ctr = 0
+  last_pred = 0
+
+  import mcu_util as mcu
+
+  if mcu.sendCommand('kws_mic_continuous') < 0:
+    print('MCU error')
+    exit()
+
+  while True:
+
+    net_out, ampl, likely, spotted = mcu.getSingleLiveInference()
+    print(net_out)
+
+    # plotting
+    xdata.append(xdata[-1] + frame_length/fs)
+    ydata.append( np.array(net_out).reshape(1,output_size) )
+
+    abort_after -= 1
+    if abort_after == 0:
+      mcu.write(b'0')
+      return
+
+######################################################################
+# Plot animation
+######################################################################
 
 # fig = plt.figure()
-# ax1 = fig.add_subplot(211)
-# frame_line, = ax1.plot([],[], '-')
-# ax2 = fig.add_subplot(212)
-# line2, = ax2.plot([],[],'--')
-# ax1.set_xlim(np.min(x), np.max(x))
-# ax1.set_ylim(np.min(y), np.max(y))
-# ax2.set_xlim(np.min(x), np.max(x))
-# ax2.set_ylim(np.min(y), np.max(y))
+# ax = plt.axes(xlim=(0, 100), ylim=(0, 1))
+# nlines = output_size
+# lines = []
 
-# def animate(i,factor):
-#     line.set_xdata(x[:i])
-#     line.set_ydata(y[:i])
-#     line2.set_xdata(x[:i])
-#     line2.set_ydata(factor*y[:i])
-#     return line,line2
+# for n in range(nlines):
+#   line, = ax.plot([], [], label=('%d'%n))
+#   lines.append(line)
+#   ax.grid(True)
+#   ax.legend()
 
-# K = 0.75 # any factor 
-# ani = animation.FuncAnimation(fig, animate, frames=len(x), fargs=(K,),
-#                               interval=100, blit=True)
-# plt.show()
+# def init():
+#     for line in lines:
+#       line.set_data([], [])
+#     return line,
+# def animate(i):
+#   global xdata, ydata
+#   n = 0
+#   for line in lines:
+#     line.set_data(xdata, np.array(ydata).reshape(-1,output_size)[:,n])
+#     n += 1
+#   return line,
 
-tstvar = 0
+######################################################################
+# Plot after
+######################################################################
+def plotNetOutputHistory():
+  global xdata, ydata 
+  fig = plt.figure()
 
-thd = threading.Thread(target=kwsThd, args=(tstvar,))
-thd.start()
+  
+  ax = plt.axes(ylim=(0, 1))
+
+  for n in range(output_size):
+    print(keywords[n])
+    line, = ax.plot(xdata, np.array(ydata).reshape(-1,output_size)[:,n], label=keywords[n].strip('_'))
+  
+  ax.grid(True)
+  ax.set_xlim((0, xdata[-1]))
+  ax.legend()
+
+
+######################################################################
+# main
+######################################################################
+if __name__ == '__main__':
+  # Live plotting, slow
+  # from matplotlib.animation import FuncAnimation
+  # print('output_size', output_size)
+  # thd = threading.Thread(target=kwsHostThd, args=(xdata, ydata))
+  # thd.start()
+  # sleep(2)
+  # anim = FuncAnimation(fig, animate, init_func=init, interval=200, blit=True)
+  # plt.show()
+
+  import sys
+
+  if sys.argv[1] == 'host':
+    # post mortem plot
+    print('output_size', output_size)
+    kwsHostThd(xdata, ydata)
+
+    plotNetOutputHistory()
+    plt.show()
+
+  if sys.argv[1] == 'mcu':
+    # post mortem plot
+    print('output_size', output_size)
+    kwsMCUThd(xdata, ydata)
+
+    plotNetOutputHistory()
+    plt.show()
+
+
+

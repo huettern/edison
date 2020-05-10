@@ -7,7 +7,7 @@ from tqdm import tqdm
 from enum import Enum
 
 try:
-  ser = Serial('/dev/tty.usbmodem1413303', 115200, bytesize=serial.EIGHTBITS,
+  ser = Serial('/dev/tty.usbmodem141342103', 115200, bytesize=serial.EIGHTBITS,
     parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, write_timeout=None, inter_byte_timeout=None,
     xonxoff=False, rtscts=False, dsrdtr=False)  # open serial port
   if(ser.is_open):
@@ -329,6 +329,33 @@ def waitForMcuReady(timeout=1000):
     Waits for the MCU to send the ready delimiter
   """
   return waitForByte(DELIM_MCU_READY, timeout=timeout)
+
+def getSingleLiveInference():
+  """
+    In live inference mode, waits for a report line and returns
+      pred: [ 0.03 0.00 0.93 0.00 0.03 ] ret: 0 ampl: 160 likely: left spotted left
+    return: net_out, ampl, likely, spotted
+
+    net_out, ampl, likely, spotted = getSingleLiveInference()
+
+  """
+  while True:
+    line = ser.readline().decode("utf-8")
+    if line.startswith('pred: ['):
+
+      net_out = np.array([float(x) for x in line[line.index('[')+2:line.index(']')-1].split(' ')])
+      ampl = float(line[line.index('ampl'):line.index('likely')].split(' ')[1])
+      likely = line[line.index('likely')+8:]
+      spotted = None
+      if 'spotted' in line:
+        spotted = line[line.index('spotted')+8:]
+      return net_out, ampl, likely, spotted
+
+def write(c):
+  """
+    direct access to serial port write
+  """
+  ser.write(c)
 
 def pingtest():
 
