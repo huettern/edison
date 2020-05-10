@@ -38,6 +38,7 @@ The net is build with keras and implemented using CubeAI. No quantization/compre
 |:--------------|:---------------|:----------|:--------|:------|:-------|:-------|:--------|:--------------|
 | Keras, CubeAI | 22.54ms        | 18.25ms   | 1       | `-O0` | 219638 | 3.42KB | 25.74KB | 0.01195651532 |
 | Keras, CubeAI | 22.53ms        | 2.97ms    | 0       | `-O3` | 219638 | 3.42KB | 25.74KB | 0.01195651532 |
+| Keras, NNoM, CMSIS-NN   | 14.32ms        | 2.21ms    | 0       | `-O3` | 214300 | KB | KB | 0.01195651532 |
 
 
 ## Experimenting with MFCC

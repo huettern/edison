@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-10 15:19:43
+# @Last Modified time: 2020-05-10 17:08:40
 
 import sys
 
@@ -29,17 +29,16 @@ from tqdm import tqdm
 import simpleaudio as sa
 import scipy.io.wavfile as wavfile
 
-# import keras
 import tensorflow as tf
-
 import mfcc_utils as mfu
 
 cache_dir = '.cache/kws_mcu'
-# model_file = '../firmware/src/ai/cube/kws/kws_model_medium_embedding_conv.h5'
-# model_file ='train/.cache/kws_keras/kws_model_medium_embedding_conv_2020-05-07_17:26:28.h5'
-model_file ='models/kws_model_medium_embedding_conv.h5'
+model_file ='models/kws_model_medium_embedding_conv_nnom.h5'
 keywords = np.load('verification/keywords.npy')
 from_file = 0
+
+# define net type running on target (cube/nnom)
+net_type = 'nnom'
 
 # Load trained model
 model = tf.keras.models.load_model(model_file)
@@ -269,13 +268,17 @@ def singleInference(repeat = 1):
   host_preds = []
   mcu_preds = []
   for i in range(repeat):
-    net_input = np.array(np.random.rand(input_size).reshape([1]+input_shape), dtype='float32')
+    if net_type == 'cube':
+      net_input = np.array(np.random.rand(input_size).reshape([1]+input_shape), dtype='float32')
+    elif net_type == 'nnom':
+      # net_input = np.array(np.random.randint(-128,128,input_size).reshape([1]+input_shape), dtype='int8')
+      net_input = np.array(np.zeros(input_size).reshape([1]+input_shape), dtype='int8')
 
     # predict on CPU
     host_preds.append(model.predict(net_input)[0])
 
     # predict on MCU
-    mcu_preds.append(infereOnMCU(net_input))
+    mcu_preds.append(infereOnMCU(net_input, progress=True))
     
     # report
     report(host_preds[-1], mcu_preds[-1])

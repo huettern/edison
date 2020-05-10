@@ -42,7 +42,7 @@
                                     // CHW must be used when using hardware accelerator such as KPU in K210 chip
 
 // Backend selection
-//#define NNOM_USING_CMSIS_NN       // uncomment if use CMSIS-NN for optimation 
+#define NNOM_USING_CMSIS_NN       // uncomment if use CMSIS-NN for optimation 
 
 
 #endif

@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 16:52:26
+* @Last Modified time: 2020-05-10 17:27:34
 */
 
 #include "main.h"
@@ -35,7 +35,7 @@ static void MX_UART4_Init(void);
 /*------------------------------------------------------------------------------
  * Publics
  * ---------------------------------------------------------------------------*/
-
+static UART_HandleTypeDef *printfUart = &huart4;
 /**
  * @brief ll function for printf
  * @details 
@@ -45,7 +45,12 @@ static void MX_UART4_Init(void);
 void _putchar(char character)
 {
   // send char to console etc.
-  HAL_UART_Transmit(&huart4, (uint8_t *)&character, 1, 1000);
+  HAL_UART_Transmit(printfUart, (uint8_t *)&character, 1, 1000);
+}
+
+void mainSetPrintfUart(UART_HandleTypeDef *p)
+{
+  printfUart = p;
 }
 
 /**

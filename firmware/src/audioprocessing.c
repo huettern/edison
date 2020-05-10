@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-03 17:15:48
+* @Last Modified time: 2020-05-10 17:33:39
 */
 #include "audioprocessing.h"
 
@@ -255,18 +255,23 @@ void audioMELSingleBatch(void)
 int8_t audioHifInfo(uint8_t *args)
 {
   (void)args;
-  printf("-------------------------------------------------------------\n");
-  printf("Audioprocessing information\n");
-  printf("  Audio Sample Size: %d\n", MEL_SAMPLE_SIZE);
-  printf("  Audio N Mel Bins: %d\n", MEL_N_MEL_BINS);
-  printf("  Audio N Spectrogram Bins: %d\n", MEL_N_SPECTROGRAM_BINS);
-  printf("  Audio Samplerate: %d\n", MEL_SAMPLE_RATE);
-  printf("  Audio Lower Edge Hz: %f\n", MEL_LOWER_EDGE_HZ);
-  printf("  Audio Upper Edge Hz: %f\n", MEL_UPPER_EDGE_HZ);
-  printf("  Audio Mel Matrix Scale: %d\n", MEL_MTX_SCALE);
-  printf("  Audio Mel Matrix Rows: %d\n", MEL_MTX_ROWS);
-  printf("  Audio Mel Matrix Cols: %d\n", MEL_MTX_COLS);
-  printf("  Audio Last Processing Time: %.2fms\n", (float)lastProcessingTime/1000.0);
+  uint8_t cnt = 1;
+  mainSetPrintfUart(&huart1);
+  do {
+    printf("-------------------------------------------------------------\n");
+    printf("Audioprocessing information\n");
+    printf("  Audio Sample Size: %d\n", MEL_SAMPLE_SIZE);
+    printf("  Audio N Mel Bins: %d\n", MEL_N_MEL_BINS);
+    printf("  Audio N Spectrogram Bins: %d\n", MEL_N_SPECTROGRAM_BINS);
+    printf("  Audio Samplerate: %d\n", MEL_SAMPLE_RATE);
+    printf("  Audio Lower Edge Hz: %f\n", MEL_LOWER_EDGE_HZ);
+    printf("  Audio Upper Edge Hz: %f\n", MEL_UPPER_EDGE_HZ);
+    printf("  Audio Mel Matrix Scale: %d\n", MEL_MTX_SCALE);
+    printf("  Audio Mel Matrix Rows: %d\n", MEL_MTX_ROWS);
+    printf("  Audio Mel Matrix Cols: %d\n", MEL_MTX_COLS);
+    printf("  Audio Last Processing Time: %.2fms\n", (float)lastProcessingTime/1000.0);
+    mainSetPrintfUart(&huart4);
+  }while(cnt--);
   return 0;
 }
 

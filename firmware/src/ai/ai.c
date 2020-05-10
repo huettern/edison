@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 17:18:57
+* @Last Modified time: 2020-05-10 18:04:45
 */
 #include "ai.h"
 
@@ -91,6 +91,9 @@ static uint32_t lastInferenceTimeUs;
   #ifdef CUBE_VERIFICATION
   static int aiBootstrap(const char *nn_name, const int idx);
   #endif
+
+#elif NET_TYPE == NET_TYPE_NNOM
+  static void printNnomInfo(void);
 #endif 
 /*------------------------------------------------------------------------------
  * Publics
@@ -144,9 +147,9 @@ void aiRunInferenceHif(void)
 
   prfEvent("receive");
 
-  for(int i = 0; i < AI_NET_INSIZE; i++) printf("o: %d\n",in_data[i]);
+  // for(int i = 0; i < AI_NET_INSIZE; i++) printf("o: %d\n",in_data[i]);
   ret = aiRunInference((void*)in_data, (void*)out_data);
-  for(int i = 0; i < AI_NET_OUTSIZE; i++) printf("o: %d\n",out_data[i]);
+  // for(int i = 0; i < AI_NET_OUTSIZE; i++) printf("o: %d\n",out_data[i]);
   (void)ret;
 
   prfEvent("aiRunInference");
@@ -174,6 +177,8 @@ void aiPrintInfo(void)
 {
 #if NET_TYPE == NET_TYPE_CUBE
   printCubeNetInfo();
+#elif NET_TYPE == NET_TYPE_NNOM
+  printNnomInfo();
 #endif
 }
 
@@ -231,6 +236,17 @@ const char* aiGetKeywordFromIndex(uint32_t idx)
  * Privates
  * ---------------------------------------------------------------------------*/
 
+/*------------------------------------------------------------------------------
+ * NNOM NET
+ * ---------------------------------------------------------------------------*/
+#if NET_TYPE == NET_TYPE_NNOM
+static void printNnomInfo(void)
+{
+  printf("-------------------------------------------------------------\n");
+  printf("AI net information\n");
+  printf(" last inference time: %.2fms\n", (float)lastInferenceTimeUs/1000.0);
+}
+#endif
 
 /*------------------------------------------------------------------------------
  * CUBE NET
@@ -373,6 +389,7 @@ static void printCubeNetInfo(void)
     printf(" last inference time: %.2fms\n", (float)lastInferenceTimeUs/1000.0);
   }
 }
+
 
 #ifdef CUBE_VERIFICATION
 static int aiBootstrap(const char *nn_name, const int idx)

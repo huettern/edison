@@ -29,6 +29,7 @@
  * Publics
  * ---------------------------------------------------------------------------*/
 void Error_Handler(void);
+void mainSetPrintfUart(UART_HandleTypeDef *p);
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart4; // on arduino pins

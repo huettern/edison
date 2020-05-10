@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 17:17:40
+* @Last Modified time: 2020-05-10 17:22:16
 */
 #include "app.h"
 #include <stdlib.h>
@@ -48,21 +48,22 @@
 
 
 static uint8_t netInputChunk[AI_NET_INSIZE_BYTES];
+static uint8_t netOutputChunk[AI_NET_OUTSIZE_BYTES];
 
 
 
 #if NET_TYPE == NET_TYPE_CUBE
   static float * netInput = (float*)netInputChunk;
+  static float * netOutput = (float*)netOutputChunk;
 #elif NET_TYPE == NET_TYPE_NNOM
   static int8_t * netInput = (int8_t*)netInputChunk;
+  static int8_t * netOutput = (int8_t*)netOutputChunk;
 #endif
 
 
-static float netOutput[AI_NET_OUTSIZE_BYTES/4];
 static FASTRAM_BSS int16_t tmpBuf[1024*16]; // fills entire region
 
 static int16_t * inFrameBuf = tmpBuf;
-// static float * netInBuf = (float*)tmpBuf;
 
 
 /*------------------------------------------------------------------------------
@@ -107,7 +108,6 @@ int8_t appHifMfccAndInference(uint8_t *args)
 
     audioCalcMFCCs(inFrameBuf, &out_mfccs);
 
-
     // copy to net in buffer and cast to float
     mfccToNetInput(out_mfccs, in_x, in_y, frameCtr);
 
@@ -121,7 +121,7 @@ int8_t appHifMfccAndInference(uint8_t *args)
   printf("inference..");
   ret = aiRunInference((void*)netInput, (void*)netOutput);
   printf("Prediction: ");
-  for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++) {printf("%.2f ", netOutput[tmp32]);}
+  for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++) {printf("%.2f ", (float)netOutput[tmp32]);}
     printf("\n");
   prfEvent("inference");
   hiSendMCUReady();
@@ -130,6 +130,9 @@ int8_t appHifMfccAndInference(uint8_t *args)
   #if NET_TYPE == NET_TYPE_CUBE
     hiSendF32(netInput, AI_NET_INSIZE, 0x20);
     hiSendF32(netOutput, AI_NET_OUTSIZE, 0x21);
+  #elif NET_TYPE == NET_TYPE_NNOM
+    hiSendS8(netInput, AI_NET_INSIZE, 0x20);
+    hiSendS8(netOutput, AI_NET_OUTSIZE, 0x21);
   #endif
   
   prfStop();

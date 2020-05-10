@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-08 14:24:51
+* @Last Modified time: 2020-05-10 17:32:13
 */
 
 #include "hostinterface.h"
@@ -405,6 +405,9 @@ static int8_t waitForByte (uint8_t b, uint32_t timeout)
 static int8_t verPrintWrap(uint8_t* args)
 {
   (void)args;
+  mainSetPrintfUart(&huart1);
+  verPrint();
+  mainSetPrintfUart(&huart4);
   verPrint();
   return 0;
 }
@@ -447,6 +450,9 @@ static int8_t aiRunInferenceHifWrap(uint8_t* args)
 static int8_t aiPrintInfoWrap(uint8_t* args)
 {
   (void)args;
+  mainSetPrintfUart(&huart1);
+  aiPrintInfo();
+  mainSetPrintfUart(&huart4);
   aiPrintInfo();
   return 0;
 }
