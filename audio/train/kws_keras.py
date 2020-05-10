@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-08 14:51:02
+# @Last Modified time: 2020-05-10 11:38:39
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -134,7 +134,7 @@ verbose = 1
 # Softmax
 
 
-model_arch = 'legacy'
+model_arch = 'medium_embedding_conv'
 
 # training parameters
 batchSize = 100
@@ -526,8 +526,7 @@ def plotSomeMfcc(x_train, x_test, y_train=None, y_test=None, keywords=None):
 # load data
 keywords = ['cat','marvin','left','zero']
 coldwords=['bed','bird','stop','visual']
-# noise=['_background_noise_']
-noise=None
+noise=['_background_noise_']
 x_train_mfcc, x_test_mfcc, x_val_mfcc, y_train, y_test, y_val, keywords = load_data(keywords, coldwords, noise)
 print(keywords)
 
