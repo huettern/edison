@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 16:07:09
+* @Last Modified time: 2020-05-10 17:18:57
 */
 #include "ai.h"
 
@@ -19,6 +19,7 @@
 #include "hostinterface.h"
 #include "util.h"
 #include "cyclecounter.h"
+#include "ai_nnom.h"
 
 /*------------------------------------------------------------------------------
  * Types
@@ -103,7 +104,10 @@ int aiInitialize(void)
 {
 #if NET_TYPE == NET_TYPE_CUBE
   cubeNetInit();
+#elif NET_TYPE == NET_TYPE_NNOM
+  aiNnomInit();
 #endif
+
   return 0;
 }
 
@@ -116,29 +120,42 @@ int aiInitialize(void)
 void aiRunInferenceHif(void)
 {
   int ret;
-  float *in_data=NULL, *out_data=NULL;
   uint32_t len;
   uint8_t tag;
 
   prfStart("aiRunInferenceHif");
 
+#if NET_TYPE == NET_TYPE_CUBE
+  float *in_data=NULL, *out_data=NULL;
   in_data = malloc(NET_CUBE_KWS_INSIZE_BYTES);
   out_data = malloc(NET_CUBE_KWS_OUTSIZE_BYTES);
-
   prfEvent("malloc");
-
   len = hiReceive(in_data, NET_CUBE_KWS_INSIZE_BYTES, DATA_FORMAT_F32, &tag);
   (void)len;
-//   printf("Received %d elements with tag %d\n[ ", length, tag);
+#elif NET_TYPE == NET_TYPE_NNOM
+  int8_t *in_data=NULL, *out_data=NULL;
+  in_data = malloc(AI_NET_INSIZE_BYTES);
+  out_data = malloc(AI_NET_OUTSIZE_BYTES);
+  prfEvent("malloc");
+  len = hiReceive(in_data, AI_NET_INSIZE_BYTES, DATA_FORMAT_S8, &tag);
+  (void)len;
+#endif
+
 
   prfEvent("receive");
 
+  for(int i = 0; i < AI_NET_INSIZE; i++) printf("o: %d\n",in_data[i]);
   ret = aiRunInference((void*)in_data, (void*)out_data);
+  for(int i = 0; i < AI_NET_OUTSIZE; i++) printf("o: %d\n",out_data[i]);
   (void)ret;
 
   prfEvent("aiRunInference");
 
+#if NET_TYPE == NET_TYPE_CUBE
   hiSendF32(out_data, NET_CUBE_KWS_OUTSIZE, 0x17);
+#elif NET_TYPE == NET_TYPE_NNOM
+  hiSendS8(out_data, AI_NET_OUTSIZE, 0x17);
+#endif
 
   prfEvent("send");
 
@@ -174,6 +191,9 @@ void aiGetInputShape(uint16_t *x, uint16_t *y)
   (void)ai_kws_get_info(kws, &rep);
   *x = rep.inputs[0].width;
   *y = rep.inputs[0].height;
+#elif NET_TYPE == NET_TYPE_NNOM
+  *x = 13;
+  *y = 31;
 #endif
 }
 
@@ -195,7 +215,7 @@ int aiRunInference(void* in_data, void* out_data)
 #if NET_TYPE == NET_TYPE_CUBE
   ret = cubeNetRun((void*)in_data, (void*)out_data);
 #elif NET_TYPE == NET_TYPE_NNOM
-
+  ret = aiNnomRunInference((void*)in_data, (void*)out_data);
 #endif
   
   lastInferenceTimeUs = utilToc(id);

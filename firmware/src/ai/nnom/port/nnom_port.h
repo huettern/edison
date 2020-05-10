@@ -19,6 +19,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "main.h"
+
 // memory interfaces
 #define nnom_malloc(n)      malloc(n) 
 #define nnom_free(p)        free(p)
@@ -27,6 +29,7 @@
 // runtime & debuges
 #define nnom_us_get()       0
 #define nnom_ms_get()       0
+// #define NNOM_LOG(X, ...)       printf(X, ##__VA_ARGS__)
 #define NNOM_LOG(...)       printf(__VA_ARGS__)
 
 // NNoM configuration

@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 13:17:43
+* @Last Modified time: 2020-05-10 16:52:26
 */
 
 #include "main.h"
@@ -15,6 +15,7 @@
 #include "ai_nnom.h"
 #include "cyclecounter.h"
 
+#include <stdarg.h>
 
 /*------------------------------------------------------------------------------
  * Private data
@@ -44,7 +45,7 @@ static void MX_UART4_Init(void);
 void _putchar(char character)
 {
   // send char to console etc.
-  HAL_UART_Transmit(printfUart, (uint8_t *)&character, 1, 1000);
+  HAL_UART_Transmit(&huart4, (uint8_t *)&character, 1, 1000);
 }
 
 /**
@@ -68,13 +69,11 @@ int main(void)
   MX_TIM1_Init();
   MX_UART4_Init();
   
-  PRINTF_ON_ADRUINO();
   printf("%s / %s / %s / %s\n",
              verProgName, verVersion,
              verBuildDate, verGitSha);
   printf("Hello Arduino!\n");
 
-  PRINTF_ON_STLINK();
   printf("%s / %s / %s / %s\n",
              verProgName, verVersion,
              verBuildDate, verGitSha);

@@ -51,16 +51,9 @@ TIM_HandleTypeDef htim1;
 /**
  * With this we can switch where printf output should go
  */
-UART_HandleTypeDef *printfUart;
-#define PRINTF_ON_ADRUINO() printfUart = &huart4
-#define PRINTF_ON_STLINK() printfUart = &huart1
-
-UART_HandleTypeDef *__main_old_uart;
-#define fprintf(U, X, ...) \
-  __main_old_uart = printfUart; \
-  printfUart = U; \
-  printf(X, ##__VA_ARGS__); \
-  printfUart = __main_old_uart
+// UART_HandleTypeDef *printfUart;
+// #define PRINTF_ON_ADRUINO() printfUart = &huart4
+// #define PRINTF_ON_STLINK() printfUart = &huart1
 
 /*------------------------------------------------------------------------------
  * Defines

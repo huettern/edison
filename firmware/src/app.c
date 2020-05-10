@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 16:01:17
+* @Last Modified time: 2020-05-10 17:17:40
 */
 #include "app.h"
 #include <stdlib.h>
@@ -118,11 +118,11 @@ int8_t appHifMfccAndInference(uint8_t *args)
   prfEvent("receive and MFCC");
 
   // 3. Run inference
-  fprintf(&huart4, "inference..");
+  printf("inference..");
   ret = aiRunInference((void*)netInput, (void*)netOutput);
-  fprintf(&huart4, "Prediction: ");
-  for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++) {fprintf(&huart4, "%.2f ", netOutput[tmp32]);}
-    fprintf(&huart4, "\n");
+  printf("Prediction: ");
+  for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++) {printf("%.2f ", netOutput[tmp32]);}
+    printf("\n");
   prfEvent("inference");
   hiSendMCUReady();
 
@@ -187,11 +187,11 @@ int8_t appHifMicMfccInfere(uint8_t *args)
   micContinuousStop();
 
   // 3. Run inference
-  fprintf(&huart4, "inference..");
+  printf("inference..");
   ret = aiRunInference((void*)netInput, (void*)netOutput);
-  fprintf(&huart4, "Prediction: ");
-  for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++) {fprintf(&huart4, "%.2f ", netOutput[tmp32]);}
-    fprintf(&huart4, "\n");
+  printf("Prediction: ");
+  for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++) {printf("%.2f ", netOutput[tmp32]);}
+    printf("\n");
 
   // signal host that we are ready
   hiSendMCUReady();
@@ -224,7 +224,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
   float tmpf;
 
   aiGetInputShape(&in_x, &in_y); // x = 13, y = 62 (nframes)
-  fprintf(&huart1, "Input shape x,y: (%d,%d)\n", in_x, in_y);
+  printf("Input shape x,y: (%d,%d)\n", in_x, in_y);
 
   // start continuous mic sampling
   micContinuousStart();
@@ -260,12 +260,12 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     // netInBufOff += in_x*in_y;
 
     // report
-    fprintf(&huart1, "pred: [ ");
+    printf("pred: [ ");
     for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++)
     {
-      fprintf(&huart1, "%.2f ", netOutput[tmp32]);
+      printf("%.2f ", netOutput[tmp32]);
     }
-    fprintf(&huart1, "] ret: %d ampl: %d", ret, maxAmplitude-minAmplitude);
+    printf("] ret: %d ampl: %d", ret, maxAmplitude-minAmplitude);
 
     arm_max_f32(netOutput, AI_NET_OUTSIZE, &tmpf, &tmp32);
     printf(" likely: %s", aiGetKeywordFromIndex(tmp32));
@@ -273,7 +273,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     {
       printf(" spotted %s", aiGetKeywordFromIndex(tmp32));
     }
-    fprintf(&huart1, "\n");
+    printf("\n");
 
     if(netOutput[0] > TRUE_THRESHOLD) LED2_ORA();
     else LED2_BLU();
@@ -323,7 +323,7 @@ int8_t appMicMfccInfereBlocks (uint8_t *args)
   float tmpf;
 
   aiGetInputShape(&in_x, &in_y); // x = 13, y = 62 (nframes)
-  fprintf(&huart1, "Input shape x,y: (%d,%d)\n", in_x, in_y);
+  printf("Input shape x,y: (%d,%d)\n", in_x, in_y);
 
   // start continuous mic sampling
   micContinuousStart();
@@ -360,12 +360,12 @@ int8_t appMicMfccInfereBlocks (uint8_t *args)
     // netInBufOff += in_x*in_y;
 
     // report
-    fprintf(&huart1, "pred: [ ");
+    printf("pred: [ ");
     for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++)
     {
-      fprintf(&huart1, "%.2f ", netOutput[tmp32]);
+      printf("%.2f ", netOutput[tmp32]);
     }
-    fprintf(&huart1, "] ret: %d ampl: %d", ret, maxAmplitude-minAmplitude);
+    printf("] ret: %d ampl: %d", ret, maxAmplitude-minAmplitude);
 
     arm_max_f32(netOutput, AI_NET_OUTSIZE, &tmpf, &tmp32);
     printf(" likely: %s", aiGetKeywordFromIndex(tmp32));
@@ -373,7 +373,7 @@ int8_t appMicMfccInfereBlocks (uint8_t *args)
     {
       printf(" SPOTTED %s", aiGetKeywordFromIndex(tmp32));
     }
-    fprintf(&huart1, "\n");
+    printf("\n");
 
     if(netOutput[0] > TRUE_THRESHOLD) LED2_ORA();
     else LED2_BLU();
@@ -419,12 +419,16 @@ void mfccToNetInput(int16_t* mfcc, uint16_t in_x, uint16_t in_y, uint32_t xoffse
     netInput[xoffset*in_x + mfccCtr] = (float)mfcc[mfccCtr];
   }
 #elif NET_TYPE == NET_TYPE_NNOM
+  int16_t tmps16;
   for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
-  {
-    netInput[xoffset*in_x + mfccCtr] = (int8_t)(mfcc[mfccCtr] / 256);
+  { 
+    // scale and clip MFCCs
+    tmps16 = mfcc[mfccCtr] / 16;
+    tmps16 = (tmps16 >  127) ?  127 : tmps16;
+    tmps16 = (tmps16 < -128) ? -128 : tmps16;
+    netInput[xoffset*in_x + mfccCtr] = (int8_t)(tmps16);
   }
 #endif
-  
 }
 
 /**
