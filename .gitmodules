@@ -1,0 +1,3 @@
+[submodule "audio/implement/nnom"]
+	path = audio/implement/nnom
+	url = https://github.com/majianjia/nnom
