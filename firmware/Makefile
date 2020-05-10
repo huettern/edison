@@ -83,6 +83,18 @@ CUBEAI_SRC = 	$(wildcard src/ai/cube/$(CUBEAI_NET_NAME)/*.c)
 ##############################################################################
 
 ##############################################################################
+# NNoM
+NNOM_REPO=../audio/implement/nnom/
+NNOM_WEIGHTS=../audio/train/.cache/kws_nnom/weights.h
+NNOM_NAME=kws_nnom
+NNOM=src/ai/nnom/
+NNOM_CSRC=$(wildcard $(NNOM)/src/backends/*.c) $(wildcard $(NNOM)/src/layers/*.c) $(wildcard $(NNOM)/src/core/*.c)
+NNOM_INC=-I$(NNOM)/inc -I$(NNOM)/port -I$(NNOM)
+#
+##############################################################################
+
+
+##############################################################################
 # paths
 
 # Build path
@@ -114,7 +126,7 @@ BUILD_DATE  := "$(shell date +%Y-%m-%d\ %H:%M:%S\ %Z)"
 
 ##############################################################################
 # sources and objects
-CSRC = $(CMSIS_CSRC) $(HAL_CSRC) $(USR_CSRC) $(TEST_CSRC) $(CUBEAI_SRC)
+CSRC = $(CMSIS_CSRC) $(HAL_CSRC) $(USR_CSRC) $(TEST_CSRC) $(CUBEAI_SRC) $(NNOM_CSRC)
 ASMSRC = $(CMSIS_ASMSRC) $(USR_ASMSRC)
 LIB_DIRS = $(CMSIS_LIBDIR) $(CUBEAI_LIBDIR)
 LIBS = $(CMSIS_LIB) $(CUBEAI_LIB)
@@ -170,7 +182,7 @@ C_DEFS =  -DGIT_SHA=\"$(GIT_VERSION)\" -DBUILD_DATE=\"$(BUILD_DATE)\"\
 AS_INCLUDES = 
 
 # C includes
-C_INCLUDES =  $(CMSIS_INC) $(HAL_INC) $(USR_INC) $(TEST_INC) $(CUBEAI_INC)
+C_INCLUDES =  $(CMSIS_INC) $(HAL_INC) $(USR_INC) $(TEST_INC) $(CUBEAI_INC) $(NNOM_INC)
 
 # compile gcc flags
 INC = $(C_INCLUDES) $(AS_INCLUDES)
@@ -227,6 +239,9 @@ mdebug:
 import-cubeai-net:
 	./scripts/import-cubeai-net.sh $(CUBEAI_LOCATION) $(CUBEAI_NET_NAME) src/lib/ST src/ai/cube/$(CUBEAI_NET_NAME)
 
+import-nnom-net:
+	./scripts/import-nnom-net.sh $(NNOM_REPO) $(NNOM_WEIGHTS) $(NNOM_NAME) $(NNOM)
+
 #Pull in dependency info for *existing* .o files
 -include $(OBJ:.o=.d)
 
@@ -273,4 +288,4 @@ $(BUILD_DIR)/obj/%.o: src/%.S
 	@mkdir -p $(dir $@)
 	@$(AS) $(CFLAGS) -c $< -o $@
 
-.PHONY: all clean cleaner flash mdebug import-cubeai-net
+.PHONY: all clean cleaner flash mdebug import-cubeai-net import-nnom-net
