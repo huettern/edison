@@ -19,7 +19,8 @@ if len(sys.argv) < 2:
   exit()
 
 cache_dir = '.cache/kws_mcu'
-model_file = 'train/.cache/kws_keras/kws_model_medium_embedding_conv.h5'
+# model_file = 'train/.cache/kws_keras/kws_model_medium_embedding_conv.h5'
+model_file = 'train/.cache/kws_keras/kws_model_nnom.h5'
 
 keywords = np.load('train/.cache/kws_keras/keywords.npy')
 threshold = 0.6
@@ -51,17 +52,21 @@ n_frames = 1 + (sample_len - frame_length) // frame_step
 # data buffer
 xdata = [0]
 ydata = [np.zeros((1,output_size))]
+mic_data = []
 
 # abort when
-abort_after = 100
+abort_after = 10
+
+# mfcc_fun = mfu.mfcc_mcu
+mfcc_fun = mfu.mfcc
+# mfcc_fun = mfu.mfcc_tf
 
 ######################################################################
 # Host 
 ######################################################################
-def kwsHostThd(xdata, ydata):
+def kwsHostThd(xdata, ydata, mic_data):
   global abort_after
 
-  mic_data = np.array([], dtype='int16')
   net_input = np.array([], dtype='int16')
   init = 1
   frame_ctr = 0
@@ -76,9 +81,10 @@ def kwsHostThd(xdata, ydata):
       # print('read frame of size', len(frame), 'and type', type(frame), 'overflow', overflowed)
       frame = ((2**16/2-1)*frame[:,0]).astype('int16')
       frame_ctr += 1
+      mic_data.append(frame)
 
       nSamples = 1024
-      o_mfcc = mfu.mfcc_mcu(frame, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+      o_mfcc = mfcc_fun(frame, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
         num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
       data_mfcc = np.array([x['mfcc'][:num_mfcc] for x in o_mfcc])
 
@@ -174,19 +180,21 @@ def kwsMCUThd(xdata, ydata):
 # Plot after
 ######################################################################
 def plotNetOutputHistory():
-  global xdata, ydata 
-  fig = plt.figure()
-
+  global xdata, ydata, mic_data
   
-  ax = plt.axes(ylim=(0, 1))
+  fig, ax = plt.subplots(2, 1)
+  ax[0].plot(mic_data, label='mic')
+  ax[0].legend()
+  ax[0].grid(True)
 
   for n in range(output_size):
     print(keywords[n])
-    line, = ax.plot(xdata, np.array(ydata).reshape(-1,output_size)[:,n], label=keywords[n].strip('_'))
+    line, = ax[1].plot(xdata, np.array(ydata).reshape(-1,output_size)[:,n], label=keywords[n].strip('_'))
   
-  ax.grid(True)
-  ax.set_xlim((0, xdata[-1]))
-  ax.legend()
+  ax[1].grid(True)
+  ax[1].set_xlim((0, xdata[-1]))
+  ax[1].set_xlim((0, 1))
+  ax[1].legend()
 
 
 ######################################################################
@@ -207,7 +215,9 @@ if __name__ == '__main__':
   if sys.argv[1] == 'host':
     # post mortem plot
     print('output_size', output_size)
-    kwsHostThd(xdata, ydata)
+    kwsHostThd(xdata, ydata, mic_data)
+
+    mic_data = np.array(mic_data).reshape((-1,))
 
     plotNetOutputHistory()
     plt.show()

@@ -138,6 +138,34 @@ def plotSpectrogram(o_mfcc):
   
   # axs[1,0] = pcolor(spectrogram)
 
+def plotNetInput(mfcc, titles):
+  """
+    Plot net input
+  """
+  frames = np.arange(mfcc.shape[1])
+  melbin = np.arange(mfcc.shape[2])
+
+  rows = int(np.ceil(np.sqrt(mfcc.shape[0])))
+  cols = int(np.ceil(mfcc.shape[0] / rows))
+
+  print('rows',rows,'cols',cols)
+
+  fig = plt.figure(constrained_layout=True)
+  gs = fig.add_gridspec(rows, cols)
+
+  for i in range(mfcc.shape[0]):
+    vmin = mfcc[i].T.min()
+    vmax = mfcc[i].T.max()
+    ax = fig.add_subplot(gs[i//cols, i%cols])
+    c = ax.pcolor(frames, melbin, mfcc[i].T, cmap='PuBu', vmin=vmin, vmax=vmax)
+    ax.grid(True)
+    ax.set_title(titles[i])
+    ax.set_xlabel('frame')
+    ax.set_ylabel('Mel bin')
+    fig.colorbar(c, ax=ax)
+
+  return fig
+
 
 ######################################################################
 # Main
@@ -154,9 +182,10 @@ frame_len = 1024
 frame_step = 1024
 frame_count = 0 # 0 for auto
 fft_len = frame_len
-mel_nbins = 8
+mel_nbins = 32
 mel_lower_hz = 80
 mel_upper_hz = 7600
+mel_mtx_scale = 128
 
 # Some info
 print("Frame length in seconds = %.3fs" % (frame_len/fs))
@@ -165,6 +194,7 @@ print("Number of input samples = %d" % (nSamples))
 # calculate mfcc
 o_mfcc = mfu.mfcc(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, mel_nbins, mel_lower_hz, mel_upper_hz)
 o_mfcc_tf = mfu.mfcc_tf(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, mel_nbins, mel_lower_hz, mel_upper_hz)
+o_mfcc_mcu = mfu.mfcc_mcu(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, mel_nbins, mel_lower_hz, mel_upper_hz, mel_mtx_scale)
 
 # plot
 # plotAllFrames(o_mfcc)
@@ -179,4 +209,20 @@ fig = plotFrame(o_mfcc[5], 'Own implementation')
 fig.tight_layout()
 fig = plotFrame(o_mfcc_tf[5], 'Tensorflow')
 fig.tight_layout()
+
+##
+# Make framed MFCC
+##
+first_mfcc = 0
+num_mfcc = 13
+mfccs = []
+mfccs.append(np.array([x['mfcc'][first_mfcc:first_mfcc+num_mfcc] for x in o_mfcc]))
+mfccs.append(np.array([x['mfcc'][first_mfcc:first_mfcc+num_mfcc] for x in o_mfcc_tf]))
+mfccs.append(np.array([x['mfcc'][first_mfcc:first_mfcc+num_mfcc] for x in o_mfcc_mcu]))
+mfccs.append(np.array([np.log(x['mfcc'][first_mfcc:first_mfcc+num_mfcc]) for x in o_mfcc_mcu]))
+mfccs = np.array(mfccs)
+print(mfccs.shape)
+fig = plotNetInput(mfccs, ['own', 'tf', 'mcu', 'mcu log'])
+
+
 plt.show()

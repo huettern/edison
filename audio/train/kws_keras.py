@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-11 16:00:28
+# @Last Modified time: 2020-05-11 17:57:20
 
 import audioutils as au
 import mfcc_utils as mfu
@@ -137,7 +137,7 @@ verbose = 1
 # Stolen from https://github.com/majianjia/nnom/tree/master/examples/keyword_spotting
 
 
-model_arch = 'medium_embedding_conv'
+model_arch = 'low_latency_conv'
 
 # training parameters
 batchSize = 64
@@ -412,7 +412,7 @@ def train(model, x, y, vx, vy, batchSize = 10, epochs = 30):
   tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir)
 
   
-  early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=4)
+  early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=2)
   reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=1, min_lr=1e-9)
   csv_logger = tf.keras.callbacks.CSVLogger(cache_dir+'/training_'+model_arch+'_'+datetime.now().strftime("%Y%m%d-%H%M%S")+'.log')
 
@@ -446,8 +446,9 @@ def load_data(keywords, coldwords, noise):
     # failed, load from source wave files
     # x_train, y_train, x_test, y_test, x_validation, y_val, keywords = au.load_speech_commands(
     #   keywords=keywords, sample_len=2*16000, coldwords=coldwords, noise=noise, playsome=False)
+    kwds = ['edison', 'cinema', 'on', 'off']
     x_train, y_train, x_test, y_test, x_validation, y_val, keywords = au.load_own_speech_commands(
-      keywords=None, sample_len=2*16000, playsome=False, test_val_size=0.2)
+      keywords=kwds, sample_len=2*16000, playsome=False, test_val_size=0.2)
     
     # calculate MFCCs of training and test x data
     o_mfcc_train = []
@@ -455,6 +456,7 @@ def load_data(keywords, coldwords, noise):
     o_mfcc_val = []
     print('starting mfcc calculation')
     mfcc_fun = mfu.mfcc_mcu
+    # mfcc_fun = mfu.mfcc
     # mfcc_fun = mfu.mfcc_tf
     for data in tqdm(x_train):
       o_mfcc = mfcc_fun(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 

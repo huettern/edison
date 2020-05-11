@@ -21,7 +21,7 @@ cd train/
 
 Inspired by https://github.com/tensorflow/tensorflow/blob/5d595477cc94a78c364e81810beb3753ae756607/tensorflow/examples/speech_commands/models.py#L673
 
-| Name                  | Total params | MACC       | ROM                    | RAM      | Exec time          |
+| Name                  | Total params | MACC       | ROM                    | RAM      | Exec time CubeAI   |
 |:----------------------|:-------------|:-----------|:-----------------------|:---------|:-------------------|
 | conv_model            | 202,884      | 22,567,292 | 792KB                  | 39KiB    | 1623ms -> too slow |
 | low_latency_conv      | 3,015,662    | ?          | 11.5MB -> does not fit | 39KiB    | ?                  |

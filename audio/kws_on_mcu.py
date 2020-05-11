@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-10 17:08:40
+# @Last Modified time: 2020-05-11 17:57:40
 
 import sys
 
@@ -33,8 +33,8 @@ import tensorflow as tf
 import mfcc_utils as mfu
 
 cache_dir = '.cache/kws_mcu'
-model_file ='models/kws_model_medium_embedding_conv_nnom.h5'
-keywords = np.load('verification/keywords.npy')
+model_file ='train/.cache/kws_keras/kws_model_low_latency_conv.h5'
+keywords = np.load('train/.cache/kws_keras/keywords.npy')
 from_file = 0
 
 # define net type running on target (cube/nnom)
@@ -539,7 +539,7 @@ def hostMicContinuous():
       frame = ((2**16/2-1)*frame[:,0]).astype('int16')
       frame_ctr += 1
 
-      nSamples = 1024
+      nSamples = frame_length
       o_mfcc = mfu.mfcc_mcu(frame, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
         num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
       data_mfcc = np.array([x['mfcc'][:num_mfcc] for x in o_mfcc])

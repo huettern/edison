@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:47
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-11 15:45:09
+# @Last Modified time: 2020-05-11 17:56:53
 
 snipsDataPath = "/Users/noah/git/mlmcu-project/audio/data/snips/"
 # snipsDataPath = '/media/spare/data/hey_snips_research_6k_en_train_eval_clean_ter'

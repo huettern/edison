@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:23:59
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-08 14:07:22
+# @Last Modified time: 2020-05-11 17:17:07
 
 import numpy as np
 from scipy.fftpack import dct
@@ -135,7 +135,7 @@ def batch_mfcc(data, \
 def mfcc(data, \
   fs, nSamples, frame_len, frame_step, frame_count, \
   fft_len, \
-  mel_nbins, mel_lower_hz, mel_upper_hz):
+  mel_nbins, mel_lower_hz, mel_upper_hz, dummy=None):
   """
     Runs windowed mfcc on a strem of data
   
@@ -154,7 +154,7 @@ def mfcc(data, \
 
   if frame_count == 0:
     frame_count = 1 + (nSamples - frame_len) // frame_step
-  print("Running mfcc for %d frames with %d step" % (frame_count, frame_step))
+  # print("Running mfcc for %d frames with %d step" % (frame_count, frame_step))
   # will return a list with a dict for each frame
   output = []
 
@@ -207,6 +207,7 @@ def mfcc_tf(data, \
   Calculate same mfcc using tensor flow functions
   """
   import tensorflow as tf
+  sess = tf.InteractiveSession()
 
   framed = frames(data, frame_length=frame_len, frame_step=frame_step)
 
@@ -241,12 +242,12 @@ def mfcc_tf(data, \
     frame['t_start'] = frame_ctr*frame_step/fs
     frame['t_end'] = (frame_ctr*frame_step+frame_len)/fs
     frame['fft'] = tf.reshape(stfts, (stfts.shape[0],stfts.shape[1],-1))[0, frame_ctr, 1:]
-    frame['spectrogram'] = spectrograms[0, frame_ctr, 1:]
+    frame['spectrogram'] = spectrograms[0, frame_ctr, 1:].eval()
     # strip DC component from weights matrix
-    frame['mel_weight_matrix'] = linear_to_mel_weight_matrix[1:,...]
+    frame['mel_weight_matrix'] = linear_to_mel_weight_matrix[1:,...].eval()
     frame['mel_spectrogram'] = mel_spectrograms[0, frame_ctr, ...]
-    frame['log_mel_spectrogram'] = log_mel_spectrograms[0, frame_ctr, ...]
-    frame['mfcc'] = mfccs[0, frame_ctr, ...]
+    frame['log_mel_spectrogram'] = log_mel_spectrograms[0, frame_ctr, ...].eval()
+    frame['mfcc'] = mfccs[0, frame_ctr, ...].eval()
     output.append(frame)
   return output
 
