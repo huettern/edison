@@ -2,13 +2,13 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-10 12:22:35
+# @Last Modified time: 2020-05-11 16:00:28
 
 import audioutils as au
 import mfcc_utils as mfu
 import tensorflow.keras
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, Softmax, Input
+from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, Softmax, Input, BatchNormalization, ReLU, MaxPool2D
 from tensorflow.keras.utils import to_categorical
 import numpy as np
 import matplotlib.pyplot as plt
@@ -132,12 +132,15 @@ verbose = 1
 # Flatten
 # Dense
 # Softmax
+# 
+# nnom: Total params: 43,368
+# Stolen from https://github.com/majianjia/nnom/tree/master/examples/keyword_spotting
 
 
 model_arch = 'medium_embedding_conv'
 
 # training parameters
-batchSize = 100
+batchSize = 64
 epochs  = 500
 
 # cut/padd each sample to that many seconds
@@ -148,6 +151,7 @@ fs = 16000.0
 mel_mtx_scale = 128
 lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 32
 frame_length = 1024
+first_mfcc = 0
 num_mfcc = 13
 nSamples = int(sample_len_seconds*fs)
 frame_len = frame_length
@@ -360,9 +364,40 @@ def get_model(inp_shape, num_classes):
     model.add(Dense(num_classes))
     model.add(Softmax())
 
+  if model_arch == 'nnom':
+    model = Sequential()
+
+    model.add(Conv2D(16, kernel_size=(5, 5), strides=(1, 1), padding='valid', input_shape=inp_shape))
+    model.add(BatchNormalization())
+    model.add(ReLU())
+    model.add(MaxPooling2D((2, 1), strides=(2, 1), padding="valid"))
+
+    model.add(Conv2D(32 ,kernel_size=(3, 3), strides=(1, 1), padding="valid"))
+    model.add(BatchNormalization())
+    model.add(ReLU())
+    model.add(MaxPooling2D((2, 1),strides=(2, 1), padding="valid"))
+
+    model.add(Conv2D(64 ,kernel_size=(3, 3), strides=(1, 1), padding="valid"))
+    model.add(BatchNormalization())
+    model.add(ReLU())
+    #model.add(MaxPooling2D((2, 1), strides=(2, 1), padding="valid"))
+    model.add(Dropout(0.2))
+
+    model.add(Conv2D(32, kernel_size=(3, 3), strides=(1, 1), padding="valid"))
+    model.add(BatchNormalization())
+    model.add(ReLU())
+    model.add(Dropout(0.3))
+
+    model.add(Flatten())
+    model.add(Dense(num_classes))
+
+    model.add(Softmax())
+
   # opt = tf.keras.optimizers.SGD(lr=1e-5)
   # opt = tf.keras.optimizers.Adam(learning_rate=0.0001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
   opt = tf.keras.optimizers.Adam(learning_rate=0.001)
+  # opt = tf.keras.optimizers.Adadelta(learning_rate=0.001, rho=0.95, epsilon=1e-07)
+
 
   model.compile(optimizer=opt, loss ='categorical_crossentropy', metrics=['accuracy'])
   
@@ -383,7 +418,7 @@ def train(model, x, y, vx, vy, batchSize = 10, epochs = 30):
 
   train_history = model.fit(x, y, batch_size = batchSize, epochs = epochs, 
     verbose = verbose, validation_data = (vx, vy), 
-    callbacks = [tensorboard_callback, early_stopping, reduce_lr, csv_logger])
+    callbacks = [tensorboard_callback, early_stopping, reduce_lr], shuffle=True)
 
   return train_history
 
@@ -409,21 +444,11 @@ def load_data(keywords, coldwords, noise):
 
   except:
     # failed, load from source wave files
-    x_train, y_train, x_test, y_test, x_validation, y_val, keywords = au.load_speech_commands(
-      keywords=keywords, sample_len=2*16000, coldwords=coldwords, noise=noise, playsome=False)
-
-    sample_len_seconds = 2.0
-    fs = 16000.0
-    mel_mtx_scale = 128
-    lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 32
-    frame_length = 1024
-    num_mfcc = 13
-    nSamples = int(sample_len_seconds*fs)
-    frame_len = frame_length
-    frame_step = frame_len
-    frame_count = 0 # 0 for auto
-    fft_len = frame_len
-
+    # x_train, y_train, x_test, y_test, x_validation, y_val, keywords = au.load_speech_commands(
+    #   keywords=keywords, sample_len=2*16000, coldwords=coldwords, noise=noise, playsome=False)
+    x_train, y_train, x_test, y_test, x_validation, y_val, keywords = au.load_own_speech_commands(
+      keywords=None, sample_len=2*16000, playsome=False, test_val_size=0.2)
+    
     # calculate MFCCs of training and test x data
     o_mfcc_train = []
     o_mfcc_test = []
@@ -434,15 +459,15 @@ def load_data(keywords, coldwords, noise):
     for data in tqdm(x_train):
       o_mfcc = mfcc_fun(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
         num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
-      o_mfcc_train.append([x['mfcc'][:num_mfcc] for x in o_mfcc])
+      o_mfcc_train.append([x['mfcc'][first_mfcc:first_mfcc+num_mfcc] for x in o_mfcc])
     for data in tqdm(x_test):
       o_mfcc = mfcc_fun(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
         num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
-      o_mfcc_test.append([x['mfcc'][:num_mfcc] for x in o_mfcc])
+      o_mfcc_test.append([x['mfcc'][first_mfcc:first_mfcc+num_mfcc] for x in o_mfcc])
     for data in tqdm(x_validation):
       o_mfcc = mfcc_fun(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
         num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
-      o_mfcc_val.append([x['mfcc'][:num_mfcc] for x in o_mfcc])
+      o_mfcc_val.append([x['mfcc'][first_mfcc:first_mfcc+num_mfcc] for x in o_mfcc])
 
     # add dimension to get (x, y, 1) from to make conv2D input layer happy
     x_train_mfcc = np.expand_dims(np.array(o_mfcc_train), axis = -1)
@@ -548,7 +573,7 @@ if sys.argv[1] == 'train':
 
   # store model
   dte = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-  fname = cache_dir+'/kws_model_'+model_arch+'_'+dte+'.h5'
+  fname = cache_dir+'/kws_model_'+model_arch+'.h5'
   model.save(fname)
   print('Model saved as %s' % (fname))
 

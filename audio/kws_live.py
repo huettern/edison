@@ -19,9 +19,9 @@ if len(sys.argv) < 2:
   exit()
 
 cache_dir = '.cache/kws_mcu'
-model_file = 'models/kws_model_medium_embedding_conv.h5'
+model_file = 'train/.cache/kws_keras/kws_model_medium_embedding_conv.h5'
 
-keywords = np.load('verification/keywords.npy')
+keywords = np.load('train/.cache/kws_keras/keywords.npy')
 threshold = 0.6
 
 # Load trained model

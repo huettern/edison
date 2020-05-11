@@ -2,14 +2,110 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:47
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-07 16:53:36
+# @Last Modified time: 2020-05-11 15:45:09
 
 snipsDataPath = "/Users/noah/git/mlmcu-project/audio/data/snips/"
 # snipsDataPath = '/media/spare/data/hey_snips_research_6k_en_train_eval_clean_ter'
 
-scDataPath = '.cache/speech_commands_v0.02'
-# scDataPath = 'train/.cache/speech_commands_v0.02'
+scDataPath = 'train/.cache/speech_commands_v0.02'
+ownDataPath = '../acquire/out'
 scDownloadURL = 'http://download.tensorflow.org/data/speech_commands_v0.02.tar.gz'
+
+
+def load_own_speech_commands(keywords=None, sample_len=2*16000, playsome=False, test_val_size=0.2):
+  """
+    Load data from the own recorded set
+
+    X_train, y_train, X_test, y_test, X_val, y_val, keywords = load_own_speech_commands(keywords=None, sample_len=2*16000, playsome=False, test_val_size=0.2)
+  """
+  from os import path
+  from scipy.io import wavfile
+  from tqdm import tqdm
+  import numpy as np
+
+  # if directory does not exist
+  if not path.exists(ownDataPath):
+    print('Folder not found:', ownDataPath)
+    return -1
+
+  from pathlib import Path
+  all_data = [str(x) for x in list(Path(ownDataPath).rglob("*.wav"))]
+
+  if keywords is not None:
+    print('use only samples that are in keywords')
+    all_data = [x for x in all_data if x.split('/')[-2] in keywords]
+  else:
+    keywords = list(set([x.split('/')[-2] for x in all_data]))
+  print('Using keywords: ', keywords)
+
+  fs, _ = wavfile.read(all_data[0])
+
+  print('Loading files count:', len(all_data))
+  x_list = []
+  y_list = []
+  cut_cnt = 0
+  for i in tqdm(range(len(all_data))): 
+    fs, data = wavfile.read(all_data[i])
+    if data.dtype == 'float32':
+      data = ( (2**15-1)*data).astype('int16')
+    x = data.copy()
+    # Cut/pad sample
+    if x.shape[0] < sample_len:
+      if len(x) == 0:
+        x = np.pad(x, (0, sample_len-x.shape[0]), mode='constant', constant_values=(0, 0))
+      else:  
+        x = np.pad(x, (0, sample_len-x.shape[0]), mode='edge')
+    else:
+      cut_cnt += 1
+      x = x[:sample_len]
+    # add to sample list
+    x_list.append(x)
+    y_list.append(keywords.index(all_data[i].split('/')[-2]))
+  x = np.asarray(x_list)
+  y = np.asarray(y_list)
+
+  print('Had to cut',cut_cnt,'samples')
+
+  print('Splitting into train/test/validation sets')
+  from sklearn.model_selection import train_test_split
+  X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=test_val_size, random_state=42)
+  X_train, X_val, y_train, y_val  = train_test_split(X_train, y_train, test_size=0.25, random_state=42)
+
+  print("total files=%d trainsize=%d testsize=%d validationsize=%d fs=%.0f" % 
+    (len(all_data), len(X_train), len(X_test), len(X_val), fs))
+
+  # play some to check
+  if playsome:
+    import simpleaudio as sa
+    import random
+
+    for i in range(10):
+      rset = random.choice(['X_train', 'X_test', 'X_val'])
+      if rset == 'X_train':
+        idx = random.randint(0, len(X_train)-1)
+        print('train keyword',keywords[y_train[idx]])
+        data = X_train[idx]
+      if rset == 'X_test':
+        idx = random.randint(0, len(X_test)-1)
+        print('test keyword',keywords[y_test[idx]])
+        data = X_test[idx]
+      if rset == 'X_val':
+        idx = random.randint(0, len(X_val)-1)
+        print('validation keyword',keywords[y_val[idx]])
+        data = X_val[idx]
+      play_obj = sa.play_buffer(data, 1, 2, fs) # data, n channels, bytes per sample, fs
+      play_obj.wait_done()
+  
+  print('sample count for train/test/validation')
+  for i in range(len(keywords)):
+    print('  %-20s %5d %5d %5d' % (keywords[i],np.count_nonzero(y_train==i),np.count_nonzero(y_test==i),np.count_nonzero(y_val==i)))
+
+  print("Returning data: trainsize=%d  testsize=%d  validationsize=%d with keywords" % 
+    (X_train.shape[0], X_test.shape[0], X_val.shape[0]))
+  print(keywords)
+
+  return X_train, y_train, X_test, y_test, X_val, y_val, keywords
+
 
 def load_speech_commands(keywords = ['cat','marvin','left','zero'], 
   sample_len=2*16000, coldwords=['bed','bird','stop','visual'], noise=['_background_noise_'],
@@ -310,4 +406,5 @@ def load_snips_data(sample_len=4*16000, trainsize = 1000, testsize = 100):
 # main
 ######################################################################
 if __name__ == '__main__':
-  load_speech_commands()
+  # load_speech_commands()
+  load_own_speech_commands(playsome=True)
