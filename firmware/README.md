@@ -5,6 +5,16 @@
 This directory contains source code from other projects. Please refer to the corresponding folders for license notices.
 ```
 
+## Opmodes
+To run NNoM KWS example, compile with
+```bash
+make OPMODE=NNOM_KWS_EXAMPLE
+```
+
+To enable CubeAI verification of the Cube net, compile with
+```bash
+make OPMODE=CUBE_VERIFICATION
+```
 
 ## CMSIS DSP lessons learned
 `arm_cfft_q15` 
