@@ -36,9 +36,9 @@ LDSCRIPT  = src/link/STM32L475VGTx_FLASH.ld
 # buil options
 
 # debug build?
-DEBUG = 0
+DEBUG = 1
 # optimization
-OPT = -O3
+OPT = -O0
 # flags for gcc
 GCC_FLAGS = -Wall -fdata-sections -ffunction-sections
 # generate listings for each source
@@ -51,7 +51,7 @@ GEN_LST = 1
 # User code
 
 # Build path
-USR_INC = -Isrc -Isrc/io -Isrc/sys -Isrc/hal -Isrc/util -Isrc/ai
+USR_INC = -Isrc -Isrc/io -Isrc/sys -Isrc/hal -Isrc/util -Isrc/ai -Isrc/audio
 
 USR_CSRC = 	$(wildcard src/*.c) \
 						$(wildcard src/io/*.c) \
@@ -59,6 +59,7 @@ USR_CSRC = 	$(wildcard src/*.c) \
 						$(wildcard src/hal/*.c) \
 						$(wildcard src/util/*.c) \
 						$(wildcard src/ai/*.c) \
+						$(wildcard src/audio/*.c) \
 
 USR_ASMSRC = src/startup/startup_stm32l475xx.s
 

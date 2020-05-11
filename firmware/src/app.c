@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 17:22:16
+* @Last Modified time: 2020-05-11 21:09:53
 */
 #include "app.h"
 #include <stdlib.h>
@@ -14,6 +14,7 @@
 #include "audioprocessing.h"
 #include "hostinterface.h"
 #include "cyclecounter.h"
+#include "mfcc.h"
 
 /*------------------------------------------------------------------------------
  * Types
@@ -399,6 +400,156 @@ int8_t appMicMfccInfereBlocks (uint8_t *args)
   return ret;
 }
 
+/*------------------------------------------------------------------------------
+ * NNom example
+ * ---------------------------------------------------------------------------*/
+
+
+static const char label_name[][10] =  {"backward", "bed", "bird", "cat", "dog", "down", "eight","five", "follow", "forward",
+                      "four", "go", "happy", "house", "learn", "left", "marvin", "nine", "no", "off", "on", "one", "right",
+                      "seven", "sheila", "six", "stop", "three", "tree", "two", "up", "visual", "yes", "zero", "unknow"};
+
+// configuration
+#define SAMP_FREQ 16000
+#define AUDIO_FRAME_LEN (512) //31.25ms * 16000hz = 512, // FFT (windows size must be 2 power n)
+//the mfcc feature for kws
+#define MFCC_LEN      (63)
+#define MFCC_COEFFS_FIRST (1)   // ignore the mfcc feature before this number
+#define MFCC_COEFFS_LEN   (13)    // the total coefficient to calculate
+#define MFCC_COEFFS         (MFCC_COEFFS_LEN-MFCC_COEFFS_FIRST)
+#define MFCC_FEAT_SIZE  (MFCC_LEN * MFCC_COEFFS)
+
+#define SaturaLH(N, L, H) (((N)<(L))?(L):(((N)>(H))?(H):(N)))
+
+static mfcc_t * mfcc;
+static int32_t dma_audio_buffer[AUDIO_FRAME_LEN*2];
+static int16_t audio_buffer_16bit[(int)(AUDIO_FRAME_LEN*1.5)]; // an easy method for 50% overlapping
+static int8_t mfcc_features[MFCC_LEN][MFCC_COEFFS];   // ring buffer
+static int8_t mfcc_features_seq[MFCC_LEN][MFCC_COEFFS]; // sequencial buffer for neural network input. 
+static uint32_t mfcc_feat_index = 0;
+static bool mfccReady = false;
+static uint8_t audioEvent = 0;
+
+// msh debugging controls
+static bool is_print_abs_mean = false; // to print the mean of absolute value of the mfcc_features_seq[][]
+static bool is_print_mfcc  = false;    // to print the raw mfcc features at each update 
+
+
+static int32_t abs_mean(int8_t *p, size_t size)
+{
+  int64_t sum = 0;
+  for(size_t i = 0; i<size; i++)
+  {
+    if(p[i] < 0)
+      sum+=-p[i];
+    else
+      sum += p[i];
+  }
+  return sum/size;
+}
+
+/**
+ * @brief Init stuff for the Nnom KWS example from https://github.com/majianjia/nnom/tree/master/examples/keyword_spotting
+ * @details 
+ */
+void appNnomKwsInit(void)
+{
+  // calculate 13 coefficient, use number #2~13 coefficient. discard #1
+  mfcc = mfcc_create(MFCC_COEFFS_LEN, MFCC_COEFFS_FIRST, AUDIO_FRAME_LEN, 8, 0.97f); 
+  HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, dma_audio_buffer, 1024);
+  aiNnomInit();
+}
+
+void appNnomKwsRun(void)
+{
+  int32_t *p_raw_audio;
+  uint32_t last_mfcc_index = 0; 
+  uint32_t label;
+  float prob;
+
+  while(1)
+  {
+    // wait for event and check which buffer is filled
+    while(!audioEvent);
+
+    if(audioEvent & 1)
+      p_raw_audio = dma_audio_buffer;
+    else
+      p_raw_audio = &dma_audio_buffer[AUDIO_FRAME_LEN];
+
+    audioEvent = 0;
+
+    // memory move
+    // audio buffer = | 256 byte old data |   256 byte new data 1 | 256 byte new data 2 | 
+    //                         ^------------------------------------------|
+    memcpy(audio_buffer_16bit, &audio_buffer_16bit[AUDIO_FRAME_LEN], (AUDIO_FRAME_LEN/2)*sizeof(int16_t));
+
+    // convert it to 16 bit. 
+    // volume*4
+    for(int i = 0; i < AUDIO_FRAME_LEN; i++)
+    {
+      audio_buffer_16bit[AUDIO_FRAME_LEN/2+i] = SaturaLH((p_raw_audio[i] >> 8)*1, -32768, 32767);
+    }
+
+    // MFCC
+    // do the first mfcc with half old data(256) and half new data(256)
+    // then do the second mfcc with all new data(512). 
+    // take mfcc buffer
+    
+    for(int i=0; i<2; i++)
+    {
+      mfcc_compute(mfcc, &audio_buffer_16bit[i*AUDIO_FRAME_LEN/2], mfcc_features[mfcc_feat_index]);
+      
+      // debug only, to print mfcc data on console
+      if(is_print_mfcc)
+      {
+        for(int i=0; i<MFCC_COEFFS; i++)
+          printf("%d ",  mfcc_features[mfcc_feat_index][i]);
+        printf("\n");
+      }
+      
+      mfcc_feat_index++;
+      if(mfcc_feat_index >= MFCC_LEN)
+        mfcc_feat_index = 0;
+    }
+    mfccReady = true;
+
+    // copy mfcc ring buffer to sequance buffer. 
+    last_mfcc_index = mfcc_feat_index;
+    uint32_t len_first = MFCC_FEAT_SIZE - mfcc_feat_index * MFCC_COEFFS;
+    uint32_t len_second = mfcc_feat_index * MFCC_COEFFS;
+    memcpy(&mfcc_features_seq[0][0], &mfcc_features[0][0] + len_second,  len_first);
+    memcpy(&mfcc_features_seq[0][0] + len_first, &mfcc_features[0][0], len_second);
+    
+    // debug only, to print the abs mean of mfcc output. use to adjust the dec bit (shifting)
+    // of the mfcc computing. 
+    if(is_print_abs_mean)
+      printf("abs mean:%d\n", abs_mean((int8_t*)mfcc_features_seq, MFCC_FEAT_SIZE));
+    
+    // ML
+    memcpy(aiNnomGetInputBuffer(), mfcc_features_seq, MFCC_FEAT_SIZE);
+    int ret = aiNnomPredict(&label, &prob);
+    printf("ret: %d\n", ret);
+    
+    // output
+    // if(prob > 0.5f)
+    // {
+      // last_time = rt_tick_get();
+      printf("%s : %d%%\n", (char*)&label_name[label], (int)(prob * 100));
+    // }
+  }
+}
+
+/**
+ * @brief Called after DFSDM sample is done
+ * @details 
+ * 
+ * @param c 1 or 2
+ */
+void appAudioEvent(uint8_t evt)
+{
+  audioEvent = evt;
+}
 
 /*------------------------------------------------------------------------------
  * Privates

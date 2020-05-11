@@ -2,13 +2,14 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 18:05:57
+* @Last Modified time: 2020-05-11 20:53:46
 */
 
 #include "ai_nnom.h"
 
 #include "nnom.h"
-#include "kws_nnom/weights.h"
+// #include "kws_nnom/weights.h"
+#include "kws_nnom/weights_example.h"
 #include "cyclecounter.h"
 
 /*------------------------------------------------------------------------------
@@ -76,7 +77,31 @@ int aiNnomRunInference(void* in_data, void* out_data)
   return (int)ret;
 }
 
+/**
+ * @brief Run prediction with Nnom
+ * @details 
+ * 
+ * @param m 
+ * @param label 
+ * @param prob 
+ * @return 
+ */
+int aiNnomPredict(uint32_t *label, float *prob)
+{
+  nnom_status_t ret;
+  ret = nnom_predict(model, label, prob);
+  return (int)ret;
+}
+
 void aiNnomPrintInfo(void)
 {
 
+}
+int8_t* aiNnomGetInputBuffer(void)
+{
+  return nnom_input_data;
+}
+int8_t* aiNnomGetOutputBuffer(void)
+{
+  return nnom_output_data;
 }

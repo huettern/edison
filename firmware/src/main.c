@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 17:27:34
+* @Last Modified time: 2020-05-11 20:59:21
 */
 
 #include "main.h"
@@ -92,6 +92,12 @@ int main(void)
     
 #ifdef NNOM_VERIFICATION
   aiNnomTest();
+#endif
+
+#ifdef NNOM_KWS_EXAMPLE
+  printf("Compiled in NNOM_KWS_EXAMPLE mode!\b");
+  appNnomKwsInit();
+  appNnomKwsRun();
 #endif
 
   aiInitialize();
