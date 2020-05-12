@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 17:33:39
+* @Last Modified time: 2020-05-12 09:42:19
 */
 #include "audioprocessing.h"
 
@@ -186,7 +186,10 @@ void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
 
   // ---------------------------------------------------------------
   // [4.] Here would the log(x) calculation come, let's leave it out for now..
-
+  // for(int mel = 0; mel < MEL_N_MEL_BINS; mel++)
+  // {
+  //   bufMelSpect[mel] = (int16_t) logf( ((float)bufMelSpect[mel]) + FLT_MIN );
+  // }
 
   // ---------------------------------------------------------------
   // [5.] DCT-2

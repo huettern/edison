@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-03 11:24:43
+# @Last Modified time: 2020-05-12 09:40:51
 
 import sys
 
@@ -267,7 +267,7 @@ def plotFileMode():
   melbin = np.arange(num_mfcc)
 
   fig = plt.figure(constrained_layout=True)
-  gs = fig.add_gridspec(3, 2)
+  gs = fig.add_gridspec(4, 2)
 
   ax = fig.add_subplot(gs[0, :])
   ax.plot(t, y, label='y')
@@ -280,7 +280,7 @@ def plotFileMode():
   vmin = 0
   vmax = 200
   ax = fig.add_subplot(gs[1, 0])
-  c = ax.pcolor(frames, f, host_spec.T, cmap='PuBu', vmin=vmin, vmax=vmax)
+  c = ax.pcolor(frames, f, host_spec.T, cmap='PuBu')
   ax.grid(True)
   ax.set_title('host spectrogram')
   ax.set_xlabel('frame')
@@ -288,25 +288,43 @@ def plotFileMode():
   fig.colorbar(c, ax=ax)
 
   ax = fig.add_subplot(gs[1, 1])
-  c = ax.pcolor(frames, f, mcu_spec[..., 0:mcu_spec.shape[1]//2].T, cmap='PuBu', vmin=vmin, vmax=vmax)
+  c = ax.pcolor(frames, f, mcu_spec[..., 0:mcu_spec.shape[1]//2].T, cmap='PuBu')
   ax.grid(True)
   ax.set_title('MCU spectrogram')
   ax.set_xlabel('frame')
   ax.set_ylabel('frequency [Hz]')
   fig.colorbar(c, ax=ax)
 
+  vmin = 0
+  vmax = 200
+  ax = fig.add_subplot(gs[2, 0])
+  c = ax.pcolor(host_logmelspec.T, cmap='PuBu')
+  ax.grid(True)
+  ax.set_title('host log mel spectrogram')
+  ax.set_xlabel('frame')
+  ax.set_ylabel('frequency [mel]')
+  fig.colorbar(c, ax=ax)
+
+  ax = fig.add_subplot(gs[2, 1])
+  c = ax.pcolor(mcu_melspec.T, cmap='PuBu')
+  ax.grid(True)
+  ax.set_title('mcu log mel spectrogram')
+  ax.set_xlabel('frame')
+  ax.set_ylabel('frequency [mel]')
+  fig.colorbar(c, ax=ax)
+
   vmin = mcu_dct.min()
   vmax = mcu_dct.max()
-  ax = fig.add_subplot(gs[2, 0])
-  c = ax.pcolor(frames, melbin, host_dct[...,:num_mfcc].T, cmap='PuBu', vmin=vmin, vmax=vmax)
+  ax = fig.add_subplot(gs[3, 0])
+  c = ax.pcolor(frames, melbin, host_dct[...,:num_mfcc].T, cmap='PuBu')
   ax.grid(True)
   ax.set_title('host MFCC')
   ax.set_xlabel('frame')
   ax.set_ylabel('Mel bin')
   fig.colorbar(c, ax=ax)
 
-  ax = fig.add_subplot(gs[2, 1])
-  c = ax.pcolor(frames, melbin, mcu_dct[...,:num_mfcc].T, cmap='PuBu', vmin=vmin, vmax=vmax)
+  ax = fig.add_subplot(gs[3, 1])
+  c = ax.pcolor(frames, melbin, mcu_dct[...,:num_mfcc].T, cmap='PuBu')
   ax.grid(True)
   ax.set_title('MCU MFCC')
   ax.set_xlabel('frame')
@@ -420,7 +438,7 @@ def modeCalc():
 # File
 ######################################################################
 def modeFile():
-  global fs, y, host_fft, mcu_fft, mel_mtx, host_spec, mcu_spec, host_melspec, mcu_melspec, host_dct, mcu_dct
+  global fs, y, host_fft, mcu_fft, mel_mtx, host_spec, mcu_spec, host_melspec, mcu_melspec, host_dct, mcu_dct, host_logmelspec
   global host_dct_reorder, host_dct_fft, host_dct_makhoul, nSamples, fname
 
   if len(sys.argv) < 3:
@@ -433,6 +451,8 @@ def modeFile():
   # Read data
   in_fs, in_data = wavfile.read(fname)
   in_data = np.array(in_data)
+  if in_data.dtype == 'float32':
+    in_data = np.array( (2**15-1)*in_data,dtype='int16')
   y = in_data
 
   # Set MFCC settings
@@ -448,12 +468,13 @@ def modeFile():
   print("Number of input samples = %d" % (nSamples))
 
   # calculate mfcc
-  o_mfcc = mfu.mfcc_mcu(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+  o_mfcc = mfu.mfcc(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
     num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
 
   host_fft = np.array([x['fft'][:sample_size//2] for x in o_mfcc])[:sample_size]
   host_spec = np.array([x['spectrogram'][:sample_size//2] for x in o_mfcc])
   host_melspec = np.array([x['mel_spectrogram'][:sample_size//2] for x in o_mfcc])
+  host_logmelspec = np.array([x['log_mel_spectrogram'][:sample_size//2] for x in o_mfcc])
   host_dct = np.array([x['mfcc'] for x in o_mfcc])
 
   # calculate on MCU
@@ -477,15 +498,19 @@ def modeFile():
       dat, tag = mcu.receiveData()
       mcu_fft.append(dat)
       # print('Received %s type with tag 0x%x len %d' % (dat.dtype, tag, dat.shape[0]))
+      # print(dat)
       dat, tag = mcu.receiveData()
       mcu_spec.append(dat)
       # print('Received %s type with tag 0x%x len %d' % (dat.dtype, tag, dat.shape[0]))
+      # print(dat)
       dat, tag = mcu.receiveData()
       mcu_melspec.append(dat)
       # print('Received %s type with tag 0x%x len %d' % (dat.dtype, tag, dat.shape[0]))
+      # print(dat)
       dat, tag = mcu.receiveData()
       mcu_dct.append(dat)
       # print('Received %s type with tag 0x%x len %d' % (dat.dtype, tag, dat.shape[0]))
+      # print(dat)
       frame_ctr += 1
 
     mcu_fft = np.array(mcu_fft)
@@ -508,6 +533,20 @@ def modeFile():
   ######################################################################
   # plot
   print('MCU Audio processing took %.2fms' % (mcu.getStats()['AudioLastProcessingTime']))
+
+  # fig = plt.figure(constrained_layout=True)
+  # gs = fig.add_gridspec(5, 1)
+  # ax = fig.add_subplot(gs[0, 0])
+  # ax.plot(y)
+  # ax = fig.add_subplot(gs[1, 0])
+  # ax.plot(mcu_fft[2])
+  # ax = fig.add_subplot(gs[2, 0])
+  # ax.plot(mcu_spec[2])
+  # ax = fig.add_subplot(gs[3, 0])
+  # ax.plot(mcu_melspec[2])
+  # ax = fig.add_subplot(gs[4, 0])
+  # ax.plot(mcu_dct[2])
+
   fig = plotFileMode()
   plt.show()
 
