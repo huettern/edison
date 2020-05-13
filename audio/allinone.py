@@ -7,12 +7,17 @@ from pathlib import Path
 from tqdm import tqdm
 from scipy.io import wavfile
 
-import tensorflow as tf
+# import tensorflow as tf
 
-import tensorflow.keras
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import *
-from tensorflow.keras.utils import to_categorical
+# import tensorflow.keras as keras
+# from tensorflow.keras.models import Sequential, load_model, Model
+# from tensorflow.keras.layers import *
+# from tensorflow.keras.utils import to_categorical
+
+import keras
+from keras.models import Sequential, load_model, Model
+from keras.layers import *
+from keras.utils import to_categorical
 
 from sklearn.metrics import confusion_matrix
 
@@ -38,9 +43,9 @@ MEL_HIGH_FREQUENCY_Q = 1127.0
 MEL_BREAK_FREQUENCY_HERTZ = 700.0
 
 # training hyperparameters
-epochs = 100
+epochs = 300
 batchSize = 100
-initial_learningrate = 0.001
+initial_learningrate = 0.0005
 threshold=0.6 # for a true prediction
 
 # storing temporary data and model
@@ -55,35 +60,76 @@ data_path = 'acquire/noah'
 # Model definition
 def get_model(inp_shape, num_classes):
   print("Building model with input shape %s and %d classes" % (inp_shape, num_classes))
-
-  model = Sequential()
   
-  model.add(Conv2D(16, kernel_size=(5, 5), strides=(1, 1), padding='valid', input_shape=inp_shape))
-  model.add(BatchNormalization())
-  model.add(ReLU())
-  model.add(MaxPooling2D((2, 1), strides=(2, 1), padding="valid"))
+  # first_filter_width = 8
+  # first_filter_height = 8
+  # first_filter_count = 16
+  # first_conv_stride_x = 2
+  # first_conv_stride_y = 2
+
+  # inputs = Input(shape=inp_shape)
+  # x = Conv2D(first_filter_count, 
+  #   kernel_size=(first_filter_width, first_filter_height),
+  #   strides=(first_conv_stride_x, first_conv_stride_y),
+  #   use_bias=True,
+  #   activation='relu', 
+  #   padding='same')(inputs)
+
+  # dropout_rate = 0.25
+  # x = Dropout(dropout_rate)(x)
+  # x = MaxPooling2D(pool_size=(2, 2), strides=None, padding='same')(x)
+
+  # second_filter_width = 4
+  # second_filter_height = 4
+  # second_filter_count = 12
+  # second_conv_stride_x = 1
+  # second_conv_stride_y = 1
+
+  # x = Conv2D(second_filter_count, 
+  #   kernel_size=(second_filter_width, second_filter_height),
+  #   strides=(second_conv_stride_x, second_conv_stride_y),
+  #   use_bias=True,
+  #   activation='relu', 
+  #   padding='same' )(x)
+
+  # dropout_rate = 0.25
+  # x = Dropout(dropout_rate)(x)
+
+  # x = Flatten()(x)
+  # x = Dense(num_classes)(x)
+  # predictions = Softmax()(x)
   
-  model.add(Conv2D(32 ,kernel_size=(3, 3), strides=(1, 1), padding="valid"))
-  model.add(BatchNormalization())
-  model.add(ReLU())
-  model.add(MaxPooling2D((2, 1),strides=(2, 1), padding="valid"))
-  
-  model.add(Conv2D(64 ,kernel_size=(3, 3), strides=(1, 1), padding="valid"))
-  model.add(BatchNormalization())
-  model.add(ReLU())
-  model.add(Dropout(0.2))
 
-  model.add(Conv2D(32, kernel_size=(3, 3), strides=(1, 1), padding="valid"))
-  model.add(BatchNormalization())
-  model.add(ReLU())
-  model.add(Dropout(0.3))
+  inputs = Input(shape=inp_shape)
+  x = Conv2D(16, kernel_size=(5, 5), strides=(1, 1), padding='valid')(inputs)
+  x = BatchNormalization()(x)
+  x = ReLU()(x)
+  x = MaxPooling2D((2, 1), strides=(2, 1), padding="valid")(x)
 
-  model.add(Flatten())
-  model.add(Dense(num_classes))
+  x = Conv2D(32 ,kernel_size=(3, 3), strides=(1, 1), padding="valid")(x)
+  x = BatchNormalization()(x)
+  x = ReLU()(x)
+  x = MaxPooling2D((2, 1),strides=(2, 1), padding="valid")(x)
 
-  model.add(Softmax())
+  x = Conv2D(64 ,kernel_size=(3, 3), strides=(1, 1), padding="valid")(x)
+  x = BatchNormalization()(x)
+  x = ReLU()(x)
+  #x = MaxPooling2D((2, 1), strides=(2, 1), padding="valid")(x)
+  x = Dropout(0.2)(x)
 
-  opt = tf.keras.optimizers.Adam(learning_rate=initial_learningrate)
+  x = Conv2D(32, kernel_size=(3, 3), strides=(1, 1), padding="valid")(x)
+  x = BatchNormalization()(x)
+  x = ReLU()(x)
+  x = Dropout(0.3)(x)
+
+  x = Flatten()(x)
+  x = Dense(num_classes)(x)
+
+  predictions = Softmax()(x)
+
+  model = Model(inputs=inputs, outputs=predictions)
+
+  opt = keras.optimizers.Adam(learning_rate=initial_learningrate)
   model.compile(optimizer=opt, loss ='categorical_crossentropy', metrics=['accuracy'])
   return model
 
@@ -91,8 +137,8 @@ def get_model(inp_shape, num_classes):
 # Model training
 def train(model, x, y, vx, vy, batchSize = 10, epochs = 30):
   
-  early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=4)
-  reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=1, min_lr=1e-9)
+  early_stopping = keras.callbacks.EarlyStopping(monitor='val_loss', patience=50)
+  reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=1, min_lr=1e-9)
 
   train_history = model.fit(x, y, batch_size = batchSize, epochs = epochs, 
     validation_data = (vx, vy), 
@@ -639,6 +685,12 @@ def plotPredictions(keywords, mic_data, preds):
   ax.set_xlabel('frame')
   ax.set_ylabel('net output')
 
+def createNnomWeights(model, x_test):
+  from nnom_utils import generate_model
+
+  generate_model(model, x_test, name=cache_dir+'/weights.h')
+
+
 ######################################################################
 # main
 ######################################################################
@@ -650,7 +702,7 @@ if __name__ == '__main__':
   keywords, coldwords, noise = ['edison', 'cinema', 'on', 'off'], ['_cold_word'], 0.1
   
   # for speech commands data set
-  # keywords, coldwords, noise = ['marvin', 'zero', 'cat', 'left'], ['sheila', 'seven', 'up', 'right'], 0.0
+  # keywords, coldwords, noise = ['marvin', 'zero', 'cat', 'left'], ['sheila', 'seven', 'up', 'right'], 0.1
   
   x_train, x_test, x_val, y_train, y_test, y_val, keywords = load_data(keywords, coldwords, noise, playsome=False)
   print('Received keywords:',keywords)
@@ -676,7 +728,7 @@ if __name__ == '__main__':
 
   else:
     # load model
-    model = tf.keras.models.load_model(model_name)
+    model = keras.models.load_model(model_name)
     model.summary()
     print('Model loaded %s' % (model_name))
 
@@ -706,7 +758,9 @@ if __name__ == '__main__':
     plotMfccFromData(mic_data, net_input)
     plotMfcc(keywords)
     plt.show()
-
+  if sys.argv[1] == 'nnom':
+    from nnom_utils import generate_model
+    createNnomWeights(model, x_test)
 
 
 
