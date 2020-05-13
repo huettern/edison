@@ -19,8 +19,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "main.h"
-
 // memory interfaces
 #define nnom_malloc(n)      malloc(n) 
 #define nnom_free(p)        free(p)
@@ -29,7 +27,6 @@
 // runtime & debuges
 #define nnom_us_get()       0
 #define nnom_ms_get()       0
-// #define NNOM_LOG(X, ...)       printf(X, ##__VA_ARGS__)
 #define NNOM_LOG(...)       printf(__VA_ARGS__)
 
 // NNoM configuration
@@ -42,7 +39,7 @@
                                     // CHW must be used when using hardware accelerator such as KPU in K210 chip
 
 // Backend selection
-#define NNOM_USING_CMSIS_NN       // uncomment if use CMSIS-NN for optimation 
+//#define NNOM_USING_CMSIS_NN       // uncomment if use CMSIS-NN for optimation 
 
 
 #endif

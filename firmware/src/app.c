@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-11 21:09:53
+* @Last Modified time: 2020-05-13 16:54:43
 */
 #include "app.h"
 #include <stdlib.h>
@@ -26,7 +26,7 @@
 /**
  * @brief Consider network output above this thershold as hit
  */
-#define TRUE_THRESHOLD 0.8
+#define TRUE_THRESHOLD 0.6
 
 /**
  * @brief Enable this to show profiling on arduino Tx pin
@@ -219,6 +219,7 @@ int8_t appHifMicMfccInfere(uint8_t *args)
  */
 int8_t appMicMfccInfereContinuous (uint8_t *args)
 {
+  static netOutFloat[AI_NET_OUTSIZE];
   int16_t *inFrame, *out_mfccs, maxAmplitude, minAmplitude;
   uint16_t in_x, in_y;
   uint32_t tmp32;
@@ -267,11 +268,12 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     printf("pred: [ ");
     for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++)
     {
-      printf("%.2f ", netOutput[tmp32]);
+      netOutFloat[tmp32] = (float)(netOutput[tmp32]);
+      printf("%.2f ", netOutFloat[tmp32]);
     }
     printf("] ret: %d ampl: %d", ret, maxAmplitude-minAmplitude);
 
-    arm_max_f32(netOutput, AI_NET_OUTSIZE, &tmpf, &tmp32);
+    arm_max_f32(netOutFloat, AI_NET_OUTSIZE, &tmpf, &tmp32);
     printf(" likely: %s", aiGetKeywordFromIndex(tmp32));
     if( (tmpf > TRUE_THRESHOLD) )
     {
@@ -279,7 +281,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     }
     printf("\n");
 
-    if(netOutput[0] > TRUE_THRESHOLD) LED2_ORA();
+    if(netOutFloat[0] > TRUE_THRESHOLD) LED2_ORA();
     else LED2_BLU();
 
     // get samples, this call is blocking
@@ -540,6 +542,10 @@ void appNnomKwsRun(void)
   }
 }
 
+
+/*------------------------------------------------------------------------------
+ * Callback from microphone ISR
+ * ---------------------------------------------------------------------------*/
 /**
  * @brief Called after DFSDM sample is done
  * @details 

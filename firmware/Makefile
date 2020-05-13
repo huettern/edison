@@ -36,9 +36,9 @@ LDSCRIPT  = src/link/STM32L475VGTx_FLASH.ld
 # buil options
 
 # debug build?
-DEBUG = 1
+DEBUG = 0
 # optimization
-OPT = -O0
+OPT = -O3
 # flags for gcc
 GCC_FLAGS = -Wall -fdata-sections -ffunction-sections
 # generate listings for each source
@@ -86,7 +86,7 @@ CUBEAI_SRC = 	$(wildcard src/ai/cube/$(CUBEAI_NET_NAME)/*.c)
 ##############################################################################
 # NNoM
 NNOM_REPO=../audio/implement/nnom/
-NNOM_WEIGHTS=../audio/train/.cache/kws_nnom/weights.h
+NNOM_WEIGHTS=../audio/.cache/allinone/weights.h
 NNOM_NAME=kws_nnom
 NNOM=src/ai/nnom/
 NNOM_CSRC=$(wildcard $(NNOM)/src/backends/*.c) $(wildcard $(NNOM)/src/layers/*.c) $(wildcard $(NNOM)/src/core/*.c)

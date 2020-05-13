@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 18:04:45
+* @Last Modified time: 2020-05-13 15:33:59
 */
 #include "ai.h"
 
@@ -56,7 +56,7 @@
  * Private data
  * ---------------------------------------------------------------------------*/
 
-const char* const aiKeywords[] = {"cat", "marvin", "left", "zero", "_noise", "_cold"};
+const char* const aiKeywords[] = {"edison","cinema","on","off","_cold","_noise"};
 
 /**
  * CUBE
