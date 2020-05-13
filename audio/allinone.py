@@ -16,6 +16,9 @@ from tensorflow.keras.utils import to_categorical
 
 from sklearn.metrics import confusion_matrix
 
+use_mfcc_librosa = False
+use_mfcc_log = False
+
 # audio and MFCC settings
 sample_len_seconds = 2.0
 fs = 16000
@@ -37,15 +40,16 @@ MEL_BREAK_FREQUENCY_HERTZ = 700.0
 # training hyperparameters
 epochs = 100
 batchSize = 100
-initial_learningrate = 0.0001
+initial_learningrate = 0.001
+threshold=0.6 # for a true prediction
 
 # storing temporary data and model
 cache_dir = '.cache/allinone'
 model_name = cache_dir+'/kws_model.h5'
 
 # Where to find data
-data_path = 'train/.cache/speech_commands_v0.02'
-# data_path = 'acquire/out'
+# data_path = 'train/.cache/speech_commands_v0.02'
+data_path = 'acquire/noah'
 
 ##################################################
 # Model definition
@@ -99,11 +103,11 @@ def train(model, x, y, vx, vy, batchSize = 10, epochs = 30):
 ##################################################
 # Data loading
 
-def load_own_speech_commands(keywords=None, sample_len=2*16000, playsome=False, test_val_size=0.2, noise=0.10):
+def load_speech_commands(keywords=None, coldwords=None, sample_len=2*16000, playsome=False, test_val_size=0.2, noise=0.10):
   """
     Load data from the own recorded set
 
-    X_train, y_train, X_test, y_test, X_val, y_val, keywords = load_own_speech_commands(keywords=None, sample_len=2*16000, playsome=False, test_val_size=0.2)
+    X_train, y_train, X_test, y_test, X_val, y_val, keywords = load_speech_commands(keywords=None, sample_len=2*16000, playsome=False, test_val_size=0.2)
   """
   from os import path
   from tqdm import tqdm
@@ -116,19 +120,28 @@ def load_own_speech_commands(keywords=None, sample_len=2*16000, playsome=False, 
 
   all_data = [str(x) for x in list(Path(data_path).rglob("*.wav"))]
 
+  data_to_use = []
+
+  # Extract file names to use for keywords
   if keywords is not None:
     print('use only samples that are in keywords')
-    all_data = [x for x in all_data if x.split('/')[-2] in keywords]
   else:
     keywords = list(set([x.split('/')[-2] for x in all_data]))
+  data_to_use += [x for x in all_data if x.split('/')[-2] in keywords]
+  
+  # Extract file names to use for coldwords
+  if coldwords is not None:
+    print('loading coldwords')
+    data_to_use += [x for x in all_data if x.split('/')[-2] in coldwords]
+    keywords.append('_cold')
   print('Using keywords: ', keywords)
 
   print('Loading files count:', len(all_data))
   x_list = []
   y_list = []
   cut_cnt = 0
-  for i in tqdm(range(len(all_data))): 
-    fs_in, data = wavfile.read(all_data[i])
+  for i in tqdm(range(len(data_to_use))): 
+    fs_in, data = wavfile.read(data_to_use[i])
     if fs_in != fs:
       print('Samplerate mismatch! In',fs_in,'expected',fs)
       exit()
@@ -146,7 +159,10 @@ def load_own_speech_commands(keywords=None, sample_len=2*16000, playsome=False, 
       x = x[:sample_len]
     # add to sample list
     x_list.append(x)
-    y_list.append(keywords.index(all_data[i].split('/')[-2]))
+    if data_to_use[i].split('/')[-2] in keywords:
+      y_list.append(keywords.index(data_to_use[i].split('/')[-2]))
+    else:
+      y_list.append(keywords.index('_cold'))
 
   print('Had to cut',cut_cnt,'samples')
 
@@ -168,7 +184,7 @@ def load_own_speech_commands(keywords=None, sample_len=2*16000, playsome=False, 
   X_train, X_val, y_train, y_val  = train_test_split(X_train, y_train, test_size=0.25, random_state=42)
 
   print("total files=%d trainsize=%d testsize=%d validationsize=%d fs=%.0f" % 
-    (len(all_data), len(X_train), len(X_test), len(X_val), fs))
+    (len(data_to_use), len(X_train), len(X_test), len(X_val), fs))
 
   # play some to check
   if playsome:
@@ -273,13 +289,26 @@ def mfcc_mcu(data, \
   """
   from scipy.fftpack import dct
 
+  if use_mfcc_librosa:
+    import librosa
+    mfcc = librosa.feature.mfcc(y=data.astype('float32')/data.max(), sr=fs, n_mfcc=mel_nbins, hop_length=frame_len, dct_type=2, norm='ortho', lifter=0)
+    # squash into expected output fmt
+    output = []
+    # print(mfcc.shape)
+    for frame in mfcc.T:
+      el = {}
+      el['mfcc'] = frame.copy()
+      output.append(el)
+    # librosa somehow outputs one frame more than I do
+    return output[:-1]
+
   # Calculate number of frames
   if frame_count == 0:
     frame_count = 1 + (nSamples - frame_len) // frame_step
   output = []
   
   # calculate mel matrix
-  mel_weight_matrix = gen_mel_weight_matrix(num_mel_bins=mel_nbins, 
+  mel_weight_matrix = mel_mtx_scale*gen_mel_weight_matrix(num_mel_bins=mel_nbins, 
     num_spectrogram_bins=frame_len//2+1, sample_rate=fs,
     lower_edge_hertz=mel_lower_hz, upper_edge_hertz=mel_upper_hz)
 
@@ -309,6 +338,8 @@ def mfcc_mcu(data, \
     frame['mel_spectrogram'] = mel_spectrogram
     
     # log(x) is intentionally left out to safe computation resources
+    if use_mfcc_log:
+      mel_spectrogram = np.log(mel_spectrogram+1e-6)
 
     # calculate DCT-II
     mfcc = 1.0/64*dct(mel_spectrogram, type=2)
@@ -321,7 +352,7 @@ def mfcc_mcu(data, \
 
 ##################################################
 # load data
-def load_data(keywords, noise, playsome=False):
+def load_data(keywords, coldwords, noise, playsome=False):
 
   # if in cache, use it
   try:
@@ -336,8 +367,8 @@ def load_data(keywords, noise, playsome=False):
 
   except:
     # failed, load from source wave files
-    x_train, y_train, x_test, y_test, x_validation, y_val, keywords = load_own_speech_commands(
-      keywords=keywords, sample_len=nSamples, playsome=playsome, test_val_size=0.2, noise=noise)
+    x_train, y_train, x_test, y_test, x_validation, y_val, keywords = load_speech_commands(
+      keywords=keywords, coldwords=coldwords, sample_len=nSamples, playsome=playsome, test_val_size=0.2, noise=noise)
     
     # calculate MFCCs of training and test x data
     o_mfcc_train = []
@@ -400,13 +431,123 @@ def predictWithConfMatrix(x,y):
 
 
 ######################################################################
+# Operating mode mic
+def micInference(model, keywords, abort_after=1):
+  import sounddevice as sd
+  
+  input_shape = model.input.shape.as_list()[1:]
+  mic_data = []
+  net_input = np.array([], dtype='int16')
+  init = 1
+  frame_ctr = 0
+  mfcc = np.array([])
+  last_pred = 0
+  host_preds = []
+  
+  with sd.Stream(samplerate=fs, channels=1) as stream:
+    print('Filling buffer...')
+    while True:
+      frame, overflowed = stream.read(frame_length)
+      frame = ((2**15-1)*frame[:,0]).astype('int16')
+      frame_ctr += 1
+
+      # keep track of the last few mic sampels
+      mic_data.append(frame)
+      if len(mic_data) > nSamples:
+        mic_data = mic_data[:nSamples]
+
+      chunk_size = frame_length
+      o_mfcc = mfcc_mcu(frame, fs, chunk_size, frame_length, frame_step, frame_count, fft_len, 
+        num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
+      data_mfcc = np.array([x['mfcc'][first_mfcc:first_mfcc+num_mfcc] for x in o_mfcc])
+
+      if init == 1:
+        # append to net input matrix
+        if len(net_input) == 0:
+          net_input = data_mfcc
+        else:  
+          #net_input[1:,:]
+          net_input = np.r_[net_input, data_mfcc]
+          #net_input = np.r_[data_mfcc, net_input]
+        if (frame_ctr >= n_frames):
+          print('Live!')
+          init = 0
+
+      else:
+        # predict
+        net_input_c = np.array(net_input.reshape([1]+input_shape), dtype='float32')
+        host_pred = model.predict(net_input_c)[0]
+        host_preds.append(host_pred)
+
+        # remove old data
+        #net_input = net_input[:-1,:]
+        net_input = net_input[1:,:]
+        # append new data
+        net_input = np.r_[net_input, data_mfcc]
+        #net_input = np.r_[data_mfcc, net_input]
+        #print("net_input shape for live:" +str(net_input.shape))
+        if (host_pred.max() > threshold):
+          spotted_kwd = keywords[np.argmax(host_pred)]
+          if spotted_kwd[0] != '_':
+            print('Spotted', spotted_kwd, 'with', int(100*host_pred.max()),'% probability')
+        np.set_printoptions(suppress=True)
+        # print(host_pred)
+
+        abort_after -= 1
+        if abort_after == 0:
+          # import simpleaudio as sa
+          # play_obj = sa.play_buffer(mic_data, 1, 2, fs) # data, n channels, bytes per sample, fs
+          # play_obj.wait_done()
+
+          net_input = np.array(net_input.reshape((input_shape[0],-1)), dtype='float32')
+          return net_input, np.array(mic_data).ravel(), np.array(host_preds)
+
+def infereFromFile(model, fname):
+  fs_in, data = wavfile.read(fname)
+  print('Got',len(data),'samples with fs',fs_in)
+  input_shape = model.input.shape.as_list()[1:]
+
+  if data.dtype == 'float32':
+    data = ( (2**15-1)*data).astype('int16')
+  x = data.copy()
+  # Cut/pad sample
+  if x.shape[0] < nSamples:
+      x = np.pad(x, (0, nSamples-x.shape[0]), mode='edge')
+  else:
+    x = x[:nSamples]
+
+  import simpleaudio as sa
+  play_obj = sa.play_buffer(x, 1, 2, fs) # data, n channels, bytes per sample, fs
+  play_obj.wait_done()
+
+  # calc mfcc
+  o_mfcc = mfcc_mcu(x, fs, nSamples, frame_length, frame_step, frame_count, fft_len, 
+      num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
+  o_mfcc_val = np.array([x['mfcc'][first_mfcc:first_mfcc+num_mfcc] for x in o_mfcc])
+
+  net_input = np.array(o_mfcc_val.reshape([1]+input_shape), dtype='float32')
+  host_pred = model.predict(net_input)[0]
+
+  if (host_pred.max() > threshold):
+    spotted_kwd = keywords[np.argmax(host_pred)]
+    if spotted_kwd[0] != '_':
+      print('Spotted', spotted_kwd, 'with', int(100*host_pred.max()),'% probability')
+  np.set_printoptions(suppress=True)
+  print('net output:', host_pred)
+
+  net_input = np.array(net_input.reshape((input_shape[0],-1)), dtype='float32')
+  return net_input, np.array(x).ravel(), np.array(host_pred)
+
+######################################################################
 # Some plot functions
 def plotMfcc(keywords):
   fig = plt.figure(constrained_layout=True)
   gs = fig.add_gridspec(len(keywords), 2)
+  fig.suptitle('Audio samples used during training', fontsize=16)
 
   # cant plot noise because it is generated in this script and not available as data
   keywords = np.delete(keywords,np.where(keywords=='_noise'))
+  keywords = np.delete(keywords,np.where(keywords=='_cold'))
 
   i = 0
   for k in keywords:
@@ -442,7 +583,7 @@ def plotMfcc(keywords):
     ax.set_ylabel('amplitude')
 
     ax = fig.add_subplot(gs[i, 1])
-    c = ax.pcolor(frames, melbin, o_mfcc_val.T, cmap='PuBu')
+    c = ax.pcolor(frames, melbin, o_mfcc_val.T, cmap='viridis')
     ax.grid(True)
     ax.set_title('MFCC')
     ax.set_xlabel('frame')
@@ -451,70 +592,10 @@ def plotMfcc(keywords):
 
     i += 1
 
-def micInference(model, keywords, abort_after=1, threshold=0.6):
-  import sounddevice as sd
-  
-  input_shape = model.input.shape.as_list()[1:]
-  mic_data = []
-  net_input = np.array([], dtype='int16')
-  init = 1
-  frame_ctr = 0
-  mfcc = np.array([])
-  last_pred = 0
-  
-  with sd.Stream(samplerate=fs, channels=1) as stream:
-    print('Filling buffer...')
-    while True:
-      frame, overflowed = stream.read(frame_length)
-      frame = ((2**15-1)*frame[:,0]).astype('int16')
-      frame_ctr += 1
-
-      # keep track of the last few mic sampels
-      mic_data.append(frame)
-      if len(mic_data) > nSamples:
-        mic_data = mic_data[:nSamples]
-
-      chunk_size = frame_length
-      o_mfcc = mfcc_mcu(frame, fs, chunk_size, frame_length, frame_step, frame_count, fft_len, 
-        num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
-      data_mfcc = np.array([x['mfcc'][:num_mfcc] for x in o_mfcc])
-
-      if init == 1:
-        # append to net input matrix
-        if len(net_input) == 0:
-          net_input = data_mfcc
-        else:  
-          net_input = np.r_[data_mfcc, net_input]
-        if (frame_ctr >= n_frames):
-          print('Live!')
-          init = 0
-
-      else:
-        # predict
-        net_input_c = np.array(net_input.reshape([1]+input_shape), dtype='float32')
-        host_pred = model.predict(net_input_c)[0]
-
-        # remove old data
-        net_input = net_input[:-1,:]
-
-        # append new data
-        net_input = np.r_[data_mfcc, net_input]
-
-        if (host_pred.max() > threshold):
-          spotted_kwd = keywords[np.argmax(host_pred)]
-          if spotted_kwd[0] != '_':
-            print('Spotted', spotted_kwd, 'with', int(100*host_pred.max()),'% probability')
-        np.set_printoptions(suppress=True)
-        # print(host_pred)
-
-        abort_after -= 1
-        if abort_after == 0:
-          net_input = np.array(net_input.reshape((input_shape[0],-1)), dtype='float32')
-          return net_input, np.array(mic_data).ravel()
-
 def plotMfccFromData(mic_data, net_input):
   fig = plt.figure(constrained_layout=True)
   gs = fig.add_gridspec(1, 2)
+  fig.suptitle('Last '+str(frame_length)+' MIC samples and their MFCC', fontsize=16)
 
   t = np.linspace(0, len(mic_data)/fs, num=len(mic_data))
   frames = np.arange(net_input.shape[0])
@@ -528,13 +609,35 @@ def plotMfccFromData(mic_data, net_input):
   ax.set_ylabel('amplitude')
 
   ax = fig.add_subplot(gs[0, 1])
-  c = ax.pcolor(frames, melbin, net_input.T, cmap='PuBu')
+  c = ax.pcolor(frames, melbin, net_input.T, cmap='viridis')
   ax.grid(True)
   ax.set_title('MFCC')
   ax.set_xlabel('frame')
   ax.set_ylabel('Mel bin')
   fig.colorbar(c, ax=ax)
 
+def plotPredictions(keywords, mic_data, preds):
+  keywords = [x.replace('_','') for x in keywords]
+  fig = plt.figure(constrained_layout=True)
+  fig.suptitle('Net output wrt. time', fontsize=16)
+  gs = fig.add_gridspec(2, 1)
+
+  t = np.linspace(0, len(mic_data)/fs, num=len(mic_data))
+  ax = fig.add_subplot(gs[0, 0])
+  ax.plot(t, mic_data, label='mic')
+  ax.grid(True)
+  ax.legend()
+  ax.set_title('microphone data')
+  ax.set_xlabel('time')
+  ax.set_ylabel('amplitude')
+
+  ax = fig.add_subplot(gs[1, 0])
+  ax.plot(preds)
+  ax.grid(True)
+  ax.legend(keywords)
+  ax.set_title('Predictions')
+  ax.set_xlabel('frame')
+  ax.set_ylabel('net output')
 
 ######################################################################
 # main
@@ -542,10 +645,14 @@ def plotMfccFromData(mic_data, net_input):
 if __name__ == '__main__':
   # load data
   # keywords, noise = ['edison', 'cinema', 'on', 'off', '_cold_word'], 0.1 # keywords, coldwords and noise
-  # keywords, noise = ['edison', 'cinema', 'on', 'off'], 0.0 # keywords only
-  keywords, noise = ['marvin', 'zero', 'cat', 'left'], 0.1 # for speech commands data set
-
-  x_train, x_test, x_val, y_train, y_test, y_val, keywords = load_data(keywords, noise, playsome=True)
+  
+  # own set, keywords only
+  keywords, coldwords, noise = ['edison', 'cinema', 'on', 'off'], ['_cold_word'], 0.1
+  
+  # for speech commands data set
+  # keywords, coldwords, noise = ['marvin', 'zero', 'cat', 'left'], ['sheila', 'seven', 'up', 'right'], 0.0
+  
+  x_train, x_test, x_val, y_train, y_test, y_val, keywords = load_data(keywords, coldwords, noise, playsome=False)
   print('Received keywords:',keywords)
 
   print('x train shape: ', x_train.shape)
@@ -589,8 +696,15 @@ if __name__ == '__main__':
     plotMfcc(keywords)
     plt.show()
   if sys.argv[1] == 'mic':
-    net_input, mic_data = micInference(model, keywords, abort_after=0)
+    net_input, mic_data, host_preds = micInference(model, keywords, abort_after=0)
     plotMfccFromData(mic_data, net_input)
+    plotMfcc(keywords)
+    plotPredictions(keywords, mic_data, host_preds)
+    plt.show()
+  if sys.argv[1] == 'file':
+    net_input, mic_data, pred = infereFromFile(model, sys.argv[2])
+    plotMfccFromData(mic_data, net_input)
+    plotMfcc(keywords)
     plt.show()
 
 
