@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-13 16:54:43
+* @Last Modified time: 2020-05-13 17:39:50
 */
 #include "app.h"
 #include <stdlib.h>
@@ -47,17 +47,14 @@
  * Private data
  * ---------------------------------------------------------------------------*/
 
-
 static uint8_t netInputChunk[AI_NET_INSIZE_BYTES];
 static uint8_t netOutputChunk[AI_NET_OUTSIZE_BYTES];
 
-
-
 #if NET_TYPE == NET_TYPE_CUBE
-  static float * netInput = (float*)netInputChunk;
+  static volatile float * netInput = (float*)netInputChunk;
   static float * netOutput = (float*)netOutputChunk;
 #elif NET_TYPE == NET_TYPE_NNOM
-  static int8_t * netInput = (int8_t*)netInputChunk;
+  static volatile int8_t * netInput = (int8_t*)netInputChunk;
   static int8_t * netOutput = (int8_t*)netOutputChunk;
 #endif
 
@@ -66,7 +63,10 @@ static FASTRAM_BSS int16_t tmpBuf[1024*16]; // fills entire region
 
 static int16_t * inFrameBuf = tmpBuf;
 
-
+static volatile uint8_t audioEvent = 0;
+static volatile uint32_t processedFrames;
+static uint16_t in_x, in_y;
+  
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
@@ -219,45 +219,40 @@ int8_t appHifMicMfccInfere(uint8_t *args)
  */
 int8_t appMicMfccInfereContinuous (uint8_t *args)
 {
-  static netOutFloat[AI_NET_OUTSIZE];
+  static float netOutFloat[AI_NET_OUTSIZE];
   int16_t *inFrame, *out_mfccs, maxAmplitude, minAmplitude;
-  uint16_t in_x, in_y;
   uint32_t tmp32;
   // uint32_t netInBufOff = 0;
   bool doAbort = false;
   int ret;
   float tmpf;
 
+  void* netInSnapshot = malloc(AI_NET_INSIZE_BYTES);
+
   aiGetInputShape(&in_x, &in_y); // x = 13, y = 62 (nframes)
   printf("Input shape x,y: (%d,%d)\n", in_x, in_y);
 
   // start continuous mic sampling
+  processedFrames = 0;
   micContinuousStart();
 
   // fill buffer once
-  for (int frameCtr = 0; (frameCtr < in_y) && !doAbort; frameCtr++)
-  {
-    // get samples, this call is blocking
-    inFrame = micContinuousGet();
-
-    // calc mfccs
-    audioCalcMFCCs(inFrame, &out_mfccs); //*inp, **oup
-
-    // copy to net in buffer and cast to float
-    mfccToNetInput(out_mfccs, in_x, in_y, frameCtr);
-
-    if(IS_BTN_PRESSED() || (huart1.Instance->ISR & UART_FLAG_RXNE) ) doAbort = true;
-  }
+  while(processedFrames < in_y);
 
   // now enter a loop where sampling and inference is done simultaneously
   while(!doAbort)
   {
+    // wait for ISR to complete before starting
+    audioEvent = 0;
+    while(!audioEvent);
+
     // get amplitude max
-    arm_max_q15(inFrame, 1024, &maxAmplitude, &tmp32);
-    arm_min_q15(inFrame, 1024, &minAmplitude, &tmp32);
+    // arm_max_q15(inFrame, 1024, &maxAmplitude, &tmp32);
+    // arm_min_q15(inFrame, 1024, &minAmplitude, &tmp32);
 
     // 3. Run inference
-    ret = aiRunInference((void*)netInput, (void*)netOutput);
+    memcpy(netInSnapshot, netInput, AI_NET_INSIZE_BYTES);
+    ret = aiRunInference((void*)netInSnapshot, (void*)netOutput);
 
     // store net input
     // for(int i = 0; i < in_x*in_y; i++)
@@ -269,7 +264,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++)
     {
       netOutFloat[tmp32] = (float)(netOutput[tmp32]);
-      printf("%.2f ", netOutFloat[tmp32]);
+      printf("%2.2f ", netOutFloat[tmp32]);
     }
     printf("] ret: %d ampl: %d", ret, maxAmplitude-minAmplitude);
 
@@ -283,15 +278,6 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
 
     if(netOutFloat[0] > TRUE_THRESHOLD) LED2_ORA();
     else LED2_BLU();
-
-    // get samples, this call is blocking
-    inFrame = micContinuousGet();
-
-    // calc mfccs
-    audioCalcMFCCs(inFrame, &out_mfccs); //*inp, **oup
-
-    // shift net buffer contents one frame back
-    mfccToNetInputPush(out_mfccs, in_x, in_y);
 
     // check abort condition
     if(IS_BTN_PRESSED() || (huart1.Instance->ISR & UART_FLAG_RXNE) ) doAbort = true;
@@ -307,6 +293,8 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
 
   // send net input history
   // hiSendF32(netInBuf, 12*AI_NET_INSIZE, 0x20);
+
+  free(netInSnapshot);
 
   return ret;
 }
@@ -430,7 +418,6 @@ static int8_t mfcc_features[MFCC_LEN][MFCC_COEFFS];   // ring buffer
 static int8_t mfcc_features_seq[MFCC_LEN][MFCC_COEFFS]; // sequencial buffer for neural network input. 
 static uint32_t mfcc_feat_index = 0;
 static bool mfccReady = false;
-static uint8_t audioEvent = 0;
 
 // msh debugging controls
 static bool is_print_abs_mean = false; // to print the mean of absolute value of the mfcc_features_seq[][]
@@ -554,7 +541,20 @@ void appNnomKwsRun(void)
  */
 void appAudioEvent(uint8_t evt)
 {
+  int16_t *inFrame, *out_mfccs;
+
   audioEvent = evt;
+
+  // get samples, this call is blocking
+  inFrame = micContinuousGet();
+
+  // calc mfccs
+  audioCalcMFCCs(inFrame, &out_mfccs); //*inp, **oup
+
+  // copy to net in buffer and cast to float
+  mfccToNetInputPush(out_mfccs, in_x, in_y);
+
+  processedFrames++;
 }
 
 /*------------------------------------------------------------------------------
@@ -602,17 +602,17 @@ void mfccToNetInput(int16_t* mfcc, uint16_t in_x, uint16_t in_y, uint32_t xoffse
  */
 void mfccToNetInputPush(int16_t* mfcc, uint16_t in_x, uint16_t in_y)
 { 
-  uint32_t dstIdx = (in_y-1)*in_x;
-  uint32_t srcIdx = (in_y-2)*in_x;
+  uint32_t dstIdx = 0;
+  uint32_t srcIdx = 1*in_x;
 
   // move back
   for(int netInCtr = 0; netInCtr < ( (in_y-1)*in_x ); netInCtr++)
   {
-    netInput[dstIdx--] = netInput[srcIdx--];
+    netInput[dstIdx++] = netInput[srcIdx++];
   }
 
-  // copy new sample in at front
-  mfccToNetInput(mfcc, in_x, in_y, 0);
+  // copy new sample in at back
+  mfccToNetInput(mfcc, in_x, in_y, in_y-1);
 }
 
 
