@@ -18,7 +18,7 @@
 #define NET_TYPE_CUBE 1
 #define NET_TYPE_NNOM 2
 
-#define NET_TYPE NET_TYPE_NNOM
+#define NET_TYPE NET_TYPE_CUBE
 
 /**
  * This defines settings for the cube net

@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-14 16:01:59
+* @Last Modified time: 2020-05-14 20:03:49
 */
 #include "ai.h"
 
@@ -58,6 +58,8 @@
 
 const char* const aiKeywords[] = {
   #if NET_TYPE == NET_TYPE_NNOM
+    #include "nnom/keywords.txt"
+  #elif NET_TYPE == NET_TYPE_CUBE
     #include "nnom/keywords.txt"
   #endif
 };
