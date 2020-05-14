@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-14 15:45:00
+* @Last Modified time: 2020-05-14 15:46:53
 */
 #include "app.h"
 #include <stdlib.h>
@@ -548,12 +548,7 @@ void appAudioEvent(uint8_t evt, int16_t *buf)
   dst = &inFrameBuf[0]; src = &inFrameBuf[MIC_FRAME_SIZE];
   for(int i = 0; i < (IN_FRAME_BUF_N_FRAMES-1)*MIC_FRAME_SIZE; i++) *dst++ = *src++;
   for(int i = 0; i < MIC_FRAME_SIZE; i++) *dst++ = inFrame[i];
-  // if(inFrameLoc < (IN_FRAME_BUF_N_FRAMES*MIC_FRAME_SIZE) )
-  // {
-  //   for(int i = 0; i < MIC_FRAME_SIZE; i++) inFrameBuf[inFrameLoc++] = inFrame[i];
-  //   printf("*");
-  // }
-
+  
   processedFrames++;
 }
 

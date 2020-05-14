@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-13 15:33:59
+* @Last Modified time: 2020-05-14 16:01:59
 */
 #include "ai.h"
 
@@ -56,7 +56,11 @@
  * Private data
  * ---------------------------------------------------------------------------*/
 
-const char* const aiKeywords[] = {"edison","cinema","on","off","_cold","_noise"};
+const char* const aiKeywords[] = {
+  #if NET_TYPE == NET_TYPE_NNOM
+    #include "nnom/keywords.txt"
+  #endif
+};
 
 /**
  * CUBE
@@ -110,6 +114,10 @@ int aiInitialize(void)
 #elif NET_TYPE == NET_TYPE_NNOM
   aiNnomInit();
 #endif
+
+  printf("Can spot keywords: [");
+  for(int i = 0; i<AI_NET_OUTSIZE; i++) printf("%s, ", aiKeywords[i]);
+  printf("]\n");
 
   return 0;
 }

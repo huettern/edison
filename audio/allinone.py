@@ -199,6 +199,7 @@ def load_speech_commands(keywords=None, coldwords=None, sample_len=2*16000, play
       if len(x) == 0:
         x = np.pad(x, (0, sample_len-x.shape[0]), mode='constant', constant_values=(0, 0))
       else:  
+        print('pad len', sample_len-x.shape[0], '//1024', (sample_len-x.shape[0])//1024)
         x = np.pad(x, (0, sample_len-x.shape[0]), mode='edge')
     else:
       cut_cnt += 1
@@ -761,6 +762,8 @@ if __name__ == '__main__':
   if sys.argv[1] == 'nnom':
     from nnom_utils import generate_model
     createNnomWeights(model, x_test)
+    with open(cache_dir+'/keywords.txt','w') as fd:
+      fd.write(np.array2string(keywords).replace('\'','\"').replace('[','').replace(']','').replace(' ',', '))
 
 
 

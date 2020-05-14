@@ -88,6 +88,8 @@ CUBEAI_SRC = 	$(wildcard src/ai/cube/$(CUBEAI_NET_NAME)/*.c)
 NNOM_REPO=../audio/implement/nnom/
 NNOM_WEIGHTS=../audio/.cache/allinone/weights.h
 NNOM_NAME=kws_nnom
+NNOM_MODEL=../audio/.cache/allinone/kws_model.h5
+NNOM_KEYWORDS=../audio/.cache/allinone/keywords.txt
 NNOM=src/ai/nnom/
 NNOM_CSRC=$(wildcard $(NNOM)/src/backends/*.c) $(wildcard $(NNOM)/src/layers/*.c) $(wildcard $(NNOM)/src/core/*.c)
 NNOM_INC=-I$(NNOM)/inc -I$(NNOM)/port -I$(NNOM)
@@ -247,6 +249,8 @@ import-cubeai-net:
 
 import-nnom-net:
 	./scripts/import-nnom-net.sh $(NNOM_REPO) $(NNOM_WEIGHTS) $(NNOM_NAME) $(NNOM)
+	cp $(NNOM_MODEL) $(NNOM)/
+	cp $(NNOM_KEYWORDS) $(NNOM)/
 
 #Pull in dependency info for *existing* .o files
 -include $(OBJ:.o=.d)
