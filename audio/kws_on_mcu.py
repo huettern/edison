@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-11 17:57:40
+# @Last Modified time: 2020-05-14 17:55:51
 
 import sys
 
@@ -29,19 +29,20 @@ from tqdm import tqdm
 import simpleaudio as sa
 import scipy.io.wavfile as wavfile
 
+import keras
 import tensorflow as tf
 import mfcc_utils as mfu
 
 cache_dir = '.cache/kws_mcu'
-model_file ='train/.cache/kws_keras/kws_model_low_latency_conv.h5'
-keywords = np.load('train/.cache/kws_keras/keywords.npy')
+model_file ='.cache/allinone/kws_model.h5'
+keywords = np.load('.cache/allinone/keywords.npy')
 from_file = 0
 
 # define net type running on target (cube/nnom)
 net_type = 'nnom'
 
 # Load trained model
-model = tf.keras.models.load_model(model_file)
+model = keras.models.load_model(model_file)
 model.summary()
 
 input_shape = model.input.shape.as_list()[1:]
@@ -178,13 +179,15 @@ def report(host_pred, mcu_pred):
 def rmse(a, b):
   return np.sqrt(np.mean((a-b)**2))
 
-def compare(host_preds, mcu_preds):
-  deviaitons = 100.0 * (1.0 - (mcu_preds+1e-9) / (host_preds+1e-9) )
+def compare(data_a, data_b, name):
+  deviaitons = 100.0 * (1.0 - (data_b.ravel()+1e-9) / (data_a.ravel()+1e-9) )
 
   print('_________________________________________________________________')
-  print('Number of inferences run: %d' % (len(host_preds)))
+  print('Comparing: %s' % (name))
   print("Deviation: max %.3f%% min %.3f%% avg %.3f%% \nrmse %.3f" % (
-    deviaitons.max(), deviaitons.min(), np.mean(deviaitons), rmse(mcu_preds, host_preds)))
+    deviaitons.max(), deviaitons.min(), np.mean(deviaitons), rmse(data_b.ravel(), data_a.ravel())))
+  print('scale %.3f=1/%.3f' % (data_b.max()/data_a.max(), data_a.max()/data_b.max()))
+  print('correlation coeff %.3f' % (np.corrcoef(data_a.ravel(),data_b.ravel())[0,1]))
   print('_________________________________________________________________')
 
 ######################################################################
@@ -208,6 +211,9 @@ def mfccAndInfereOnMCU(data, progress=False):
     Upload, process and download inference of raw audio data
   """
   import mcu_util as mcu
+
+  if data.dtype == 'float32':
+    data = ( (2**15-1)*data).astype('int16')
 
   if mcu.sendCommand('mfcc_kws_frame') < 0:
     exit()
@@ -285,7 +291,7 @@ def singleInference(repeat = 1):
     
   mcu_preds = np.array(mcu_preds)
   host_preds = np.array(host_preds)
-  compare(host_preds, mcu_preds)
+  compare(host_preds, mcu_preds, 'predictions')
 
 def fileInference():
   """
@@ -321,7 +327,7 @@ def fileInference():
 
   mcu_preds = np.array(mcu_preds)
   host_preds = np.array(host_preds)
-  compare(host_preds, mcu_preds)
+  compare(host_preds, mcu_preds, 'predictions')
   # print('host prediction: %f ' % (host_preds[-1]))
 
 def frameInference():
@@ -342,11 +348,19 @@ def frameInference():
       print('Sample rate of file %d doesn\'t match %d' % (in_fs, fs))
       exit()
 
-    # Cut/pad sample
-    if data.shape[0] < sample_len:
-      data = np.pad(data, (0, sample_len-data.shape[0]))
-    else:
-      data = data[:sample_len]
+    if data.dtype == 'float32':
+      data = ( (2**15-1)*data).astype('int16')
+      # Cut/pad sample
+      if data.shape[0] < nSamples:
+        data = np.pad(data, (0, nSamples-data.shape[0]), mode='edge')
+      else:
+        data = data[:nSamples]
+    
+    # # Cut/pad sample
+    # if data.shape[0] < sample_len:
+    #   data = np.pad(data, (0, sample_len-data.shape[0]))
+    # else:
+    #   data = data[:sample_len]
 
     # Calculate MFCC and compute on host
     o_mfcc = mfu.mfcc_mcu(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
@@ -363,6 +377,12 @@ def frameInference():
     mcu_mfccss = np.array(mcu_mfccss)
     mcu_preds = np.array(mcu_preds)
     host_preds = np.array(host_preds)
+    
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111)
+    # c = ax.pcolor(data_mfcc.T, cmap='viridis')
+    # fig.colorbar(c, ax=ax)
+    # plt.show()
 
     # store this valuable data!
     import pathlib
@@ -395,7 +415,9 @@ def frameInference():
   stats = mcu.getStats()
   mcuInferenceTime = stats['lastinferencetime']
   mcuMfccTime = stats['AudioLastProcessingTime']
-  compare(host_preds, mcu_preds)
+
+  compare(host_preds, mcu_preds, 'predictions')
+  compare(data_mfcc, mcu_mfccss, 'MFCC=net input')
   print('MCU Audio processing took %.2fms (%.2fms per frame)' % (n_frames*mcuMfccTime, mcuMfccTime))
   print('MCU inference took %.2fms' % (mcuInferenceTime))
   plt.show()

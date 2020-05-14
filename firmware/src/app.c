@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-14 15:46:53
+* @Last Modified time: 2020-05-14 16:43:57
 */
 #include "app.h"
 #include <stdlib.h>
@@ -94,7 +94,6 @@ int8_t appHifMfccAndInference(uint8_t *args)
   int16_t *out_mfccs;
   
   uint8_t tag;
-  uint16_t in_x, in_y;
 
   prfStart("appHifMfccAndInference");
 
@@ -106,8 +105,8 @@ int8_t appHifMfccAndInference(uint8_t *args)
   for(int frameCtr = 0; frameCtr < in_y; frameCtr++)
   {
     // 2. Calculate MFCC
-    (void)hiReceive(inFrameBuf, AUD_MFCC_FRAME_SIZE_BYES, DATA_FORMAT_S16, &tag);    
-    // printf("received %d \n", len);
+    ret = hiReceive(inFrameBuf, AUD_MFCC_FRAME_SIZE_BYES, DATA_FORMAT_S16, &tag);    
+    printf("received ret %d tag %d \n", ret, tag);
 
     audioCalcMFCCs(inFrameBuf, &out_mfccs);
 
@@ -548,7 +547,7 @@ void appAudioEvent(uint8_t evt, int16_t *buf)
   dst = &inFrameBuf[0]; src = &inFrameBuf[MIC_FRAME_SIZE];
   for(int i = 0; i < (IN_FRAME_BUF_N_FRAMES-1)*MIC_FRAME_SIZE; i++) *dst++ = *src++;
   for(int i = 0; i < MIC_FRAME_SIZE; i++) *dst++ = inFrame[i];
-  
+
   processedFrames++;
 }
 

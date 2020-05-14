@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-12 09:40:51
+# @Last Modified time: 2020-05-14 18:05:36
 
 import sys
 
@@ -232,7 +232,7 @@ def plotCompare():
 
   ax = fig.add_subplot(gs[3, 1])
   ax.plot(fmel, mcu_melspec, label='mel spectrum')
-  ax.plot(fmel, host_melspec, label='host scaled')
+  ax.plot(fmel, host_melspec/host_melspec.max()*mcu_melspec.max(), label='host scaled')
   # ax.plot(fmel, mcu_melspec_manual, label='mel spectrum')
 
   ax.grid(True)
@@ -241,9 +241,9 @@ def plotCompare():
 
   ax = fig.add_subplot(gs[4, 0])
   ax.plot(fmel, host_dct, label='mel dct')
-  ax.plot(fmel, host_dct_reorder, label='post reorder')
-  ax.plot(fmel, host_dct_fft.real, label='post fft r')
-  ax.plot(fmel, host_dct_makhoul, 'r--', label='fast dct')
+  # ax.plot(fmel, host_dct_reorder, label='post reorder')
+  # ax.plot(fmel, host_dct_fft.real, label='post fft r')
+  # ax.plot(fmel, host_dct_makhoul, 'r--', label='fast dct')
   ax.grid(True)
   ax.legend()
   ax.set_title('host mel DCT-II')
@@ -402,7 +402,6 @@ def modeSingle():
   o_mfcc = mfu.mfcc_mcu(y, fs, nSamples=1024, frame_len=1024, frame_step=1024, 
     frame_count=1, fft_len=1024, mel_nbins=num_mel_bins, 
     mel_lower_hz=lower_edge_hertz, mel_upper_hz=upper_edge_hertz, mel_mtx_scale=mel_mtx_scale)
-
   host_fft = o_mfcc[0]['fft']
   host_spec = o_mfcc[0]['spectrogram']
   host_melspec = o_mfcc[0]['mel_spectrogram']
@@ -412,13 +411,13 @@ def modeSingle():
   # Print some facts
   scale = np.real(host_fft).max()/mcu_fft[0::2].max()
   print('host/mcu fft scale %f' % (scale) )
-  host_fft = host_fft * 1/scale
+  # host_fft = host_fft * 1/scale
   scale = host_spec.max()/mcu_spec.max()
   print('host/mcu spectrum scale %f' % (scale) )
-  host_spec = host_spec * 1/scale
+  # host_spec = host_spec * 1/scale
   scale = host_melspec.max()/mcu_melspec.max()
   print('host/mcu mel spectrum scale %f' % (scale) )
-  host_melspec = host_melspec * 1/scale
+  # host_melspec = host_melspec * 1/scale
   scale = host_dct.max()/mcu_dct.max()
   print('host/mcu dct scale %f' % (scale) )
 
@@ -468,7 +467,7 @@ def modeFile():
   print("Number of input samples = %d" % (nSamples))
 
   # calculate mfcc
-  o_mfcc = mfu.mfcc(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+  o_mfcc = mfu.mfcc_mcu(in_data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
     num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
 
   host_fft = np.array([x['fft'][:sample_size//2] for x in o_mfcc])[:sample_size]

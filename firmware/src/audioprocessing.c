@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-12 09:42:19
+* @Last Modified time: 2020-05-14 17:57:08
 */
 #include "audioprocessing.h"
 
@@ -166,7 +166,7 @@ void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
     }
     // bufMelSpectManual[mel] = tmpq31;
     // this shift is determined by experiment and depends on MEL_MTX_SCALE
-    bufMelSpect[mel] = (q15_t)(tmpq31>>6);
+    bufMelSpect[mel] = (q15_t)(tmpq31/MEL_MTX_SCALE);
   }
 #else
   for(int mel = 0; mel < MEL_N_MEL_BINS; mel++)
@@ -178,7 +178,7 @@ void audioCalcMFCCs(int16_t * inp, int16_t ** oup)
     }
     // bufMelSpectManual[mel] = tmpq31;
     // this shift is determined by experiment and depends on MEL_MTX_SCALE
-    bufMelSpect[mel] = (q15_t)(tmpq31>>6);
+    bufMelSpect[mel] = (q15_t)(tmpq31/MEL_MTX_SCALE);
   }
 #endif
 

@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:23:59
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-11 17:17:07
+# @Last Modified time: 2020-05-14 18:06:25
 
 import numpy as np
 from scipy.fftpack import dct
@@ -298,14 +298,16 @@ def mfcc_mcu(data, \
     num_spectrogram_bins = len(frame['spectrogram'])
 
     # calculate mel weights
-    mel_weight_matrix = gen_mel_weight_matrix(num_mel_bins=mel_nbins, 
+    mel_weight_matrix = mel_mtx_scale*gen_mel_weight_matrix(num_mel_bins=mel_nbins, 
       num_spectrogram_bins=sample_size//2+1, sample_rate=fs,
       lower_edge_hertz=mel_lower_hz, upper_edge_hertz=mel_upper_hz)
     frame['mel_weight_matrix'] = mel_weight_matrix
 
     # dot product of spectrum and mel matrix to get mel spectrogram
-    mel_spectrogram = 2.0*np.dot(spectrogram[:(sample_size//2)+1], mel_weight_matrix)
+    mel_spectrogram = np.dot(spectrogram[:(sample_size//2)+1], mel_weight_matrix)
+    mel_spectrogram /= mel_mtx_scale
     frame['mel_spectrogram'] = mel_spectrogram
+    frame['log_mel_spectrogram'] = mel_spectrogram
     
     # calculate DCT-II
     mfcc = 1.0/64*dct(mel_spectrogram, type=2)

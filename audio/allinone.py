@@ -405,7 +405,8 @@ def mfcc_mcu(data, \
     frame['mel_weight_matrix'] = mel_weight_matrix
 
     # dot product of spectrum and mel matrix to get mel spectrogram
-    mel_spectrogram = 2.0*np.dot(spectrogram[:(sample_size//2)+1], mel_weight_matrix)
+    mel_spectrogram = np.dot(spectrogram[:(sample_size//2)+1], mel_weight_matrix)
+    mel_spectrogram /= mel_mtx_scale
     frame['mel_spectrogram'] = mel_spectrogram
     
     # log(x) is intentionally left out to safe computation resources
