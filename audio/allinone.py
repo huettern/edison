@@ -137,7 +137,7 @@ def get_model(inp_shape, num_classes):
 # Model training
 def train(model, x, y, vx, vy, batchSize = 10, epochs = 30):
   
-  early_stopping = keras.callbacks.EarlyStopping(monitor='val_loss', patience=50)
+  early_stopping = keras.callbacks.EarlyStopping(monitor='val_loss', patience=10)
   reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=1, min_lr=1e-9)
 
   train_history = model.fit(x, y, batch_size = batchSize, epochs = epochs, 
@@ -186,6 +186,7 @@ def load_speech_commands(keywords=None, coldwords=None, sample_len=2*16000, play
   x_list = []
   y_list = []
   cut_cnt = 0
+  already_appended = False
   for i in tqdm(range(len(data_to_use))): 
     fs_in, data = wavfile.read(data_to_use[i])
     if fs_in != fs:
@@ -194,22 +195,44 @@ def load_speech_commands(keywords=None, coldwords=None, sample_len=2*16000, play
     if data.dtype == 'float32':
       data = ( (2**15-1)*data).astype('int16')
     x = data.copy()
+    if len(x) == 0:
+      print('PAAANIIIIcc')
+      continue
     # Cut/pad sample
+    already_appended = False
     if x.shape[0] < sample_len:
-      if len(x) == 0:
-        x = np.pad(x, (0, sample_len-x.shape[0]), mode='constant', constant_values=(0, 0))
-      else:  
-        print('pad len', sample_len-x.shape[0], '//1024', (sample_len-x.shape[0])//1024)
-        x = np.pad(x, (0, sample_len-x.shape[0]), mode='edge')
+      # x = np.pad(x, (0, sample_len-x.shape[0]), mode='edge')
+      # print(x.shape)
+      # shift samples around
+      pad_variants = 1 +(sample_len-x.shape[0])//frame_length
+      # fig = plt.figure()
+      # ax = fig.add_subplot(111)
+      for pad_variant_cnt in range(pad_variants):
+        prepad = pad_variant_cnt*frame_length
+        postpad = sample_len-x.shape[0]-prepad
+        chunk = np.pad(x.copy(), (prepad, postpad), mode='constant', constant_values=(0,0))
+        # ax.plot(chunk)
+        assert chunk.shape[0] == sample_len
+        # add to sample list
+        already_appended = True
+        x_list.append(chunk)
+        if data_to_use[i].split('/')[-2] in keywords:
+          y_list.append(keywords.index(data_to_use[i].split('/')[-2]))
+        else:
+          y_list.append(keywords.index('_cold'))
+      # plt.show()
     else:
       cut_cnt += 1
       x = x[:sample_len]
+
     # add to sample list
-    x_list.append(x)
-    if data_to_use[i].split('/')[-2] in keywords:
-      y_list.append(keywords.index(data_to_use[i].split('/')[-2]))
-    else:
-      y_list.append(keywords.index('_cold'))
+    if not already_appended:
+      assert x.shape[0] == sample_len
+      x_list.append(x)
+      if data_to_use[i].split('/')[-2] in keywords:
+        y_list.append(keywords.index(data_to_use[i].split('/')[-2]))
+      else:
+        y_list.append(keywords.index('_cold'))
 
   print('Had to cut',cut_cnt,'samples')
 
@@ -220,6 +243,7 @@ def load_speech_commands(keywords=None, coldwords=None, sample_len=2*16000, play
     for n in range(int(noise*len(x_list))):
       rnd = np.random.normal(0,1,size=sample_len)
       x_list.append( np.array((2**15-1)*noise_ampl*rnd/rnd.max(), dtype='int16') )
+      assert x_list[-1].shape[0] == sample_len
       y_list.append(keywords.index('_noise'))
 
   x = np.asarray(x_list)
