@@ -176,16 +176,9 @@ in_fs, in_data = wavfile.read(in_wav)
 in_data = np.array(in_data)
 
 # Set MFCC settings
+import config
 fs = in_fs
 nSamples = len(in_data)
-frame_len = 1024
-frame_step = 1024
-frame_count = 0 # 0 for auto
-fft_len = frame_len
-mel_nbins = 32
-mel_lower_hz = 80
-mel_upper_hz = 7600
-mel_mtx_scale = 128
 
 # Some info
 print("Frame length in seconds = %.3fs" % (frame_len/fs))

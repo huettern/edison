@@ -35,19 +35,7 @@ output_shape = model.output.shape.as_list()[1:]
 output_size = np.prod(output_shape)
 
 # Settings
-fs = 16000
-sample_len_seconds = 2
-sample_len = sample_len_seconds*fs
-mel_mtx_scale = 128
-lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 32
-frame_length = 1024
-num_mfcc = 13
-nSamples = int(sample_len_seconds*fs)
-frame_len = frame_length
-frame_step = frame_len
-frame_count = 0 # 0 for auto
-fft_len = frame_len
-n_frames = 1 + (sample_len - frame_length) // frame_step
+from config import *
 
 # data buffer
 xdata = [0]

@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-14 17:55:51
+# @Last Modified time: 2020-05-14 19:45:55
 
 import sys
 
@@ -49,19 +49,7 @@ input_shape = model.input.shape.as_list()[1:]
 input_size = np.prod(input_shape)
 
 # Settings
-fs = 16000
-sample_len_seconds = 2
-sample_len = sample_len_seconds*fs
-mel_mtx_scale = 128
-lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 32
-frame_length = 1024
-num_mfcc = 13
-nSamples = int(sample_len_seconds*fs)
-frame_len = frame_length
-frame_step = frame_len
-frame_count = 0 # 0 for auto
-fft_len = frame_len
-n_frames = 1 + (sample_len - frame_length) // frame_step
+from config import *
 
 ######################################################################
 # plottery
@@ -366,7 +354,8 @@ def frameInference():
     o_mfcc = mfu.mfcc_mcu(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
       num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
     data_mfcc = np.array([x['mfcc'][:num_mfcc] for x in o_mfcc])
-    net_input = np.array(data_mfcc.reshape([1]+input_shape), dtype='float32')
+    net_input = np.array(data_mfcc.reshape([1]+input_shape), dtype='float32') * net_input_scale
+    net_input = np.clip(net_input, net_input_clip_min, net_input_clip_max)
     host_preds.append(model.predict(net_input)[0,:])
 
     # Calculate MFCC and compute on MCU
@@ -417,7 +406,7 @@ def frameInference():
   mcuMfccTime = stats['AudioLastProcessingTime']
 
   compare(host_preds, mcu_preds, 'predictions')
-  compare(data_mfcc, mcu_mfccss, 'MFCC=net input')
+  compare(host_mfcc, mcu_mfcc, 'MFCC=net input')
   print('MCU Audio processing took %.2fms (%.2fms per frame)' % (n_frames*mcuMfccTime, mcuMfccTime))
   print('MCU inference took %.2fms' % (mcuInferenceTime))
   plt.show()

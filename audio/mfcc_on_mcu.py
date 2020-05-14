@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-14 18:05:36
+# @Last Modified time: 2020-05-14 18:30:05
 
 import sys
 
@@ -33,23 +33,8 @@ mode = sys.argv[1]
 
 from_files = 1 if len(sys.argv) > 2 else from_files
 
-# costant frame size
-sample_size = 1024#1024
-# From experience, we want 80 mel bins
-num_mel_bins = 32#80
-# From the FFT, we take only half the spectrum plus the DC component
-num_spectrogram_bins = sample_size//2+1
-# set the microphone sample rate
-sample_rate = 16000
-# bound the mel filter banks
-lower_edge_hertz = 80.0
-upper_edge_hertz = 7600.0
-# convert to int16 after scaling up
-mel_mtx_scale = 128
-# convert to int16 after scaling up of twiddle factors for fast DCT2
-mel_twiddle_scale = 128
-# the first num_mfcc MFCC are plotted that are used later for training
-num_mfcc = 13
+# Settings
+from config import *
 
 ######################################################################
 # functions

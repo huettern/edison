@@ -24,26 +24,10 @@ from sklearn.metrics import confusion_matrix
 use_mfcc_librosa = False
 use_mfcc_log = False
 
-# audio and MFCC settings
-sample_len_seconds = 2.0
-fs = 16000
-mel_mtx_scale = 128
-lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 32
-frame_length = 1024
-first_mfcc = 0
-num_mfcc = 13
-nSamples = int(sample_len_seconds*fs)
-frame_step = frame_length
-frame_count = 0 # 0 for auto
-fft_len = frame_length
-n_frames = 1 + (nSamples - frame_length) // frame_step
-
-# mel freq. constants -> https://en.wikipedia.org/wiki/Mel_scale
-MEL_HIGH_FREQUENCY_Q = 1127.0
-MEL_BREAK_FREQUENCY_HERTZ = 700.0
+from config import *
 
 # training hyperparameters
-epochs = 300
+epochs = 100
 batchSize = 100
 initial_learningrate = 0.0005
 threshold=0.6 # for a true prediction
@@ -460,6 +444,11 @@ def load_data(keywords, coldwords, noise, playsome=False):
       o_mfcc = mfcc_fun(data, fs, nSamples, frame_length, frame_step, frame_count, fft_len, 
         num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
       o_mfcc_val.append([x['mfcc'][first_mfcc:first_mfcc+num_mfcc] for x in o_mfcc])
+
+    # MCU compresses 16bit to 8bit for net input, do this also during training
+    o_mfcc_train = np.clip(np.array(o_mfcc_train) * net_input_scale, net_input_clip_min, net_input_clip_max)
+    o_mfcc_test = np.clip(np.array(o_mfcc_test) * net_input_scale, net_input_clip_min, net_input_clip_max)
+    o_mfcc_val = np.clip(np.array(o_mfcc_val) * net_input_scale, net_input_clip_min, net_input_clip_max)
 
     # add dimension to get (x, y, 1) from to make conv2D input layer happy
     x_train = np.expand_dims(np.array(o_mfcc_train), axis = -1)

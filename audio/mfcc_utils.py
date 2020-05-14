@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:23:59
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-14 18:06:25
+# @Last Modified time: 2020-05-14 18:30:10
 
 import numpy as np
 from scipy.fftpack import dct
@@ -10,8 +10,7 @@ from tqdm import tqdm
 
 
 # mel freq. constants -> https://en.wikipedia.org/wiki/Mel_scale
-MEL_HIGH_FREQUENCY_Q = 1127.0
-MEL_BREAK_FREQUENCY_HERTZ = 700.0
+from config import *
 
 
 def frames(data, frame_length=3, frame_step=1):
