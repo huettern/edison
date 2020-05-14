@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-13 17:39:50
+* @Last Modified time: 2020-05-14 15:45:00
 */
 #include "app.h"
 #include <stdlib.h>
@@ -51,20 +51,22 @@ static uint8_t netInputChunk[AI_NET_INSIZE_BYTES];
 static uint8_t netOutputChunk[AI_NET_OUTSIZE_BYTES];
 
 #if NET_TYPE == NET_TYPE_CUBE
-  static volatile float * netInput = (float*)netInputChunk;
+  static float * netInput = (float*)netInputChunk;
   static float * netOutput = (float*)netOutputChunk;
 #elif NET_TYPE == NET_TYPE_NNOM
-  static volatile int8_t * netInput = (int8_t*)netInputChunk;
+  static int8_t * netInput = (int8_t*)netInputChunk;
   static int8_t * netOutput = (int8_t*)netOutputChunk;
 #endif
 
 
 static FASTRAM_BSS int16_t tmpBuf[1024*16]; // fills entire region
 
+#define IN_FRAME_BUF_N_FRAMES 16
 static int16_t * inFrameBuf = tmpBuf;
 
 static volatile uint8_t audioEvent = 0;
 static volatile uint32_t processedFrames;
+static volatile uint16_t lastAmplitude;
 static uint16_t in_x, in_y;
   
 /*------------------------------------------------------------------------------
@@ -153,48 +155,31 @@ int8_t appHifMicMfccInfere(uint8_t *args)
 {
   (void) args;
 
-  int16_t *inFrame, *out_mfccs, *inFrameBufPtr;
-  uint16_t in_x, in_y;
   int ret;
   uint32_t tmp32 = 0;
+
+  void* netInSnapshot = malloc(AI_NET_INSIZE_BYTES);
 
   // get net info
   aiGetInputShape(&in_x, &in_y);
 
   // start continuous mic sampling
+  processedFrames = 0;
   micContinuousStart();
 
-  // get in_y * 1024 samples, because that is the net input
-  inFrameBufPtr = &inFrameBuf[0];
-  for (int frameCtr = 0; frameCtr < in_y; frameCtr++)
-  {
-    // get samples, this call is blocking
-    inFrame = micContinuousGet();
-
-    // calc mfccs
-    audioCalcMFCCs(inFrame, &out_mfccs); //*inp, **oup
-
-    // copy to storage
-    if(frameCtr < 16)
-    {
-      for(int i = 0; i < 1024; i++)
-      {
-        *inFrameBufPtr++ = inFrame[i];
-      }
-    }
-
-    // copy to net in buffer and cast to float
-    mfccToNetInput(out_mfccs, in_x, in_y, frameCtr);
-  } 
+  // fill buffer once
+  while(processedFrames < in_y);
 
   // stop sampling
   micContinuousStop();
 
   // 3. Run inference
+  memcpy(netInSnapshot, netInput, AI_NET_INSIZE_BYTES);
   printf("inference..");
-  ret = aiRunInference((void*)netInput, (void*)netOutput);
+  ret = aiRunInference((void*)netInSnapshot, (void*)netOutput);
+
   printf("Prediction: ");
-  for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++) {printf("%.2f ", netOutput[tmp32]);}
+  for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++) {printf("%2.2f ", (float)netOutput[tmp32]);}
     printf("\n");
 
   // signal host that we are ready
@@ -205,7 +190,12 @@ int8_t appHifMicMfccInfere(uint8_t *args)
   #if NET_TYPE == NET_TYPE_CUBE
     hiSendF32(netInput, AI_NET_INSIZE, 0x31);
     hiSendF32(netOutput, AI_NET_OUTSIZE, 0x32);
+  #elif NET_TYPE == NET_TYPE_NNOM
+    hiSendS8(netInSnapshot, AI_NET_INSIZE, 0x31);
+    hiSendS8(netOutput, AI_NET_OUTSIZE, 0x32);
   #endif
+
+  free(netInSnapshot);
 
   return ret;
 }
@@ -220,7 +210,6 @@ int8_t appHifMicMfccInfere(uint8_t *args)
 int8_t appMicMfccInfereContinuous (uint8_t *args)
 {
   static float netOutFloat[AI_NET_OUTSIZE];
-  int16_t *inFrame, *out_mfccs, maxAmplitude, minAmplitude;
   uint32_t tmp32;
   // uint32_t netInBufOff = 0;
   bool doAbort = false;
@@ -246,10 +235,6 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     audioEvent = 0;
     while(!audioEvent);
 
-    // get amplitude max
-    // arm_max_q15(inFrame, 1024, &maxAmplitude, &tmp32);
-    // arm_min_q15(inFrame, 1024, &minAmplitude, &tmp32);
-
     // 3. Run inference
     memcpy(netInSnapshot, netInput, AI_NET_INSIZE_BYTES);
     ret = aiRunInference((void*)netInSnapshot, (void*)netOutput);
@@ -266,7 +251,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
       netOutFloat[tmp32] = (float)(netOutput[tmp32]);
       printf("%2.2f ", netOutFloat[tmp32]);
     }
-    printf("] ret: %d ampl: %d", ret, maxAmplitude-minAmplitude);
+    printf("] ret: %d ampl: %d", ret, lastAmplitude);
 
     arm_max_f32(netOutFloat, AI_NET_OUTSIZE, &tmpf, &tmp32);
     printf(" likely: %s", aiGetKeywordFromIndex(tmp32));
@@ -308,7 +293,8 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
  */
 int8_t appMicMfccInfereBlocks (uint8_t *args)
 {
-  int16_t *inFrame, *out_mfccs, maxAmplitude, minAmplitude;
+  static float netOutFloat[AI_NET_OUTSIZE];
+  int16_t *inFrame, *out_mfccs;
   uint16_t in_x, in_y;
   uint32_t tmp32;
   // int32_t netInBufOff = 0;
@@ -320,6 +306,7 @@ int8_t appMicMfccInfereBlocks (uint8_t *args)
   printf("Input shape x,y: (%d,%d)\n", in_x, in_y);
 
   // start continuous mic sampling
+  processedFrames = 0;
   micContinuousStart();
 
   // now enter a loop where sampling and inference is done simultaneously
@@ -341,10 +328,6 @@ int8_t appMicMfccInfereBlocks (uint8_t *args)
       if(IS_BTN_PRESSED() || (huart1.Instance->ISR & UART_FLAG_RXNE) ) doAbort = true;
     }
 
-    // get amplitude max
-    arm_max_q15(inFrame, 1024, &maxAmplitude, &tmp32);
-    arm_min_q15(inFrame, 1024, &minAmplitude, &tmp32);
-
     // 3. Run inference
     ret = aiRunInference((void*)netInput, (void*)netOutput);
 
@@ -357,11 +340,12 @@ int8_t appMicMfccInfereBlocks (uint8_t *args)
     printf("pred: [ ");
     for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++)
     {
-      printf("%.2f ", netOutput[tmp32]);
+      netOutFloat[tmp32] = (float)(netOutput[tmp32]);
+      printf("%2.2f ", netOutFloat[tmp32]);
     }
-    printf("] ret: %d ampl: %d", ret, maxAmplitude-minAmplitude);
+    printf("] ret: %d ampl: %d", ret, lastAmplitude);
 
-    arm_max_f32(netOutput, AI_NET_OUTSIZE, &tmpf, &tmp32);
+    arm_max_f32(netOutFloat, AI_NET_OUTSIZE, &tmpf, &tmp32);
     printf(" likely: %s", aiGetKeywordFromIndex(tmp32));
     if( (tmpf > TRUE_THRESHOLD) )
     {
@@ -369,7 +353,7 @@ int8_t appMicMfccInfereBlocks (uint8_t *args)
     }
     printf("\n");
 
-    if(netOutput[0] > TRUE_THRESHOLD) LED2_ORA();
+    if(netOutFloat[0] > TRUE_THRESHOLD) LED2_ORA();
     else LED2_BLU();
 
     // check abort condition
@@ -393,7 +377,7 @@ int8_t appMicMfccInfereBlocks (uint8_t *args)
 /*------------------------------------------------------------------------------
  * NNom example
  * ---------------------------------------------------------------------------*/
-
+#ifdef NNOM_KWS_EXAMPLE
 
 static const char label_name[][10] =  {"backward", "bed", "bird", "cat", "dog", "down", "eight","five", "follow", "forward",
                       "four", "go", "happy", "house", "learn", "left", "marvin", "nine", "no", "off", "on", "one", "right",
@@ -528,7 +512,7 @@ void appNnomKwsRun(void)
     // }
   }
 }
-
+#endif // NNOM example
 
 /*------------------------------------------------------------------------------
  * Callback from microphone ISR
@@ -539,20 +523,36 @@ void appNnomKwsRun(void)
  * 
  * @param c 1 or 2
  */
-void appAudioEvent(uint8_t evt)
+void appAudioEvent(uint8_t evt, int16_t *buf)
 {
-  int16_t *inFrame, *out_mfccs;
+  int16_t *inFrame, *out_mfccs, max, min;
+  uint32_t index;
+  static uint32_t inFrameLoc = 0;
 
   audioEvent = evt;
 
-  // get samples, this call is blocking
-  inFrame = micContinuousGet();
+  inFrame = buf;
+
+  arm_max_q15(inFrame, MIC_FRAME_SIZE, &max, &index);
+  arm_min_q15(inFrame, MIC_FRAME_SIZE, &min, &index);
+  lastAmplitude = max - min;
 
   // calc mfccs
   audioCalcMFCCs(inFrame, &out_mfccs); //*inp, **oup
 
   // copy to net in buffer and cast to float
   mfccToNetInputPush(out_mfccs, in_x, in_y);
+
+  // push frame to frame buffer
+  int16_t *dst, *src;
+  dst = &inFrameBuf[0]; src = &inFrameBuf[MIC_FRAME_SIZE];
+  for(int i = 0; i < (IN_FRAME_BUF_N_FRAMES-1)*MIC_FRAME_SIZE; i++) *dst++ = *src++;
+  for(int i = 0; i < MIC_FRAME_SIZE; i++) *dst++ = inFrame[i];
+  // if(inFrameLoc < (IN_FRAME_BUF_N_FRAMES*MIC_FRAME_SIZE) )
+  // {
+  //   for(int i = 0; i < MIC_FRAME_SIZE; i++) inFrameBuf[inFrameLoc++] = inFrame[i];
+  //   printf("*");
+  // }
 
   processedFrames++;
 }

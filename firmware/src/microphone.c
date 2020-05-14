@@ -2,12 +2,13 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-11 20:50:04
+* @Last Modified time: 2020-05-14 15:43:21
 */
 #include "microphone.h"
 
 #include "main.h"
 #include "util.h"
+#include "app.h"
 
 #include "arm_math.h"
 
@@ -546,13 +547,21 @@ static void preprocess16bit(int16_t * outPtr, int32_t * srcPtr, uint32_t nProces
 void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter)
 {
   regConvCplt = true;
-  appAudioEvent(2);
+
+  // preprocess
+  preprocess16bit(proc16bitBuffer, &dataBuffer[RAW_BUFFER_SIZE/2], RAW_BUFFER_SIZE/2); //dst, src, N
+
+  appAudioEvent(2, proc16bitBuffer);
 }
 
 void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter)
 {
   regConvHalfCplt = true;
   dbg32++;
-  appAudioEvent(1);
+
+  // preprocess
+  preprocess16bit(proc16bitBuffer, &dataBuffer[0], RAW_BUFFER_SIZE/2); //dst, src, N
+    
+  appAudioEvent(1, proc16bitBuffer);
 }
 

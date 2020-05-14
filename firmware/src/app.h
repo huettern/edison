@@ -14,4 +14,4 @@ int8_t appMicMfccInfereBlocks (uint8_t *args);
 
 void appNnomKwsInit(void);
 void appNnomKwsRun(void);
-void appAudioEvent(uint8_t evt);
+void appAudioEvent(uint8_t evt, int16_t *buf);

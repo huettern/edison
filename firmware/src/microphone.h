@@ -2,6 +2,8 @@
 
 #include "main.h"
 
+#define MIC_FRAME_SIZE 1024
+
 void micInit(void);
 uint32_t micSampleSingle(int32_t ** data, uint32_t n);
 void micEndlessStream(void);
