@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-14 18:49:27
+* @Last Modified time: 2020-05-14 21:27:24
 */
 #include "app.h"
 #include <stdlib.h>
@@ -15,6 +15,7 @@
 #include "hostinterface.h"
 #include "cyclecounter.h"
 #include "mfcc.h"
+#include "led.h"
 
 /*------------------------------------------------------------------------------
  * Types
@@ -257,6 +258,11 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     if( (tmpf > TRUE_THRESHOLD) )
     {
       printf(" spotted %s", aiGetKeywordFromIndex(tmp32));
+      ledSet(1<<tmp32);
+    }
+    else
+    {
+      ledSet(0);
     }
     printf("\n");
 
@@ -279,6 +285,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
   // hiSendF32(netInBuf, 12*AI_NET_INSIZE, 0x20);
 
   free(netInSnapshot);
+  ledSet(0);
 
   return ret;
 }

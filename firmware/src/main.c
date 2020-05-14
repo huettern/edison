@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-11 20:59:21
+* @Last Modified time: 2020-05-14 21:26:25
 */
 
 #include "main.h"
@@ -14,6 +14,7 @@
 #include "ai.h"
 #include "ai_nnom.h"
 #include "cyclecounter.h"
+#include "led.h"
 
 #include <stdarg.h>
 
@@ -73,6 +74,7 @@ int main(void)
   MX_CRC_Init();
   MX_TIM1_Init();
   MX_UART4_Init();
+  ledInit();
   
   printf("%s / %s / %s / %s\n",
              verProgName, verVersion,
@@ -84,6 +86,20 @@ int main(void)
              verBuildDate, verGitSha);
   micInit();
   audioInit();
+
+  for(int i = 0; i < 7; i++)
+  {
+    ledSet(ledGet() | (1<<(i%8)));
+    HAL_Delay(50);
+  }
+  ledSet(0xff); HAL_Delay(500);
+  for(int i = 0; i < 20; i++)
+  {
+    ledSet(0xff);
+    HAL_Delay((20-i)*1);
+    ledSet(0x00);
+    HAL_Delay(i*1);
+  }
   
 #ifdef CUBE_VERIFICATION
   MX_X_CUBE_AI_Init();
