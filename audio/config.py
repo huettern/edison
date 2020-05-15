@@ -10,6 +10,7 @@ sample_rate = fs
 first_mfcc = 0
 num_mfcc = 13
 nSamples = int(sample_len_seconds*fs)
+sample_len = int(sample_len_seconds*fs)
 frame_step = frame_length
 frame_len = frame_length
 frame_count = 0 # 0 for auto
@@ -22,6 +23,13 @@ MEL_HIGH_FREQUENCY_Q = 1127.0
 MEL_BREAK_FREQUENCY_HERTZ = 700.0
 
 # net
-net_input_scale = 1.0 / 16
-net_input_clip_min = -128
-net_input_clip_max = 127
+
+# for nnom net
+# net_input_scale = 1.0 / 16
+# net_input_clip_min = -128
+# net_input_clip_max = 127
+
+# for cube net
+net_input_scale = 1.0
+net_input_clip_min = -2**15
+net_input_clip_max = 2**15-1

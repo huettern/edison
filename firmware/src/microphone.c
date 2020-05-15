@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-15 13:47:48
+* @Last Modified time: 2020-05-15 20:46:34
 */
 #include "microphone.h"
 
@@ -37,7 +37,16 @@
  * experimentally determined offset from output
  */
 #define OFFSET_DATA 316736
-#define GAIN 16
+
+/**
+ * Mic data is shifted down from 32 bit to 16 bit. this gain reduces this shift
+ * to get more dynamic. Should not exceed 16. Total gain is
+ * 
+ * G = GAIN * 2^SHIFT_GAIN
+ */
+#define SHIFT_GAIN 5
+#define GAIN 1
+
 
 typedef struct 
 {
@@ -537,7 +546,7 @@ static void preprocess16bit(int16_t * outPtr, int32_t * srcPtr, uint32_t nProces
   for(int i = 0; i < nProcess; i++)
   {
     // get only 16 bits of data
-    outPtr[i] = GAIN * (int16_t)( (srcPtr[i] >> (16)) &0x0000ffff);
+    outPtr[i] = GAIN * (int16_t)( (srcPtr[i] >> (16-SHIFT_GAIN)) &0x0000ffff);
   }
 }
 

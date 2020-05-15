@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-14 19:45:55
+# @Last Modified time: 2020-05-15 20:49:48
 
 import sys
 
@@ -338,11 +338,11 @@ def frameInference():
 
     if data.dtype == 'float32':
       data = ( (2**15-1)*data).astype('int16')
-      # Cut/pad sample
-      if data.shape[0] < nSamples:
-        data = np.pad(data, (0, nSamples-data.shape[0]), mode='edge')
-      else:
-        data = data[:nSamples]
+    # Cut/pad sample
+    if data.shape[0] < nSamples:
+      data = np.pad(data, (0, nSamples-data.shape[0]), mode='edge')
+    else:
+      data = data[:nSamples]
     
     # # Cut/pad sample
     # if data.shape[0] < sample_len:

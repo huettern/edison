@@ -1,9 +1,6 @@
 "edison",
- "cinema",
  "on",
  "off",
- "bedroomlight",
- "kitchenlight",
- "livingroomlight",
+ "cinema",
  "_cold",
  "_noise"

@@ -27,7 +27,7 @@ use_mfcc_log = False
 from config import *
 
 # training hyperparameters
-epochs = 10
+epochs = 100
 batchSize = 100
 initial_learningrate = 0.0005
 threshold=0.9 # for a true prediction
@@ -39,6 +39,16 @@ model_name = cache_dir+'/kws_model.h5'
 # Where to find data
 # data_path = 'train/.cache/speech_commands_v0.02'
 data_path = 'acquire/noah'
+
+# load data
+# keywords, coldwords, noise = ['off', 'cinema','kitchenlight','livingroomlight','bedroomlight', 'on', 'edison'], ['_cold_word'], 0.1 # keywords, coldwords and noise
+
+# own set, keywords only
+# keywords, coldwords, noise = ['edison', 'on', 'off','cinema', 'bedroom','kitchen','livingroom'], ['_cold_word'], 0.4
+keywords, coldwords, noise = ['edison', 'on', 'off','cinema'], ['_cold_word'], 0.4
+
+# for speech commands data set
+# keywords, coldwords, noise = ['marvin', 'zero', 'cat', 'left'], ['sheila', 'seven', 'up', 'right'], 0.1
 
 ##################################################
 # Model definition
@@ -728,15 +738,6 @@ def createNnomWeights(model, x_test):
 # main
 ######################################################################
 if __name__ == '__main__':
-  # load data
-  # keywords, coldwords, noise = ['off', 'cinema','kitchenlight','livingroomlight','bedroomlight', 'on', 'edison'], ['_cold_word'], 0.1 # keywords, coldwords and noise
-  
-  # own set, keywords only
-  keywords, coldwords, noise = ['edison', 'cinema', 'on', 'off','bedroomlight','kitchenlight','livingroomlight'], ['_cold_word'], 0.4
-  
-  # for speech commands data set
-  # keywords, coldwords, noise = ['marvin', 'zero', 'cat', 'left'], ['sheila', 'seven', 'up', 'right'], 0.1
-  
   x_train, x_test, x_val, y_train, y_test, y_val, keywords = load_data(keywords, coldwords, noise, playsome=False)
   print('Received keywords:',keywords)
 

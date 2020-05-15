@@ -67,7 +67,7 @@
     data_in_1 \
   }; \
 
-#define AI_MNETWORK_OUT_1_SIZE_BYTES 36
+#define AI_MNETWORK_OUT_1_SIZE_BYTES 24
 #define AI_MNETWORK_OUT_NUM 1
 #define DEF_DATA_OUT \
   AI_ALIGNED(4) ai_i8 data_out_1[AI_MNETWORK_OUT_1_SIZE_BYTES]; \

@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-05-14 21:05:15
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-15 15:54:22
+* @Last Modified time: 2020-05-15 21:34:37
 * 
 * WS2811 code adapted from https://github.com/MaJerle/stm32-ws2812b-tim-pwm-dma/blob/master/Src/main.c
 */
@@ -86,6 +86,8 @@ void ledInit(void)
   GPIO_InitStruct.Pin = GPIO_PIN_14;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
+  return;
+  
   /**
    * @brief WS2811
    */
