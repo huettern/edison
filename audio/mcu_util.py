@@ -342,7 +342,6 @@ def getSingleLiveInference():
   while True:
     line = ser.readline().decode("utf-8")
     if line.startswith('pred: ['):
-
       net_out = np.array([float(x) for x in line[line.index('[')+2:line.index(']')-1].split(' ')])
       ampl = float(line[line.index('ampl'):line.index('likely')].split(' ')[1])
       likely = line[line.index('likely')+8:]

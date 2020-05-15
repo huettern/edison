@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-14 21:27:24
+* @Last Modified time: 2020-05-15 09:45:35
 */
 #include "app.h"
 #include <stdlib.h>
@@ -27,7 +27,8 @@
 /**
  * @brief Consider network output above this thershold as hit
  */
-#define TRUE_THRESHOLD 0.6
+#define TRUE_THRESHOLD 0.9
+#define NET_OUT_MOVING_AVG_ALPHA 0.5
 
 /**
  * @brief Enable this to show profiling on arduino Tx pin
@@ -69,7 +70,9 @@ static volatile uint8_t audioEvent = 0;
 static volatile uint32_t processedFrames;
 static volatile uint16_t lastAmplitude;
 static uint16_t in_x, in_y;
-  
+
+static float netOutFilt[AI_NET_OUTSIZE];
+
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
@@ -218,6 +221,10 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
 
   void* netInSnapshot = malloc(AI_NET_INSIZE_BYTES);
 
+  // clear net out buff filt
+  for(int i = 0; i < AI_NET_OUTSIZE; i++) netOutFilt[i] = 0.0;
+
+  mainSetPrintfUart(&huart1);
   aiGetInputShape(&in_x, &in_y); // x = 13, y = 62 (nframes)
   printf("Input shape x,y: (%d,%d)\n", in_x, in_y);
 
@@ -253,7 +260,10 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     }
     printf("] ret: %d ampl: %d", ret, lastAmplitude);
 
-    arm_max_f32(netOutFloat, AI_NET_OUTSIZE, &tmpf, &tmp32);
+    // moving average filter on net output
+    for(int i = 0; i < AI_NET_OUTSIZE; i++) netOutFilt[i] = (NET_OUT_MOVING_AVG_ALPHA*netOutFilt[i] + (1.0-NET_OUT_MOVING_AVG_ALPHA)*netOutFloat[i]);
+
+    arm_max_f32(netOutFilt, AI_NET_OUTSIZE, &tmpf, &tmp32);
     printf(" likely: %s", aiGetKeywordFromIndex(tmp32));
     if( (tmpf > TRUE_THRESHOLD) )
     {
@@ -266,7 +276,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     }
     printf("\n");
 
-    if(netOutFloat[0] > TRUE_THRESHOLD) LED2_ORA();
+    if(netOutFilt[0] > TRUE_THRESHOLD) LED2_ORA();
     else LED2_BLU();
 
     // check abort condition
@@ -286,6 +296,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
 
   free(netInSnapshot);
   ledSet(0);
+  mainSetPrintfUart(&huart4);
 
   return ret;
 }

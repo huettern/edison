@@ -763,7 +763,7 @@ if __name__ == '__main__':
     plotMfcc(keywords)
     plt.show()
   if sys.argv[1] == 'mic':
-    net_input, mic_data, host_preds = micInference(model, keywords, abort_after=0)
+    net_input, mic_data, host_preds = micInference(model, keywords, abort_after=31)
     plotMfccFromData(mic_data, net_input)
     plotMfcc(keywords)
     plotPredictions(keywords, mic_data, host_preds)
