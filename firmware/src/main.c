@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-14 21:26:25
+* @Last Modified time: 2020-05-15 15:53:27
 */
 
 #include "main.h"
@@ -75,6 +75,7 @@ int main(void)
   MX_TIM1_Init();
   MX_UART4_Init();
   ledInit();
+  ledSetColorAll(0, 0, 0); ledUpdate(0);
   
   printf("%s / %s / %s / %s\n",
              verProgName, verVersion,
@@ -89,12 +90,15 @@ int main(void)
 
   for(int i = 0; i < 7; i++)
   {
+    ledSetColor(i, 0, 0, 200); ledUpdate(0);
     ledSet(ledGet() | (1<<(i%8)));
     HAL_Delay(50);
   }
   ledSet(0xff); HAL_Delay(500);
   for(int i = 0; i < 20; i++)
   {
+    ledSetColorAll(0, 0, (19-i)*12);
+    ledUpdate(0);
     ledSet(0xff);
     HAL_Delay((20-i)*1);
     ledSet(0x00);
@@ -127,6 +131,29 @@ int main(void)
 
   /* TESTS --------------------------------------------------------*/
   // audioDevelop();
+
+  /* led test --------------------------------------------------------*/
+  // while(1)
+  // {
+  //   ledSetColorAll(0xff, 0x00, 0x00);
+  //   ledUpdate(1);
+
+  //   while (1)
+  //   {
+  //     for (int i = 0; i < LED_CFG_LEDS_CNT; i++) 
+  //     {
+  //       ledSetColor((i + 0) % LED_CFG_LEDS_CNT, 0x1F, 0, 0);
+  //       ledSetColor((i + 1) % LED_CFG_LEDS_CNT, 0, 0x1F, 0);
+  //       ledSetColor((i + 2) % LED_CFG_LEDS_CNT, 0, 0, 0x1F);
+  //       ledSetColor((i + 3) % LED_CFG_LEDS_CNT, 0, 0, 0);
+  //       ledSetColor((i + 4) % LED_CFG_LEDS_CNT, 0, 0, 0);
+  //       ledUpdate(1);
+  //       ledSetColorAll(0, 0, 0);
+        
+  //       HAL_Delay(100);
+  //     }
+  //   }
+  // }
 
   /* net input format --------------------------------------------------------*/
   // static float netInput[AI_NET_INSIZE_BYTES/4];

@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:51:28
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-04-20 14:32:03
+* @Last Modified time: 2020-05-15 15:34:29
 */
 
 #include "main.h"
@@ -96,6 +96,14 @@ void SysTick_Handler(void)
 void USART1_IRQHandler(void)
 {
   HAL_UART_IRQHandler(&huart1);
+}
+
+/**
+  * @brief This function handles DMA1 channel1 global interrupt.
+  */
+void DMA1_Channel1_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_tim2_ch3);
 }
 
 /**

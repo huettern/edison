@@ -35,8 +35,18 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart4; // on arduino pins
 DFSDM_Channel_HandleTypeDef hdfsdm1_ch1;
 DFSDM_Filter_HandleTypeDef hdfsdm1_filter0;
+
+#define DFSDM_DMA_INSTANCE DMA1_Channel4
+#define DFSDM_DMA_REQUEST DMA_REQUEST_0
 DMA_HandleTypeDef hdma_dfsdm1_flt0;
+
 CRC_HandleTypeDef hcrc;
+
+// WS2811 led
+#define LED_DMA_INSTANCE DMA1_Channel1
+#define LED_DMA_REQUEST DMA_REQUEST_4
+TIM_HandleTypeDef htim2;
+DMA_HandleTypeDef hdma_tim2_ch3;
 
 #define MAIN_TIM1_TICK_US 10
 TIM_HandleTypeDef htim1;
