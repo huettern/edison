@@ -217,13 +217,11 @@ if __name__ == '__main__':
       net_outs  = np.load(cache_dir+'/net_outs.npy')
     except:
       net_outs, ampls, likelys, spotteds = kwsMCUThd(xdata, ydata)
-      np.save(cache_dir+'/net_outs.npy', net_outs)
+      # np.save(cache_dir+'/net_outs.npy', net_outs)
 
     print(net_outs)
     plotNetOutputHistory(net_outs)
     netOutF = netOutFilt(net_outs,0.5)
-    plotNetOutputHistory(netOutF)
-    netOutF = netOutFilt(net_outs,0.9)
     plotNetOutputHistory(netOutF)
     plt.show()
 

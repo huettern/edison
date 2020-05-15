@@ -27,10 +27,10 @@ use_mfcc_log = False
 from config import *
 
 # training hyperparameters
-epochs = 100
+epochs = 10
 batchSize = 100
 initial_learningrate = 0.0005
-threshold=0.6 # for a true prediction
+threshold=0.9 # for a true prediction
 
 # storing temporary data and model
 cache_dir = '.cache/allinone'
@@ -187,15 +187,19 @@ def load_speech_commands(keywords=None, coldwords=None, sample_len=2*16000, play
     if x.shape[0] < sample_len:
       # x = np.pad(x, (0, sample_len-x.shape[0]), mode='edge')
       # print(x.shape)
+      
       # shift samples around
       pad_variants = 1 +(sample_len-x.shape[0])//frame_length
-      # fig = plt.figure()
-      # ax = fig.add_subplot(111)
+      doPlot = False
+      if doPlot and 'kitchenlight' in data_to_use[i]:  
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
       for pad_variant_cnt in range(pad_variants):
         prepad = pad_variant_cnt*frame_length
         postpad = sample_len-x.shape[0]-prepad
         chunk = np.pad(x.copy(), (prepad, postpad), mode='constant', constant_values=(0,0))
-        # ax.plot(chunk)
+        if doPlot and 'kitchenlight' in data_to_use[i]:  
+          ax.plot(chunk)
         assert chunk.shape[0] == sample_len
         # add to sample list
         already_appended = True
@@ -204,7 +208,9 @@ def load_speech_commands(keywords=None, coldwords=None, sample_len=2*16000, play
           y_list.append(keywords.index(data_to_use[i].split('/')[-2]))
         else:
           y_list.append(keywords.index('_cold'))
-      # plt.show()
+        # print('Appended',y_list[-1],'kwd',keywords[y_list[-1]], 'file', data_to_use[i])
+      if doPlot and 'kitchenlight' in data_to_use[i]:  
+        plt.show()
     else:
       cut_cnt += 1
       x = x[:sample_len]
@@ -229,6 +235,7 @@ def load_speech_commands(keywords=None, coldwords=None, sample_len=2*16000, play
       x_list.append( np.array((2**15-1)*noise_ampl*rnd/rnd.max(), dtype='int16') )
       assert x_list[-1].shape[0] == sample_len
       y_list.append(keywords.index('_noise'))
+  print('Added',y_list.count(keywords.index('_noise')), 'noise frames')
 
   x = np.asarray(x_list)
   y = np.asarray(y_list)
@@ -459,6 +466,17 @@ def load_data(keywords, coldwords, noise, playsome=False):
     y_train = to_categorical(y_train, num_classes=None)
     y_test = to_categorical(y_test, num_classes=None)
     y_val = to_categorical(y_val, num_classes=None)
+
+    # shuffle data
+    permutation = np.random.permutation(x_test.shape[0])
+    x_test = x_test[permutation, :, :]
+    y_test = y_test[permutation, :]
+    permutation = np.random.permutation(x_train.shape[0])
+    x_train = x_train[permutation, :, :]
+    y_train = y_train[permutation, :]
+    permutation = np.random.permutation(x_val.shape[0])
+    x_val = x_val[permutation, :, :]
+    y_val = y_val[permutation, :]
 
     # store data
     print('Store mfcc data')
@@ -711,10 +729,10 @@ def createNnomWeights(model, x_test):
 ######################################################################
 if __name__ == '__main__':
   # load data
-  # keywords, noise = ['edison', 'cinema', 'on', 'off', '_cold_word'], 0.1 # keywords, coldwords and noise
+  # keywords, coldwords, noise = ['off', 'cinema','kitchenlight','livingroomlight','bedroomlight', 'on', 'edison'], ['_cold_word'], 0.1 # keywords, coldwords and noise
   
   # own set, keywords only
-  keywords, coldwords, noise = ['edison', 'cinema', 'on', 'off'], ['_cold_word'], 0.1
+  keywords, coldwords, noise = ['edison', 'cinema', 'on', 'off','bedroomlight'], ['_cold_word'], 0.4
   
   # for speech commands data set
   # keywords, coldwords, noise = ['marvin', 'zero', 'cat', 'left'], ['sheila', 'seven', 'up', 'right'], 0.1
@@ -741,6 +759,10 @@ if __name__ == '__main__':
     model.save(model_name)
     print('Model saved as %s' % (model_name))
 
+    with open(cache_dir+'/keywords.txt','w') as fd:
+      print('dbg',keywords)
+      fd.write(np.array2string(np.array(keywords), max_line_width=0, separator=',').replace('\'','\"').replace('[','').replace(']',''))
+
   else:
     # load model
     model = keras.models.load_model(model_name)
@@ -763,7 +785,7 @@ if __name__ == '__main__':
     plotMfcc(keywords)
     plt.show()
   if sys.argv[1] == 'mic':
-    net_input, mic_data, host_preds = micInference(model, keywords, abort_after=31)
+    net_input, mic_data, host_preds = micInference(model, keywords, abort_after=0)
     plotMfccFromData(mic_data, net_input)
     plotMfcc(keywords)
     plotPredictions(keywords, mic_data, host_preds)
@@ -776,8 +798,6 @@ if __name__ == '__main__':
   if sys.argv[1] == 'nnom':
     from nnom_utils import generate_model
     createNnomWeights(model, x_test)
-    with open(cache_dir+'/keywords.txt','w') as fd:
-      fd.write(np.array2string(keywords).replace('\'','\"').replace('[','').replace(']','').replace(' ',', '))
 
 
 
