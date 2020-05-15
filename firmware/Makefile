@@ -73,6 +73,7 @@ USR_DEFINES =
 # CubeAI network
 CUBEAI_LOCATION=build/cube/tmp
 CUBEAI_NET_NAME=kws
+CUBEAI_KEYWORDS=../audio/.cache/allinone/keywords.txt
 CUBEAI_INC = -Isrc/lib/ST/AI/Inc -Isrc/ai/cube/$(CUBEAI_NET_NAME)
 CUBEAI_LIBDIR = -Lsrc/lib/ST/AI/Lib
 CUBEAI_LIB = -l:NetworkRuntime500_CM4_GCC.a
@@ -200,6 +201,8 @@ HALCFLAGS  = $(MCU) $(C_DEFS) $(C_INCLUDES) $(HAL_OPT) $(GCC_FLAGS)
 # debug?
 ifeq ($(DEBUG), 1)
 	CFLAGS += -g -gdwarf-2
+	CMSISCFLAGS += -g -gdwarf-2
+	HALCFLAGS += -g -gdwarf-2
 endif
 
 # Generate dependency information?
@@ -246,6 +249,7 @@ mdebug:
 
 import-cubeai-net:
 	./scripts/import-cubeai-net.sh $(CUBEAI_LOCATION) $(CUBEAI_NET_NAME) src/lib/ST src/ai/cube/$(CUBEAI_NET_NAME)
+	cp $(CUBEAI_KEYWORDS) src/ai/cube/
 
 import-nnom-net:
 	./scripts/import-nnom-net.sh $(NNOM_REPO) $(NNOM_WEIGHTS) $(NNOM_NAME) $(NNOM)
