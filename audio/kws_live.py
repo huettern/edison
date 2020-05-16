@@ -20,9 +20,8 @@ if len(sys.argv) < 2:
 
 cache_dir = '.cache/kws_mcu'
 # model_file = 'train/.cache/kws_keras/kws_model_medium_embedding_conv.h5'
-model_file = 'train/.cache/kws_keras/kws_model_nnom.h5'
-
-keywords = np.load('train/.cache/kws_keras/keywords.npy')
+model_file ='.cache/allinone/kws_model.h5'
+keywords = np.load('.cache/allinone/keywords.npy')
 threshold = 0.6
 
 # Load trained model
@@ -43,7 +42,7 @@ ydata = [np.zeros((1,output_size))]
 mic_data = []
 
 # abort when
-abort_after = 10
+abort_after = 50
 
 # mfcc_fun = mfu.mfcc_mcu
 mfcc_fun = mfu.mfcc
@@ -123,10 +122,19 @@ def kwsMCUThd(xdata, ydata):
     print('MCU error')
     exit()
 
+  net_outs, ampls, likelys, spotteds = [],[],[],[]
   while True:
 
     net_out, ampl, likely, spotted = mcu.getSingleLiveInference()
+    
+    net_outs.append(net_out)
+    ampls.append(ampl)
+    likelys.append(likely)
+    spotteds.append(spotted)
+    
     print(net_out)
+    if spotted is not None:
+      print(spotted)
 
     # plotting
     xdata.append(xdata[-1] + frame_length/fs)
@@ -135,34 +143,25 @@ def kwsMCUThd(xdata, ydata):
     abort_after -= 1
     if abort_after == 0:
       mcu.write(b'0')
-      return
+      return np.array(net_outs), np.array(ampls), np.array(likelys), np.array(spotteds)
 
-######################################################################
-# Plot animation
-######################################################################
+def netOutFilt(net_outs, alpha):
+  
+  netOutFlt = [len(net_outs[0])*[0]]
 
-# fig = plt.figure()
-# ax = plt.axes(xlim=(0, 100), ylim=(0, 1))
-# nlines = output_size
-# lines = []
+  for out in net_outs:
+    # moving average
+    new_el = []
 
-# for n in range(nlines):
-#   line, = ax.plot([], [], label=('%d'%n))
-#   lines.append(line)
-#   ax.grid(True)
-#   ax.legend()
+    for i in range(len(out)):
+      new_el.append(alpha*netOutFlt[-1][i] + (1.0-alpha)*out[i])
 
-# def init():
-#     for line in lines:
-#       line.set_data([], [])
-#     return line,
-# def animate(i):
-#   global xdata, ydata
-#   n = 0
-#   for line in lines:
-#     line.set_data(xdata, np.array(ydata).reshape(-1,output_size)[:,n])
-#     n += 1
-#   return line,
+    netOutFlt.append(new_el)
+
+  print(np.array(netOutFlt))
+  return np.array(netOutFlt)
+
+
 
 ######################################################################
 # Plot after
@@ -184,20 +183,21 @@ def plotNetOutputHistory():
   ax[1].set_xlim((0, 1))
   ax[1].legend()
 
+def plotNetOutputHistory(net_out, title):
+  
+  fig = plt.figure()
+  ax = fig.add_subplot(1, 1, 1)
+
+  ax.plot(net_out)
+  ax.legend([k.replace('_','') for k in keywords.tolist()])
+  ax.grid(True)
+  ax.set_title(title)
+
 
 ######################################################################
 # main
 ######################################################################
 if __name__ == '__main__':
-  # Live plotting, slow
-  # from matplotlib.animation import FuncAnimation
-  # print('output_size', output_size)
-  # thd = threading.Thread(target=kwsHostThd, args=(xdata, ydata))
-  # thd.start()
-  # sleep(2)
-  # anim = FuncAnimation(fig, animate, init_func=init, interval=200, blit=True)
-  # plt.show()
-
   import sys
 
   if sys.argv[1] == 'host':
@@ -213,9 +213,17 @@ if __name__ == '__main__':
   if sys.argv[1] == 'mcu':
     # post mortem plot
     print('output_size', output_size)
-    kwsMCUThd(xdata, ydata)
 
-    plotNetOutputHistory()
+    # try:
+    #   net_outs  = np.load(cache_dir+'/net_outs.npy')
+    # except:
+    net_outs, ampls, likelys, spotteds = kwsMCUThd(xdata, ydata)
+    np.save(cache_dir+'/net_outs.npy', net_outs)
+
+    # print(net_outs)
+    plotNetOutputHistory(net_outs, 'raw outs MCU')
+    netOutF = netOutFilt(net_outs,0.5)
+    plotNetOutputHistory(netOutF, 'MCU out filt 0.5')
     plt.show()
 
 
