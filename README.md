@@ -2,6 +2,13 @@
 
 ## Setup
 
+Quick compile of MCU firmware and flash:
+```bash
+cd firmware/
+make -j8 flash
+```
+
+To train the model from extracted feature data, follow the following guide.
 ```bash
 # clone and python env setup
 git clone https://github.com/noah95/edison
@@ -16,11 +23,17 @@ python allinone.py train
 
 # copy model to firmware directory and convert using Cube
 cp .cache/allinone/kws_model.h5 ../firmware/src/ai/cube/kws/kws_model.h5
-mkdir -p ../firmware/build/cube/
-# <-- open cube, load model, analyze and generate source code -->
+#  - open cube project firmware/CubeMX/edison.ioc
+#  - Additional Software -> STMicro... -> kws
+#  - Browse: select firmware/src/ai/cube/kws/kws_model.h5
+#  - Analyze
+#  - GENERATE CODE
+
+# import net to firmware folder
+cd ../firmware/
+make import-cubeai-net
 
 # build MCU code
-cd ../firmware/
 make -j8
 
 # Flash board
