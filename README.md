@@ -9,7 +9,7 @@ cd edison
 source bootstrap.sh
 
 # fetch training data
-cp -rv ~/git/mlmcu-project/audio/acquire/noah acquire/
+curl -L https://github.com/noah95/edison/releases/download/v1.0/keywords-4-noah.tar.gz | tar xvz
 
 # train model
 python allinone.py train
@@ -25,6 +25,14 @@ make -j8
 
 # Flash board
 make flash
+```
+
+### Store snapshot of training data
+This can then be uploaded to a github release asset.
+
+```bash
+cd audio/
+tar -czvf keywords-4-noah.tar.gz .cache/allinone/*.npy
 ```
 
 
