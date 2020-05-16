@@ -23,6 +23,13 @@ MEL_HIGH_FREQUENCY_Q = 1127.0
 MEL_BREAK_FREQUENCY_HERTZ = 700.0
 
 # net
-net_input_scale = 1.0 / 16
-net_input_clip_min = -128
-net_input_clip_max = 127
+
+# NNoM
+# net_input_scale = 1.0 / 16
+# net_input_clip_min = -128
+# net_input_clip_max = 127
+
+# Cube
+net_input_scale = 1.0
+net_input_clip_min = -2**15
+net_input_clip_max = 2**15-1
