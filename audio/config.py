@@ -10,6 +10,7 @@ sample_rate = fs
 first_mfcc = 0
 num_mfcc = 13
 nSamples = int(sample_len_seconds*fs)
+sample_len = int(sample_len_seconds*fs)
 frame_step = frame_length
 frame_len = frame_length
 frame_count = 0 # 0 for auto
