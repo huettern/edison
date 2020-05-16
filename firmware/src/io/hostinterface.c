@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-14 13:49:21
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-10 17:32:13
+* @Last Modified time: 2020-05-15 09:48:10
 */
 
 #include "hostinterface.h"
@@ -124,9 +124,23 @@ void hifRun(void)
   uint8_t cmdId;
   uint8_t ret;
   const hifCommand_t *cmd;
+  HAL_StatusTypeDef stat;
 
   // wait for 1 data bytes to arrive
-  HAL_UART_Receive(&huart1, &cmdId, 1, HAL_MAX_DELAY);
+  stat = HAL_UART_Receive(&huart1, &cmdId, 1, 100);
+
+  // on rx timeout and button press, call continuous inference
+  if(stat == HAL_TIMEOUT)
+  {
+    if(IS_BTN_PRESSED())
+    {
+      appMicMfccInfereContinuous(argsBuf);
+    }
+    else
+    {
+      return;
+    }
+  }
 
   // get number of arguments to expect
   cmd = &cmds[0];
