@@ -71,7 +71,7 @@ USR_DEFINES =
 
 ##############################################################################
 # CubeAI network
-CUBEAI_LOCATION=build/cube/tmp
+CUBEAI_LOCATION=CubeMX
 CUBEAI_NET_NAME=kws
 CUBEAI_INC = -Isrc/lib/ST/AI/Inc -Isrc/ai/cube/$(CUBEAI_NET_NAME)
 CUBEAI_LIBDIR = -Lsrc/lib/ST/AI/Lib
