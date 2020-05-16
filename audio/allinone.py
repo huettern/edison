@@ -271,7 +271,7 @@ def load_speech_commands(keywords=None, coldwords=None, sample_len=2*16000, play
     (X_train.shape[0], X_test.shape[0], X_val.shape[0]))
   print(keywords)
 
-  return X_train, y_train, X_test, y_test, X_val, y_val, keywords
+  return X_train, y_train, X_test, y_test, X_val, y_val, np.array(keywords)
 
 
 ##################################################
@@ -747,6 +747,9 @@ if __name__ == '__main__':
     model.summary()
     print('Model loaded %s' % (model_name))
 
+  with open(cache_dir+'/keywords.txt','w') as fd:
+    fd.write(np.array2string(keywords).replace('\'','\"').replace('[','').replace(']','').replace(' ',', '))
+
   # fig, axs = plotSomeMfcc(x_train, x_test, y_train, y_test, keywords)
   # plt.show()
   # exit()
@@ -776,8 +779,6 @@ if __name__ == '__main__':
   if sys.argv[1] == 'nnom':
     from nnom_utils import generate_model
     createNnomWeights(model, x_test)
-    with open(cache_dir+'/keywords.txt','w') as fd:
-      fd.write(np.array2string(keywords).replace('\'','\"').replace('[','').replace(']','').replace(' ',', '))
 
 
 

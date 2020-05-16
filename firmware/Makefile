@@ -77,6 +77,7 @@ CUBEAI_INC = -Isrc/lib/ST/AI/Inc -Isrc/ai/cube/$(CUBEAI_NET_NAME)
 CUBEAI_LIBDIR = -Lsrc/lib/ST/AI/Lib
 CUBEAI_LIB = -l:NetworkRuntime500_CM4_GCC.a
 CUBEAI_SRC = 	$(wildcard src/ai/cube/$(CUBEAI_NET_NAME)/*.c)
+CUBE_KEYWORDS = ../audio/.cache/allinone/keywords.txt
 # src/ai/cube/$(CUBEAI_NET_NAME)/$(CUBEAI_NET_NAME).c \
 # 							src/ai/cube/$(CUBEAI_NET_NAME)/$(CUBEAI_NET_NAME)_data.c \
 # 							src/ai/cube/$(CUBEAI_NET_NAME)/app_x-cube-ai.c
@@ -246,6 +247,7 @@ mdebug:
 
 import-cubeai-net:
 	./scripts/import-cubeai-net.sh $(CUBEAI_LOCATION) $(CUBEAI_NET_NAME) src/lib/ST src/ai/cube/$(CUBEAI_NET_NAME)
+	cp $(CUBE_KEYWORDS) src/ai/cube/$(CUBEAI_NET_NAME)
 
 import-nnom-net:
 	./scripts/import-nnom-net.sh $(NNOM_REPO) $(NNOM_WEIGHTS) $(NNOM_NAME) $(NNOM)
