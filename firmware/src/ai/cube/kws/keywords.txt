@@ -1,0 +1,1 @@
+"edison", "cinema", "on", "off", "_cold", "_noise"
