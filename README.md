@@ -1,5 +1,33 @@
 # Edison - Low Power Voice Commands [![Build Status](https://travis-ci.com/noah95/edison.svg?token=W9DfQq55LKsHhNiMPYw5&branch=master)](https://travis-ci.com/noah95/edison)
 
+## Setup
+
+```bash
+# clone and python env setup
+git clone https://github.com/noah95/edison
+cd edison
+source bootstrap.sh
+
+# fetch training data
+cp -rv ~/git/mlmcu-project/audio/acquire/noah acquire/
+
+# train model
+python allinone.py train
+
+# copy model to firmware directory and convert using Cube
+cp .cache/allinone/kws_model.h5 ../firmware/src/ai/cube/kws/kws_model.h5
+mkdir -p ../firmware/build/cube/
+# <-- open cube, load model, analyze and generate source code -->
+
+# build MCU code
+cd ../firmware/
+make -j8
+
+# Flash board
+make flash
+```
+
+
 ## Comparing networks
 Different implementation techniques are compared.
 
