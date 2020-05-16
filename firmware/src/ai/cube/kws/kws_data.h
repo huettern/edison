@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    kws_data.h
   * @author  AST Embedded Analytics Research Platform
-  * @date    Thu May 14 20:01:00 2020
+  * @date    Sat May 16 13:52:04 2020
   * @brief   AI Tool Automatic Code Generator for Embedded NN computing
   ******************************************************************************
   * @attention
