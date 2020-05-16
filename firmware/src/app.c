@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-14 21:27:24
+* @Last Modified time: 2020-05-16 13:32:56
 */
 #include "app.h"
 #include <stdlib.h>
@@ -223,6 +223,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
 
   // start continuous mic sampling
   processedFrames = 0;
+  mainSetPrintfUart(&huart1);
   micContinuousStart();
 
   // fill buffer once
@@ -286,6 +287,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
 
   free(netInSnapshot);
   ledSet(0);
+  mainSetPrintfUart(&huart4);
 
   return ret;
 }
