@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-16 14:01:50
+* @Last Modified time: 2020-05-16 14:13:24
 */
 #include "app.h"
 #include <stdlib.h>
@@ -29,6 +29,8 @@
  */
 #define TRUE_THRESHOLD 0.8
 #define NET_OUT_MOVING_AVG_ALPHA 0.5
+
+#define AMPLITUDE_MOVING_AVG_ALPHA 0.9
 
 /**
  * @brief Enable this to show profiling on arduino Tx pin
@@ -68,7 +70,7 @@ static int16_t * inFrameBuf = tmpBuf;
 
 static volatile uint8_t audioEvent = 0;
 static volatile uint32_t processedFrames;
-static volatile uint16_t lastAmplitude;
+static volatile float lastAmplitude;
 static uint16_t in_x, in_y;
 
 static float netOutFilt[AI_NET_OUTSIZE];
@@ -258,7 +260,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
       netOutFloat[tmp32] = (float)(netOutput[tmp32]);
       printf("%2.2f ", netOutFloat[tmp32]);
     }
-    printf("] ret: %d ampl: %d", ret, lastAmplitude);
+    printf("] ret: %d ampl: %.0f", ret, lastAmplitude);
 
     // moving average filter on net output
     for(int i = 0; i < AI_NET_OUTSIZE; i++) netOutFilt[i] = (NET_OUT_MOVING_AVG_ALPHA*netOutFilt[i] + (1.0-NET_OUT_MOVING_AVG_ALPHA)*netOutFloat[i]);
@@ -282,6 +284,9 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     // check abort condition
     if(IS_BTN_PRESSED() || (huart1.Instance->ISR & UART_FLAG_RXNE) ) doAbort = true;
 
+    // display amplitude
+    ledSetColor(0, ((uint16_t)(lastAmplitude)>>8)/2, (255-((uint16_t)(lastAmplitude)>>8))/2, 0);
+    ledUpdate(0);
     // if(netInBufOff > 12*in_x*in_y) doAbort = true;
   }
 
@@ -360,7 +365,7 @@ int8_t appMicMfccInfereBlocks (uint8_t *args)
       netOutFloat[tmp32] = (float)(netOutput[tmp32]);
       printf("%2.2f ", netOutFloat[tmp32]);
     }
-    printf("] ret: %d ampl: %d", ret, lastAmplitude);
+    printf("] ret: %d ampl: %f", ret, lastAmplitude);
 
     arm_max_f32(netOutFloat, AI_NET_OUTSIZE, &tmpf, &tmp32);
     printf(" likely: %s", aiGetKeywordFromIndex(tmp32));
@@ -552,7 +557,7 @@ void appAudioEvent(uint8_t evt, int16_t *buf)
 
   arm_max_q15(inFrame, MIC_FRAME_SIZE, &max, &index);
   arm_min_q15(inFrame, MIC_FRAME_SIZE, &min, &index);
-  lastAmplitude = max - min;
+  lastAmplitude = AMPLITUDE_MOVING_AVG_ALPHA*lastAmplitude + (1.0-AMPLITUDE_MOVING_AVG_ALPHA)*((float)max - (float)min);
 
   // calc mfccs
   audioCalcMFCCs(inFrame, &out_mfccs); //*inp, **oup
