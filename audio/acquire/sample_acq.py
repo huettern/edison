@@ -7,16 +7,23 @@ import json
 import pathlib
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
-
+import os
 
 fs = 16000  # Sample rate
 seconds = 2  # Duration of recording
-keywords = ["edison", "on", "off", "livingroomlight", "kitchenlight",
-            "bedroomlight", "cinema"]
+# keywords = ["edison", "on", "off", "livingroomlight", "kitchenlight",
+#             "bedroomlight", "cinema"]
+keywords = ["livingroom", "kitchen", "bedroom", "office", "off", "on"]
+out_dir = "noah/"
 max_cold_word_length = 4 # maximum number of words in a cold word sequence
 heading = 1600 # frames before threshold of cutting
 tailing = 3200 # frames after threshold of cutting
 percent_of_average_volume = 0.2
+
+stats_per_keywords = [0]*(1+len(keywords))
+
+for k in keywords:
+    stats_per_keywords[keywords.index(k)] = len([name for name in os.listdir(out_dir+k) if os.path.isfile(out_dir+k+'/'+name)])
 
 # dictionary that contains all input strings and actions to which they lead
 actions = {"r": "cancel"}
@@ -53,12 +60,15 @@ while True:
     # Print possibilities
     print("Possible actions:")
     for action_number in actions:
-        print(action_number, ':', actions[action_number])
+        if actions[action_number] in keywords:
+            print(action_number, ':', actions[action_number], "(%d)" % (stats_per_keywords[keywords.index(actions[action_number])]))
+        else:
+            print(action_number, ':', actions[action_number])
     # Define random action in this round
     random_action = np.random.randint(0, len(keywords))
     random_word = keywords[random_action]
     random_word_is_cold = random_word == cold_word
-    print(" ", ":", random_word)
+    print(" ", ":", random_word, "(%d)" % (stats_per_keywords[keywords.index(random_word)]))
 
     # Get input
     task = input("What do you like to do?")
@@ -93,12 +103,14 @@ while True:
         # Define direcotry depending on task if necessary
         if task == "":
             if random_word_is_cold:
-                directory = "out/" + "_cold_word"
+                directory = out_dir + "_cold_word"
             else:
-                directory = "out/" + random_word
+                directory = out_dir + random_word
+                stats_per_keywords[keywords.index(random_word)] += 1
 
         else:
-            directory = "out/" + keywords[task]
+            directory = out_dir + keywords[task]
+            stats_per_keywords[keywords.index(keywords[task])] += 1
 
         file_name = directory + '/' + sha1(myrecording).hexdigest()[:8] + '.wav'
 
@@ -107,21 +119,21 @@ while True:
         write(file_name, fs, myrecording)  # Save as WAV file
 
         # Write to json file
-        try:
-           with open('digest.json', 'r') as fd:
-               jfile = json.load(fd)
+        # try:
+        #    with open('digest.json', 'r') as fd:
+        #        jfile = json.load(fd)
 
-        except:
-            jfile = []
+        # except:
+        #     jfile = []
 
-        if task == "":
-            jfile.append({'file_path': file_name,
-                          'keyword': "cold"})
-        else:
-            jfile.append({'file_path': file_name,
-                          'keyword': keywords[int(task)]})
+        # if task == "":
+        #     jfile.append({'file_path': file_name,
+        #                   'keyword': "cold"})
+        # else:
+        #     jfile.append({'file_path': file_name,
+        #                   'keyword': keywords[int(task)]})
 
-        with open('digest.json', 'w') as fd:
-            json.dump(jfile, fd, indent = 2)
+        # with open('digest.json', 'w') as fd:
+        #     json.dump(jfile, fd, indent = 2)
 
         keywords = keywords[:-1]
