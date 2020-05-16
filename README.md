@@ -16,7 +16,7 @@ cd edison
 source bootstrap.sh
 
 # fetch training data
-curl -L https://github.com/noah95/edison/releases/download/v1.0/keywords-4-noah.tar.gz | tar xvz
+curl -L https://github.com/noah95/edison/releases/download/v1.1/keywords-4-noah.tar.gz | tar xvz
 
 # train model
 python allinone.py train
