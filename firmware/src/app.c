@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-16 14:13:24
+* @Last Modified time: 2020-05-17 10:38:01
 */
 #include "app.h"
 #include <stdlib.h>
@@ -27,7 +27,7 @@
 /**
  * @brief Consider network output above this thershold as hit
  */
-#define TRUE_THRESHOLD 0.8
+#define TRUE_THRESHOLD 0.5
 #define NET_OUT_MOVING_AVG_ALPHA 0.5
 
 #define AMPLITUDE_MOVING_AVG_ALPHA 0.9
