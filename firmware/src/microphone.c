@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-14 15:43:21
+* @Last Modified time: 2020-05-17 10:48:51
 */
 #include "microphone.h"
 
@@ -36,8 +36,16 @@
 /**
  * experimentally determined offset from output
  */
-#define OFFSET_DATA 316736
-#define GAIN 16
+// #define OFFSET_DATA 316736
+#define OFFSET_DATA 0
+
+/**
+ * Mic gain is G = GAIN * 2**SHIFT_GAIN
+ * 
+ * Work as much as possible with shift gain to get more bits of of data
+ */
+#define SHIFT_GAIN 6
+#define GAIN 1
 
 typedef struct 
 {
@@ -537,7 +545,7 @@ static void preprocess16bit(int16_t * outPtr, int32_t * srcPtr, uint32_t nProces
   for(int i = 0; i < nProcess; i++)
   {
     // get only 16 bits of data
-    outPtr[i] = GAIN * (int16_t)( (srcPtr[i] >> (16)) &0x0000ffff);
+    outPtr[i] = GAIN * (int16_t)( (srcPtr[i] >> (16-SHIFT_GAIN)) &0x0000ffff);
   }
 }
 
