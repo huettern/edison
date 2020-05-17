@@ -2,13 +2,20 @@
 * @Author: Noah Huetter
 * @Date:   2020-05-14 21:05:15
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-15 15:54:22
+* @Last Modified time: 2020-05-17 15:56:58
 * 
 * WS2811 code adapted from https://github.com/MaJerle/stm32-ws2812b-tim-pwm-dma/blob/master/Src/main.c
 */
 #include "led.h"
 
 #include <string.h>
+#include <stdlib.h>
+
+/**
+ * The LED fade animation wont work with optimization, couldn't figure out why
+ */
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
 
 /*------------------------------------------------------------------------------
  * Settings
@@ -38,6 +45,25 @@ static uint8_t          is_reset_pulse;     /*!< Status if we are sending reset 
 static volatile uint8_t is_updating;        /*!< Is updating in progress? */
 static uint32_t         current_led;        /*!< Current LED number we are sending */
 
+/**
+ * Animation stuff
+ */
+
+typedef struct 
+{
+  // if running and needs update
+  uint8_t running;
+  // pointer to animation structure
+  void * anim;
+  // animation handle
+  uint8_t (*handle)(void *anim);
+} animaiton_t;
+
+// allocate max number of running animations
+#define MAX_NUM_ANIMATIONS 4
+static volatile animaiton_t animations[MAX_NUM_ANIMATIONS];
+
+
 /*------------------------------------------------------------------------------
  * Types
  * ---------------------------------------------------------------------------*/
@@ -50,6 +76,9 @@ static void updateSequence(uint8_t tc);
 
 static uint8_t fillLedPwmData(size_t ledx, uint32_t* ptr);
 static uint8_t startResetPulse(uint8_t num);
+
+static uint8_t animFadeHandle(void *anim);
+static uint8_t animBreathHandle(void *anim);
 
 /*------------------------------------------------------------------------------
  * Publics
@@ -129,13 +158,13 @@ void ledInit(void)
   hdma_tim2_ch3.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
   hdma_tim2_ch3.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
   hdma_tim2_ch3.Init.Mode = DMA_NORMAL;//CIRCULAR;
-  hdma_tim2_ch3.Init.Priority = DMA_PRIORITY_VERY_HIGH;
+  hdma_tim2_ch3.Init.Priority = MAIN_DMA_PRIO_TIM2_CH3;
   __HAL_RCC_DMA1_CLK_ENABLE();
   if (HAL_DMA_Init(&hdma_tim2_ch3) != HAL_OK)
   {
     Error_Handler();
   }
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, MAIN_IRQ_DMA1_CH1_PRE, MAIN_IRQ_DMA1_CH1_SUB);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
   __HAL_LINKDMA(&htim2, hdma[TIM_DMA_ID_CC3],hdma_tim2_ch3);
@@ -211,6 +240,14 @@ uint8_t ledSetColorRgb(size_t index, uint32_t rgb)
   }
   return 1;
 }
+uint32_t ledGetColorRgb(size_t index)
+{
+  uint32_t ret;
+  ret  = leds_colors[index * LED_CFG_BYTES_PER_LED + 0] << 24;
+  ret |= leds_colors[index * LED_CFG_BYTES_PER_LED + 1] << 16;
+  ret |= leds_colors[index * LED_CFG_BYTES_PER_LED + 2] <<  8;
+  return ret;
+}
 uint8_t ledSetColorAllRgb(uint32_t rgb)
 {
   size_t index;
@@ -247,6 +284,97 @@ uint8_t ledUpdate(uint8_t block)
 uint8_t ledIsUpdateFinished(void)
 {
   return !is_updating;
+}
+
+/**
+ * @brief Start a fade animation
+ * @details 
+ * 
+ * @param anim 
+ * @return animation index to use for polling
+ */
+uint8_t ledStartFadeAnimation(animationFade_t *anim)
+{
+  int idx;
+
+  // search for available spot
+  for(idx = 0; idx < MAX_NUM_ANIMATIONS; idx++)
+  {
+    if(!animations[idx].running) break;
+  }
+  // no slot available, exit
+  if(idx == MAX_NUM_ANIMATIONS) return 255;
+
+  animations[idx].anim = malloc(sizeof(animationFade_t));
+
+  if(!animations[idx].anim) return 255;
+
+  anim->state[0] = anim->start[0];
+  anim->state[1] = anim->start[1];
+  anim->state[2] = anim->start[2];
+  anim->state[3] = 0;
+  memcpy(animations[idx].anim, anim, sizeof(animationFade_t));
+
+  // store properties and start it
+  animations[idx].handle = animFadeHandle;
+  animations[idx].running = 1;
+
+  return idx;
+}
+
+/**
+ * @brief start breath animation
+ */
+uint8_t ledStartBreathAnimation(animationBreath_t *anim)
+{
+  int idx;
+
+  // search for available spot
+  for(idx = 0; idx < MAX_NUM_ANIMATIONS; idx++)
+  {
+    if(!animations[idx].running) break;
+  }
+  // no slot available, exit
+  if(idx == MAX_NUM_ANIMATIONS) return 255;
+
+  animations[idx].anim = malloc(sizeof(animationFade_t));
+
+  if(!animations[idx].anim) return 255;
+
+  anim->state[0] = anim->start[0];
+  anim->state[1] = anim->start[1];
+  anim->state[2] = anim->start[2];
+  anim->state[3] = 0;
+  memcpy(animations[idx].anim, anim, sizeof(animationFade_t));
+
+  // store properties and start it
+  animations[idx].handle = animBreathHandle;
+  animations[idx].running = 1;
+
+  return idx;
+}
+
+/**
+ * @brief Stop any animation
+ * @details [long description]
+ * 
+ * @param idx [description]
+ * @return [description]
+ */
+void ledStopAnimation(uint8_t idx)
+{
+  animations[idx].running = 0;
+}
+
+/**
+ * @brief wait for animation to complete
+ * @details [long description]
+ * 
+ * @param idx [description]
+ */
+void ledWaitAnimationComplete(uint8_t idx)
+{
+  while(animations[idx].running);
 }
 
 /*------------------------------------------------------------------------------
@@ -416,6 +544,92 @@ static uint8_t startResetPulse(uint8_t num)
   return 1;
 }
 
+/**
+ * @brief Execute fade animation
+ * @details [long description]
+ * 
+ * @param anim [description]
+ */
+static uint8_t animFadeHandle(void *anim)
+{
+  uint8_t ret = 1;
+  animationFade_t *a = (animationFade_t*)anim;
+
+  if(++a->state[3] > 1.0/a->speed)
+  {
+    // abort and finish
+    for(int ch = 0; ch < 3; ch++)
+    {
+      a->state[ch] = a->stop[ch];
+    }
+    ret = 0;
+  }
+  else
+  {
+    for(int ch = 0; ch < 3; ch++)
+    {
+      a->state[ch] += a->speed * (a->stop[ch]-a->start[ch]);
+    }
+  }
+
+  // all leds seperately
+  for(int led = 0; led < 32; led++)
+  {
+    // check if this led is involved
+    if(a->ledsOneHot & (1UL<<led))
+    {
+      ledSetColor(led, (uint8_t)a->state[0], (uint8_t)a->state[1], (uint8_t)a->state[2]);
+      // printf("%.0f: %3.0f/%3.0f/%3.0f %d\n", a->state[3], a->state[0], a->state[1], a->state[2], led);
+    }
+  }
+
+  if(ret == 0) free(anim);
+
+  return ret;
+}
+
+static uint8_t animBreathHandle(void *anim)
+{
+  uint8_t ret = 1;
+  float tmp;
+  animationFade_t *a = (animationFade_t*)anim;
+
+  if(++a->state[3] > 1.0/a->speed)
+  {
+    // switch sides and continue
+    for(int ch = 0; ch < 3; ch++)
+    {
+      tmp = a->stop[ch];
+      a->stop[ch] = a->start[ch];
+      a->start[ch] = tmp;
+      a->state[3] = 0;
+    }
+    ret = 1;
+  }
+  else
+  {
+    for(int ch = 0; ch < 3; ch++)
+    {
+      a->state[ch] += a->speed * (a->stop[ch]-a->start[ch]);
+    }
+  }
+
+  // all leds seperately
+  for(int led = 0; led < 32; led++)
+  {
+    // check if this led is involved
+    if(a->ledsOneHot & (1UL<<led))
+    {
+      ledSetColor(led, (uint8_t)a->state[0], (uint8_t)a->state[1], (uint8_t)a->state[2]);
+      // printf("%.0f: %3.0f/%3.0f/%3.0f %d\n", a->state[3], a->state[0], a->state[1], a->state[2], led);
+    }
+  }
+
+  if(ret == 0) free(anim);
+
+  return ret;
+}
+
 /*------------------------------------------------------------------------------
  * Callbacks
  * ---------------------------------------------------------------------------*/
@@ -427,3 +641,26 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
   updateSequence(1);                 /* Call update sequence as TC event */
 }
+
+/**
+ * @brief Periodically called for LED animation
+ */
+void ledAnimationCallback(void)
+{
+  int idx;
+  uint8_t update = 0;
+
+  // search for running animations and execute them
+  for(idx = 0; idx < MAX_NUM_ANIMATIONS; idx++)
+  {
+    if(animations[idx].running)
+    {
+      animations[idx].running = animations[idx].handle(animations[idx].anim);
+      update = 1;
+    }
+  }
+  if(update)
+    ledUpdate(0);
+}
+
+#pragma GCC pop_options

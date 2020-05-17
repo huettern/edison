@@ -25,6 +25,39 @@
 #define FASTRAM_BSS             __attribute__ ((section(".fastram_bss"), aligned(4)))
 
 
+/**
+ * @brief Interrupt priorities
+ * 
+ * We configure NVIC_PRIORITYGROUP_4, su sub prio has no effect but 4 bit pre, 
+ * Low number is higher prio
+ */
+// mic acquisition
+#define MAIN_IRQ_DFSDM1_FLT0_PRE 0
+#define MAIN_IRQ_DFSDM1_FLT0_SUB 0
+
+// mic acquisition
+#define MAIN_IRQ_DMA1_CH4_PRE 0
+#define MAIN_IRQ_DMA1_CH4_SUB 0
+
+// WS2811 LEDs
+#define MAIN_IRQ_DMA1_CH1_PRE 1
+#define MAIN_IRQ_DMA1_CH1_SUB 0
+
+// unused
+#define MAIN_IRQ_EXTI9_5_PRE 0
+#define MAIN_IRQ_EXTI9_5_SUB 0
+
+// unused
+#define MAIN_IRQ_EXTI15_10_PRE 0
+#define MAIN_IRQ_EXTI15_10_SUB 0
+
+// animation timer
+#define MAIN_IRQ_TIM1_CC_PRE 15
+#define MAIN_IRQ_TIM1_CC_SUB 0
+
+#define MAIN_DMA_PRIO_DFSDM1_FLT0   DMA_PRIORITY_VERY_HIGH
+#define MAIN_DMA_PRIO_TIM2_CH3      DMA_PRIORITY_HIGH
+
 /*------------------------------------------------------------------------------
  * Publics
  * ---------------------------------------------------------------------------*/
@@ -49,6 +82,8 @@ TIM_HandleTypeDef htim2;
 DMA_HandleTypeDef hdma_tim2_ch3;
 
 #define MAIN_TIM1_TICK_US 10
+#define MAIN_TIM1_CH1_INTERVAL_US 20000
+#define MAIN_TIM1_ANIMATION_CHANNEL TIM_CHANNEL_1
 TIM_HandleTypeDef htim1;
 
 #define LED_ON() HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET)

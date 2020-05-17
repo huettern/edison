@@ -2,11 +2,13 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:51:28
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-15 15:34:29
+* @Last Modified time: 2020-05-17 15:11:09
 */
 
 #include "main.h"
 #include "stm32l4xx_it.h"
+#include "led.h"
+
 
 /*------------------------------------------------------------------------------
  * Cortex-M4 Processor Interruption and Exception Handlers
@@ -120,6 +122,21 @@ void DMA1_Channel4_IRQHandler(void)
 void DFSDM1_FLT0_IRQHandler(void)
 {
   HAL_DFSDM_IRQHandler(&hdfsdm1_filter0);
+}
+
+void TIM1_CC_IRQHandler(void)
+{
+  HAL_TIM_IRQHandler(&htim1);
+}
+
+void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+  {
+    // set timer to new capture value
+    __HAL_TIM_SET_COMPARE(htim, MAIN_TIM1_ANIMATION_CHANNEL, (__HAL_TIM_GET_COUNTER(htim)+MAIN_TIM1_CH1_INTERVAL_US/MAIN_TIM1_TICK_US)%0xffff );
+    ledAnimationCallback();
+  }
 }
 
 /**

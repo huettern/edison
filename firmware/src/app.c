@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 13:31:20
+* @Last Modified time: 2020-05-17 15:44:04
 */
 #include "app.h"
 #include <stdlib.h>
@@ -350,8 +350,8 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     if(IS_BTN_PRESSED() || (huart1.Instance->ISR & UART_FLAG_RXNE) ) doAbort = true;
 
     // display amplitude
-    ledSetColor(0, ((uint16_t)(lastAmplitude)>>8)/2, (255-((uint16_t)(lastAmplitude)>>8))/2, 0);
-    ledUpdate(0);
+    // ledSetColor(0, ((uint16_t)(lastAmplitude)>>8)/2, (255-((uint16_t)(lastAmplitude)>>8))/2, 0);
+    // ledUpdate(0);
     // if(netInBufOff > 12*in_x*in_y) doAbort = true;
 
     // run FSM
@@ -820,8 +820,20 @@ static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
       // set location to required value
       loc->color.value = val->color.value;
       printf("SET %s r%d g%d b%d\n", loc->name, loc->color.rgbw.r, loc->color.rgbw.g, loc->color.rgbw.b);
-      ledSetColorRgb(loc->ledIdx, loc->color.value);
-      ledUpdate(0);
+      animationFade_t anim;
+      uint32_t colorOld = ledGetColorRgb(loc->ledIdx);
+      anim.start[0] = colorOld>>24;
+      anim.start[1] = colorOld>>16;
+      anim.start[2] = colorOld>> 8;
+      anim.stop[0] = loc->color.rgbw.r;
+      anim.stop[1] = loc->color.rgbw.g;
+      anim.stop[2] = loc->color.rgbw.b;
+      anim.speed = 0.01;
+      anim.ledsOneHot = 1<<loc->ledIdx;
+      (void)ledStartFadeAnimation(&anim);
+
+      // ledSetColorRgb(loc->ledIdx, loc->color.value);
+      // ledUpdate(0);
       // transition to idle state
       nextState = EDI_IDLE;
       break;

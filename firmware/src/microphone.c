@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:56:56
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 10:48:51
+* @Last Modified time: 2020-05-17 15:57:17
 */
 #include "microphone.h"
 
@@ -141,7 +141,7 @@ void micInit(void)
 
   // Init DMA 
   __HAL_RCC_DMA1_CLK_ENABLE();
-  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, MAIN_IRQ_DMA1_CH4_PRE, MAIN_IRQ_DMA1_CH4_SUB);
   HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
   hdma_dfsdm1_flt0.Instance = DMA1_Channel4;
   hdma_dfsdm1_flt0.Init.Request = DMA_REQUEST_0; // ref man page 340 CxS value
@@ -151,7 +151,7 @@ void micInit(void)
   hdma_dfsdm1_flt0.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD; // BYTE HALFWORD WORD
   hdma_dfsdm1_flt0.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
   hdma_dfsdm1_flt0.Init.Mode = DMA_CIRCULAR; // cicular
-  hdma_dfsdm1_flt0.Init.Priority = DMA_PRIORITY_HIGH; // LOW MEDIUM HIGH VERYHIGH
+  hdma_dfsdm1_flt0.Init.Priority = MAIN_DMA_PRIO_DFSDM1_FLT0; // LOW MEDIUM HIGH VERYHIGH
   if (HAL_DMA_Init(&hdma_dfsdm1_flt0) != HAL_OK)
   {
     Error_Handler();

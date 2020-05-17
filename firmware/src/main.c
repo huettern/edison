@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-15 15:53:27
+* @Last Modified time: 2020-05-17 15:52:23
 */
 
 #include "main.h"
@@ -131,6 +131,41 @@ int main(void)
 
   /* TESTS --------------------------------------------------------*/
   // audioDevelop();
+
+
+  /* animaion test --------------------------------------------------------*/
+  // animationBreath_t anim;
+  // anim.start[0] = 0;
+  // anim.start[1] = 0;
+  // anim.start[2] = 0;
+  // anim.stop[0] = 255;
+  // anim.stop[1] = 255;
+  // anim.stop[2] = 0;
+  // anim.speed = 0.01;
+  // anim.ledsOneHot = 0x4;
+  // uint8_t idx1 = ledStartBreathAnimation(&anim);
+
+  // anim.ledsOneHot = 0x1;
+  // anim.stop[1] = 0;
+  // anim.speed = 0.1;
+  // uint8_t idx2 = ledStartBreathAnimation(&anim);
+
+  // animationFade_t anim2;
+  // anim2.start[0] = 0;
+  // anim2.start[1] = 0;
+  // anim2.start[2] = 0;
+  // anim2.stop[0] = 0;
+  // anim2.stop[1] = 0;
+  // anim2.stop[2] = 255;
+  // anim2.speed = 0.001;
+  // anim2.ledsOneHot = 0x10;
+  // uint8_t idx3 = ledStartFadeAnimation(&anim2);
+
+  // ledWaitAnimationComplete(idx3);
+  // ledStopAnimation(idx1);
+  // ledStopAnimation(idx2);
+  // printf("complete!\n");
+  // while(1);
 
   /* led test --------------------------------------------------------*/
   // while(1)
@@ -700,10 +735,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, MAIN_IRQ_EXTI9_5_PRE, MAIN_IRQ_EXTI9_5_SUB);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, MAIN_IRQ_EXTI15_10_PRE, MAIN_IRQ_EXTI15_10_SUB);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
 
@@ -731,6 +766,7 @@ static void MX_TIM1_Init(void)
 {
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
 
   htim1.Instance = TIM1;
   // ticks in 100us ticks -> can count up to 6.5s with .1ms accuracy
@@ -758,6 +794,22 @@ static void MX_TIM1_Init(void)
   }
   __HAL_TIM_ENABLE(&htim1);
   HAL_TIM_Base_Start(&htim1);
+
+  sConfigOC.OCMode = TIM_OCMODE_ACTIVE;
+  sConfigOC.Pulse = MAIN_TIM1_CH1_INTERVAL_US/MAIN_TIM1_TICK_US;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_OC_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  // enable TIM1 capture compare interrupt
+  HAL_NVIC_SetPriority(TIM1_CC_IRQn, MAIN_IRQ_TIM1_CC_PRE, MAIN_IRQ_TIM1_CC_SUB);
+  HAL_NVIC_EnableIRQ(TIM1_CC_IRQn);
+  HAL_TIM_OC_Start_IT(&htim1, MAIN_TIM1_ANIMATION_CHANNEL);
 }
 
 

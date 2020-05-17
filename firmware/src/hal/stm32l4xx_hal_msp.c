@@ -45,7 +45,7 @@ void HAL_DFSDM_FilterMspInit(DFSDM_Filter_HandleTypeDef* hdfsdm_filter)
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
     /* DFSDM1 interrupt Init */
-    HAL_NVIC_SetPriority(DFSDM1_FLT0_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(DFSDM1_FLT0_IRQn, MAIN_IRQ_DFSDM1_FLT0_PRE, MAIN_IRQ_DFSDM1_FLT0_SUB);  
     HAL_NVIC_EnableIRQ(DFSDM1_FLT0_IRQn);
   }
   // if(hdfsdm_filter->Instance == DFSDM1_Filter0)
@@ -177,9 +177,6 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-    // HAL_NVIC_SetPriority(USART1_IRQn, 8, 0);
-    // HAL_NVIC_EnableIRQ(USART1_IRQn);
   }
   if(huart->Instance==UART4)
   {
