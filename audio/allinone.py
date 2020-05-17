@@ -459,6 +459,17 @@ def load_data(keywords, coldwords, noise, playsome=False):
     y_train = to_categorical(y_train, num_classes=None)
     y_test = to_categorical(y_test, num_classes=None)
     y_val = to_categorical(y_val, num_classes=None)
+  
+    # shuffle test data
+    per = np.random.permutation(x_test.shape[0])
+    x_test = x_test[per, :]
+    y_test = y_test[per]
+    per = np.random.permutation(x_train.shape[0])
+    x_train = x_train[per, :]
+    y_train = y_train[per]
+    per = np.random.permutation(x_val.shape[0])
+    x_val = x_val[per, :]
+    y_val = y_val[per]
 
     # store data
     print('Store mfcc data')
