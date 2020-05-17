@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 17:01:28
+* @Last Modified time: 2020-05-17 19:16:38
 */
 #include "app.h"
 #include <stdlib.h>
@@ -35,7 +35,7 @@
 /**
  * @brief Edison state machine settings
  */
-#define EDI_LOC_TIMEOUT 4000 // [ms] to wait for location after hotword
+#define EDI_LOC_TIMEOUT 5000 // [ms] to wait for location after hotword
 
 #define EDI_WAKEWORD "edison" // on which keyword edison should wake and transition to hot
 
@@ -319,6 +319,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     // netInBufOff += in_x*in_y;
 
     // report
+    mainSetPrintfUart(&huart1);
     printf("pred: [ ");
     for(tmp32 = 0; tmp32 < AI_NET_OUTSIZE; tmp32++)
     {
@@ -342,6 +343,7 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
       ledSet(0);
     }
     printf("\n");
+    mainSetPrintfUart(&huart4);
 
     if(netOutFilt[0] > TRUE_THRESHOLD) LED2_ORA();
     else LED2_BLU();
@@ -355,9 +357,9 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     // if(netInBufOff > 12*in_x*in_y) doAbort = true;
 
     // run FSM
-    mainSetPrintfUart(&huart1);
-    edisonFSM(netOutFilt, &predMax, &predMaxIdx); // preds, max, idx
     mainSetPrintfUart(&huart4);
+    edisonFSM(netOutFilt, &predMax, &predMaxIdx); // preds, max, idx
+    mainSetPrintfUart(&huart1);
   }
 
   // stop sampling
@@ -720,6 +722,28 @@ static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
   static edisonLocation_t * loc;
   static edisonValue_t * val;
   
+  static uint8_t brAnimIdx;
+  // breath animation of status led
+  static animationBreath_t brAnim;
+  brAnim.start[0] = 255;
+  brAnim.start[1] = 86;
+  brAnim.start[2] = 2;
+  brAnim.stop[0] = 0;
+  brAnim.stop[1] = 0;
+  brAnim.stop[2] = 0;
+  brAnim.speed = 0.02;
+  brAnim.ledsOneHot = 1<<4;
+  // fade animation of status led
+  static animationFade_t statFadeAnim;
+  statFadeAnim.start[0] = 0;
+  statFadeAnim.start[1] = 0;
+  statFadeAnim.start[2] = 0;
+  statFadeAnim.stop[0] = 0;
+  statFadeAnim.stop[1] = 20;
+  statFadeAnim.stop[2] = 0;
+  statFadeAnim.speed = 0.01;
+  statFadeAnim.ledsOneHot = 1<<4;
+
   // time since last FSM call
   uint32_t tickNow = __HAL_TIM_GET_COUNTER(&htim1);
   if(tickNow > tickOld) dt = MAIN_TIM1_TICK_US*(tickNow-tickOld);
@@ -784,7 +808,7 @@ static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
           }
         }
       }
-      else if (hotTimeout > EDI_LOC_TIMEOUT)
+      if (hotTimeout > EDI_LOC_TIMEOUT)
       {
         // timeout occured, transition to idle
         nextState = EDI_IDLE;
@@ -808,7 +832,7 @@ static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
           }
         }
       }
-      else if (hotTimeout > EDI_LOC_TIMEOUT)
+      if (hotTimeout > EDI_LOC_TIMEOUT)
       {
         // timeout occured, transition to idle
         nextState = EDI_IDLE;
@@ -818,6 +842,7 @@ static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
     case EDI_SET:
       // set location to required value
       loc->color.value = val->color.value;
+      printf("%s %s\n", loc->name, val->name);
       animationFade_t anim;
       uint32_t colorOld = ledGetColorRgb(loc->ledIdx);
       anim.start[0] = (colorOld>>24)&0xff;
@@ -828,7 +853,7 @@ static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
       anim.stop[2] = loc->color.rgbw.b;
       anim.speed = 0.01;
       anim.ledsOneHot = 1<<loc->ledIdx;
-      printf("onehot %d start: %f %f %f stop: %f %f %f\n", anim.ledsOneHot, anim.start[0], anim.start[1], anim.start[2], anim.stop[0], anim.stop[1], anim.stop[2]);
+      // printf("onehot %d start: %f %f %f stop: %f %f %f\n", anim.ledsOneHot, anim.start[0], anim.start[1], anim.start[2], anim.stop[0], anim.stop[1], anim.stop[2]);
       (void)ledStartFadeAnimation(&anim);
 
       // ledSetColorRgb(loc->ledIdx, loc->color.value);
@@ -841,9 +866,53 @@ static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
       Error_Handler();
   }
 
-  // state transition
+  // state transition -> change state led
   if(nextState != ediState)
   {    
+    if (nextState == EDI_IDLE)
+    {
+      if( (ediState == EDI_HOT) || (ediState == EDI_LOC) )
+      {
+        ledStopAnimation(brAnimIdx);
+        ledSetColor(4, 0, 20, 0); ledUpdate(0);
+      } 
+      if( (ediState == EDI_RESET) ) ledSetColor(4, 0, 20, 0); ledUpdate(0);
+    }
+    if (nextState == EDI_HOT)
+    {
+      // ledSetColor(4, 166, 44, 0); ledUpdate(0);
+      brAnim.start[0] = 64;
+      brAnim.start[1] = 23;
+      brAnim.start[2] = 1;
+      brAnimIdx = ledStartBreathAnimation(&brAnim);
+    }
+    if (nextState == EDI_LOC)
+    {
+      ledStopAnimation(brAnimIdx);
+      brAnim.start[0] = 1;
+      brAnim.start[1] = 30;
+      brAnim.start[2] = 42;
+      brAnimIdx = ledStartBreathAnimation(&brAnim);
+      // ledSetColor(4, 3, 121, 168); ledUpdate(0);
+      // ledSetColor(4, 255, 86, 2); ledUpdate(0);
+    }
+    if (nextState == EDI_SET)
+    {
+      ledStopAnimation(brAnimIdx);
+      if(val->color.rgbw.r || val->color.rgbw.g || val->color.rgbw.b) 
+      {
+        statFadeAnim.start[0] = 0;
+        statFadeAnim.start[1] = 80;
+        statFadeAnim.start[2] = 0;
+      }
+      else 
+      {
+        statFadeAnim.start[0] = 80;
+        statFadeAnim.start[1] = 0;
+        statFadeAnim.start[2] = 0;
+      }
+      (void)ledStartFadeAnimation(&statFadeAnim);
+    }
   }
   ediState = nextState;
 }
