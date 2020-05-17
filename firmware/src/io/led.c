@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-05-14 21:05:15
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 16:29:56
+* @Last Modified time: 2020-05-17 18:54:31
 * 
 * WS2811 code adapted from https://github.com/MaJerle/stm32-ws2812b-tim-pwm-dma/blob/master/Src/main.c
 */
@@ -358,6 +358,7 @@ uint8_t ledStartBreathAnimation(animationBreath_t *anim)
 void ledStopAnimation(uint8_t idx)
 {
   animations[idx].running = 0;
+  if(animations[idx].anim) free(animations[idx].anim);
 }
 
 /**
@@ -659,7 +660,8 @@ void ledAnimationCallback(void)
   for(idx = 0; idx < MAX_NUM_ANIMATIONS; idx++)
   {
     if(animations[idx].running)
-    {
+    { 
+      printf("-> %d, ",idx);
       animations[idx].running = animations[idx].handle(animations[idx].anim);
       update = 1;
     }
