@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-05-14 21:05:15
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 15:56:58
+* @Last Modified time: 2020-05-17 16:23:12
 * 
 * WS2811 code adapted from https://github.com/MaJerle/stm32-ws2812b-tim-pwm-dma/blob/master/Src/main.c
 */
@@ -165,7 +165,7 @@ void ledInit(void)
     Error_Handler();
   }
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, MAIN_IRQ_DMA1_CH1_PRE, MAIN_IRQ_DMA1_CH1_SUB);
-  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  // HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
   __HAL_LINKDMA(&htim2, hdma[TIM_DMA_ID_CC3],hdma_tim2_ch3);
 
@@ -401,6 +401,7 @@ static void updateSequence(uint8_t tc)
   if (is_reset_pulse == 2) 
   {                  
     HAL_TIM_PWM_Stop_DMA(&htim2, TIM_CHANNEL_3);
+    HAL_NVIC_DisableIRQ(DMA1_Channel1_IRQn);
     
     // We are not updating anymore 
     is_updating = 0;                        
@@ -424,6 +425,7 @@ static void updateSequence(uint8_t tc)
     
     /* Disable timer output and disable DMA stream */
     HAL_TIM_PWM_Stop_DMA(&htim2, TIM_CHANNEL_3);
+    HAL_NVIC_DisableIRQ(DMA1_Channel1_IRQn);
     
     // Not in reset pulse anymore 
     is_reset_pulse = 0;                     
@@ -480,6 +482,7 @@ static void updateSequence(uint8_t tc)
       /* Set DMA to circular mode and set length to 48 elements for 2 leds */
       hdma_tim2_ch3.Instance->CCR |= DMA_CCR_CIRC;
       HAL_TIM_PWM_Start_DMA(&htim2, TIM_CHANNEL_3, tmp_led_data, 2 * LED_CFG_RAW_BYTES_PER_LED);
+      HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
     }
     
   /*
@@ -492,6 +495,7 @@ static void updateSequence(uint8_t tc)
   else if ((!tc && (LED_CFG_LEDS_CNT & 0x01)) || (tc && !(LED_CFG_LEDS_CNT & 0x01))) 
   {
     HAL_TIM_PWM_Stop_DMA(&htim2, TIM_CHANNEL_3);
+    HAL_NVIC_DisableIRQ(DMA1_Channel1_IRQn);
     
     /* It is time to send final reset pulse, 50us at least */
     startResetPulse(2);                /* Start reset pulse at the end */
@@ -540,6 +544,7 @@ static uint8_t startResetPulse(uint8_t num)
   /* 800kHz PWM x 40 samples = ~50us pulse low */
   hdma_tim2_ch3.Instance->CCR &= ~DMA_CCR_CIRC;
   HAL_TIM_PWM_Start_DMA(&htim2, TIM_CHANNEL_3, tmp_led_data, 40);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
   return 1;
 }
@@ -635,11 +640,17 @@ static uint8_t animBreathHandle(void *anim)
  * ---------------------------------------------------------------------------*/
 void HAL_TIM_PWM_PulseFinishedHalfCpltCallback(TIM_HandleTypeDef *htim)
 {
-  updateSequence(0);                 /* Call update sequence as HT event */
+  if(htim->Instance == htim2.Instance)
+  {
+    updateSequence(0);                 /* Call update sequence as HT event */
+  }
 }
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
-  updateSequence(1);                 /* Call update sequence as TC event */
+  if(htim->Instance == htim2.Instance)
+  {
+    updateSequence(1);                 /* Call update sequence as TC event */
+  }
 }
 
 /**
