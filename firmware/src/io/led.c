@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-05-14 21:05:15
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 16:23:12
+* @Last Modified time: 2020-05-17 16:29:56
 * 
 * WS2811 code adapted from https://github.com/MaJerle/stm32-ws2812b-tim-pwm-dma/blob/master/Src/main.c
 */
@@ -10,12 +10,6 @@
 
 #include <string.h>
 #include <stdlib.h>
-
-/**
- * The LED fade animation wont work with optimization, couldn't figure out why
- */
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
 
 /*------------------------------------------------------------------------------
  * Settings
@@ -673,5 +667,3 @@ void ledAnimationCallback(void)
   if(update)
     ledUpdate(0);
 }
-
-#pragma GCC pop_options

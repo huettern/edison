@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 15:52:23
+* @Last Modified time: 2020-05-17 16:26:22
 */
 
 #include "main.h"
@@ -142,21 +142,21 @@ int main(void)
   // anim.stop[1] = 255;
   // anim.stop[2] = 0;
   // anim.speed = 0.01;
-  // anim.ledsOneHot = 0x4;
+  // anim.ledsOneHot = 0x8;
   // uint8_t idx1 = ledStartBreathAnimation(&anim);
 
-  // anim.ledsOneHot = 0x1;
+  // anim.ledsOneHot = 0x4;
   // anim.stop[1] = 0;
   // anim.speed = 0.1;
   // uint8_t idx2 = ledStartBreathAnimation(&anim);
 
   // animationFade_t anim2;
-  // anim2.start[0] = 0;
-  // anim2.start[1] = 0;
-  // anim2.start[2] = 0;
+  // anim2.start[0] = 255;
+  // anim2.start[1] = 255;
+  // anim2.start[2] = 255;
   // anim2.stop[0] = 0;
   // anim2.stop[1] = 0;
-  // anim2.stop[2] = 255;
+  // anim2.stop[2] = 0;
   // anim2.speed = 0.001;
   // anim2.ledsOneHot = 0x10;
   // uint8_t idx3 = ledStartFadeAnimation(&anim2);

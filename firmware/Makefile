@@ -201,6 +201,8 @@ HALCFLAGS  = $(MCU) $(C_DEFS) $(C_INCLUDES) $(HAL_OPT) $(GCC_FLAGS)
 # debug?
 ifeq ($(DEBUG), 1)
 	CFLAGS += -g -gdwarf-2
+	CMSISCFLAGS += -g -gdwarf-2
+	HALCFLAGS += -g -gdwarf-2
 endif
 
 # Generate dependency information?

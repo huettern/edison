@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 15:44:04
+* @Last Modified time: 2020-05-17 16:28:48
 */
 #include "app.h"
 #include <stdlib.h>
@@ -769,7 +769,6 @@ static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
     case EDI_HOT:
       // count timeout
       hotTimeout += dt/1000;
-      printf("timeout %5d\n", hotTimeout);
       // transition to location if location received
       if( (*predMax > TRUE_THRESHOLD) )
       {
@@ -819,17 +818,17 @@ static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
     case EDI_SET:
       // set location to required value
       loc->color.value = val->color.value;
-      printf("SET %s r%d g%d b%d\n", loc->name, loc->color.rgbw.r, loc->color.rgbw.g, loc->color.rgbw.b);
       animationFade_t anim;
       uint32_t colorOld = ledGetColorRgb(loc->ledIdx);
-      anim.start[0] = colorOld>>24;
-      anim.start[1] = colorOld>>16;
-      anim.start[2] = colorOld>> 8;
+      anim.start[0] = (colorOld>>24)&0xff;
+      anim.start[1] = (colorOld>>16)&0xff;
+      anim.start[2] = (colorOld>> 8)&0xff;
       anim.stop[0] = loc->color.rgbw.r;
       anim.stop[1] = loc->color.rgbw.g;
       anim.stop[2] = loc->color.rgbw.b;
       anim.speed = 0.01;
       anim.ledsOneHot = 1<<loc->ledIdx;
+      printf("onehot %d start: %f %f %f stop: %f %f %f\n", anim.ledsOneHot, anim.start[0], anim.start[1], anim.start[2], anim.stop[0], anim.stop[1], anim.stop[2]);
       (void)ledStartFadeAnimation(&anim);
 
       // ledSetColorRgb(loc->ledIdx, loc->color.value);
@@ -844,9 +843,7 @@ static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
 
   // state transition
   if(nextState != ediState)
-  {
-    printf("transition to %s\n", edisonStateToName[nextState]);
-    
+  {    
   }
   ediState = nextState;
 }
