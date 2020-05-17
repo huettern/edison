@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 16:26:22
+* @Last Modified time: 2020-05-17 18:21:46
 */
 
 #include "main.h"
@@ -90,7 +90,7 @@ int main(void)
 
   for(int i = 0; i < 7; i++)
   {
-    ledSetColor(i, 0, 0, 200); ledUpdate(0);
+    if(i<5) ledSetColor(i, 0, 0, 200); ledUpdate(0);
     ledSet(ledGet() | (1<<(i%8)));
     HAL_Delay(50);
   }
