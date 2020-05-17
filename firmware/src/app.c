@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 10:51:29
+* @Last Modified time: 2020-05-17 13:31:20
 */
 #include "app.h"
 #include <stdlib.h>
@@ -31,6 +31,13 @@
 #define NET_OUT_MOVING_AVG_ALPHA 0.5
 
 #define AMPLITUDE_MOVING_AVG_ALPHA 0.9
+
+/**
+ * @brief Edison state machine settings
+ */
+#define EDI_LOC_TIMEOUT 4000 // [ms] to wait for location after hotword
+
+#define EDI_WAKEWORD "edison" // on which keyword edison should wake and transition to hot
 
 /**
  * @brief Enable this to show profiling on arduino Tx pin
@@ -75,11 +82,67 @@ static uint16_t in_x, in_y;
 
 static float netOutFilt[AI_NET_OUTSIZE];
 
+typedef struct {uint8_t r; uint8_t g; uint8_t b; uint8_t w;} rgbwStruct_t;
+typedef union {rgbwStruct_t rgbw; uint32_t value;} rgbwUnion_t;
+
+/**
+ * Edison FSM state
+ */
+typedef enum
+{
+  EDI_RESET = 0,
+  EDI_IDLE = 1,
+  EDI_HOT = 2,
+  EDI_LOC = 3,
+  EDI_SET = 4
+} edisonState_t;
+static const char* edisonStateToName[] = {"RESET", "IDLE", "HOT", "LOC", "SET"};
+
+typedef struct 
+{
+  /* The location name, must match the keyword */
+  const char* name;
+  /* index in keyword list to speed things up, filled on init */
+  uint32_t keywordIdx;
+  /* Location light state, red green blue */
+  rgbwUnion_t color;
+  /* Index in the LED strip to output state */
+  uint8_t ledIdx;
+} edisonLocation_t;
+
+typedef struct 
+{
+  /* value name, must match keyword */
+  const char* name;
+  /* index in keyword list to speed things up, filled on init */
+  uint32_t keywordIdx;
+  /* values to set to location upon value match */
+  rgbwUnion_t color;
+} edisonValue_t;
+
+static edisonState_t ediState = EDI_RESET;
+static edisonLocation_t ediLocations[] = {
+  {"cinema",0,      { .rgbw={0,0,0,0} }, 4},
+  {"bedroom",0,     { .rgbw={0,0,0,0} }, 3},
+  {"office",0,      { .rgbw={0,0,0,0} }, 2},
+  {"livingroom",0,  { .rgbw={0,0,0,0} }, 1},
+  {"kitchen",0,     { .rgbw={0,0,0,0} }, 0},
+  {NULL,0,          { .rgbw={0,0,0,0} }, 0},
+};
+static edisonValue_t ediValues[] = {
+  {"off",0,   { .rgbw={0,0,0,0} } },
+  {"on",0,    { .rgbw={255,255,255,255} } },
+  {NULL,0,    { .rgbw={0,0,0,0} } },
+};
+
+
 /*------------------------------------------------------------------------------
  * Prototypes
  * ---------------------------------------------------------------------------*/
 void mfccToNetInput(int16_t* mfcc, uint16_t in_x, uint16_t in_y, uint32_t xoffset);
 void mfccToNetInputPush(int16_t* mfcc, uint16_t in_x, uint16_t in_y);
+
+static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx);
 
 /*------------------------------------------------------------------------------
  * Publics
@@ -215,11 +278,11 @@ int8_t appHifMicMfccInfere(uint8_t *args)
 int8_t appMicMfccInfereContinuous (uint8_t *args)
 {
   static float netOutFloat[AI_NET_OUTSIZE];
-  uint32_t tmp32;
+  uint32_t tmp32, predMaxIdx;
   // uint32_t netInBufOff = 0;
   bool doAbort = false;
   int ret;
-  float tmpf;
+  float predMax;
 
   void* netInSnapshot = malloc(AI_NET_INSIZE_BYTES);
 
@@ -246,7 +309,9 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
 
     // 3. Run inference
     memcpy(netInSnapshot, netInput, AI_NET_INSIZE_BYTES);
+    // ledSet(0xff);
     ret = aiRunInference((void*)netInSnapshot, (void*)netOutput);
+    // ledSet(0);
 
     // store net input
     // for(int i = 0; i < in_x*in_y; i++)
@@ -265,12 +330,12 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     // moving average filter on net output
     for(int i = 0; i < AI_NET_OUTSIZE; i++) netOutFilt[i] = (NET_OUT_MOVING_AVG_ALPHA*netOutFilt[i] + (1.0-NET_OUT_MOVING_AVG_ALPHA)*netOutFloat[i]);
 
-    arm_max_f32(netOutFilt, AI_NET_OUTSIZE, &tmpf, &tmp32);
-    printf(" likely: %s", aiGetKeywordFromIndex(tmp32));
-    if( (tmpf > TRUE_THRESHOLD) )
+    arm_max_f32(netOutFilt, AI_NET_OUTSIZE, &predMax, &predMaxIdx);
+    printf(" likely: %s", aiGetKeywordFromIndex(predMaxIdx));
+    if( (predMax > TRUE_THRESHOLD) )
     {
-      printf(" spotted %s", aiGetKeywordFromIndex(tmp32));
-      ledSet(1<<tmp32);
+      printf(" spotted %s", aiGetKeywordFromIndex(predMaxIdx));
+      ledSet(1<<predMaxIdx);
     }
     else
     {
@@ -288,6 +353,11 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
     ledSetColor(0, ((uint16_t)(lastAmplitude)>>8)/2, (255-((uint16_t)(lastAmplitude)>>8))/2, 0);
     ledUpdate(0);
     // if(netInBufOff > 12*in_x*in_y) doAbort = true;
+
+    // run FSM
+    mainSetPrintfUart(&huart1);
+    edisonFSM(netOutFilt, &predMax, &predMaxIdx); // preds, max, idx
+    mainSetPrintfUart(&huart4);
   }
 
   // stop sampling
@@ -303,6 +373,9 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
   ledSet(0);
   ledSetColorAll(0, 0, 0);
   ledUpdate(0);
+  // reset FSM
+  ediState = EDI_RESET;
+
   mainSetPrintfUart(&huart4);
 
   return ret;
@@ -551,7 +624,6 @@ void appAudioEvent(uint8_t evt, int16_t *buf)
 {
   int16_t *inFrame, *out_mfccs, max, min;
   uint32_t index;
-  static uint32_t inFrameLoc = 0;
 
   audioEvent = evt;
 
@@ -632,6 +704,139 @@ void mfccToNetInputPush(int16_t* mfcc, uint16_t in_x, uint16_t in_y)
 
   // copy new sample in at back
   mfccToNetInput(mfcc, in_x, in_y, in_y-1);
+}
+
+/**
+ * @brief The state machine for home automation
+ * @details 
+ * 
+ * @param predictions 
+ */
+static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
+{
+  static uint32_t dt = 0, hotTimeout, tickOld;
+  static uint8_t wakeWordIdx;
+  edisonState_t nextState;
+  static edisonLocation_t * loc;
+  static edisonValue_t * val;
+  
+  // time since last FSM call
+  uint32_t tickNow = __HAL_TIM_GET_COUNTER(&htim1);
+  if(tickNow > tickOld) dt = MAIN_TIM1_TICK_US*(tickNow-tickOld);
+  else dt = MAIN_TIM1_TICK_US*(0xffff-tickOld+tickNow);
+  tickOld = tickNow;
+
+  nextState = ediState;
+
+  switch(ediState)
+  {
+    case EDI_RESET:
+      // Init what needs to be init
+      tickOld = __HAL_TIM_GET_COUNTER(&htim1);
+      
+      // assign keyword index to locations, values and wakeword
+      for(int idx = 0; idx < aiGetKeywordCount(); idx++)
+      {
+        if(strcmp(aiGetKeywordFromIndex(idx), EDI_WAKEWORD) == 0) wakeWordIdx = idx;
+
+        for(loc = &ediLocations[0]; loc->name; loc++)
+        { 
+          if(strcmp(aiGetKeywordFromIndex(idx), loc->name) == 0) loc->keywordIdx = idx;
+        }
+        for(val = &ediValues[0]; val->name; val++)
+        { 
+          if(strcmp(aiGetKeywordFromIndex(idx), val->name) == 0) val->keywordIdx = idx;
+        }
+      }
+      printf("EDI hotword %s index %d\n", aiGetKeywordFromIndex(wakeWordIdx), wakeWordIdx);
+      for(loc = &ediLocations[0]; loc->name; loc++)
+        printf("loc %s keywordIdx %d\n", loc->name, loc->keywordIdx);
+      for(val = &ediValues[0]; val->name; val++)
+        printf("val %s keywordIdx %d\n", val->name, val->keywordIdx);
+
+      // transition to idle state
+      nextState = EDI_IDLE;
+      break;
+
+    case EDI_IDLE:  
+      // switch to HOT if wakeword spotted
+      if( (*predMax > TRUE_THRESHOLD) && (*predMaxIdx == wakeWordIdx) )
+      {
+        hotTimeout = 0;
+        nextState = EDI_HOT;
+      }
+      break;
+    case EDI_HOT:
+      // count timeout
+      hotTimeout += dt/1000;
+      printf("timeout %5d\n", hotTimeout);
+      // transition to location if location received
+      if( (*predMax > TRUE_THRESHOLD) )
+      {
+        // check if location is in location list
+        for(loc = &ediLocations[0]; loc->name; loc++)
+        {
+          if(loc->keywordIdx == *predMaxIdx)
+          { 
+            // found location matching keyword, transition to location state
+            hotTimeout = 0;
+            nextState = EDI_LOC;
+            break;
+          }
+        }
+      }
+      else if (hotTimeout > EDI_LOC_TIMEOUT)
+      {
+        // timeout occured, transition to idle
+        nextState = EDI_IDLE;
+      }
+      break;
+
+    case EDI_LOC:
+      // count timeout
+      hotTimeout += dt/1000;
+      // transition to set if location received
+      if( (*predMax > TRUE_THRESHOLD) )
+      {
+        // check if value is in value list
+        for(val = &ediValues[0]; val->name; val++)
+        {
+          if(val->keywordIdx == *predMaxIdx)
+          { 
+            // found location matching keyword, transition to set state
+            nextState = EDI_SET;
+            break;
+          }
+        }
+      }
+      else if (hotTimeout > EDI_LOC_TIMEOUT)
+      {
+        // timeout occured, transition to idle
+        nextState = EDI_IDLE;
+      }
+      break;
+
+    case EDI_SET:
+      // set location to required value
+      loc->color.value = val->color.value;
+      printf("SET %s r%d g%d b%d\n", loc->name, loc->color.rgbw.r, loc->color.rgbw.g, loc->color.rgbw.b);
+      ledSetColorRgb(loc->ledIdx, loc->color.value);
+      ledUpdate(0);
+      // transition to idle state
+      nextState = EDI_IDLE;
+      break;
+
+    default:
+      Error_Handler();
+  }
+
+  // state transition
+  if(nextState != ediState)
+  {
+    printf("transition to %s\n", edisonStateToName[nextState]);
+    
+  }
+  ediState = nextState;
 }
 
 

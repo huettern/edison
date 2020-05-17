@@ -67,3 +67,4 @@ void aiRunInferenceHif(void);
 void aiGetInputShape(uint16_t *x, uint16_t *y);
 int aiRunInference(void* in_data, void* out_data);
 const char* aiGetKeywordFromIndex(uint32_t idx);
+uint32_t aiGetKeywordCount(void);

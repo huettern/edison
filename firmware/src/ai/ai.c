@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-16 14:51:00
+* @Last Modified time: 2020-05-17 12:25:51
 */
 #include "ai.h"
 
@@ -240,6 +240,11 @@ int aiRunInference(void* in_data, void* out_data)
 const char* aiGetKeywordFromIndex(uint32_t idx)
 {
   return aiKeywords[idx];
+}
+
+uint32_t aiGetKeywordCount(void)
+{
+  return sizeof(aiKeywords)/sizeof(aiKeywords[0]);
 }
 
 /*------------------------------------------------------------------------------
