@@ -42,7 +42,7 @@ ydata = [np.zeros((1,output_size))]
 mic_data = []
 
 # abort when
-abort_after = 50
+abort_after = 200
 
 # mfcc_fun = mfu.mfcc_mcu
 mfcc_fun = mfu.mfcc
@@ -158,7 +158,6 @@ def netOutFilt(net_outs, alpha):
 
     netOutFlt.append(new_el)
 
-  print(np.array(netOutFlt))
   return np.array(netOutFlt)
 
 
@@ -188,8 +187,13 @@ def plotNetOutputHistory(net_out, title):
   fig = plt.figure()
   ax = fig.add_subplot(1, 1, 1)
 
-  ax.plot(net_out)
-  ax.legend([k.replace('_','') for k in keywords.tolist()])
+  i = 0
+  for k in keywords:
+    a = 0.4 if k in ['_cold', '_noise'] else 1.0
+    ax.plot(net_out[:,i], label=k.replace('_',''), alpha=a)
+    i += 1
+
+  ax.legend()
   ax.grid(True)
   ax.set_title(title)
 
