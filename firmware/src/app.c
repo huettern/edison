@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 16:28:48
+* @Last Modified time: 2020-05-17 17:01:28
 */
 #include "app.h"
 #include <stdlib.h>
@@ -122,16 +122,16 @@ typedef struct
 
 static edisonState_t ediState = EDI_RESET;
 static edisonLocation_t ediLocations[] = {
-  {"cinema",0,      { .rgbw={0,0,0,0} }, 4},
-  {"bedroom",0,     { .rgbw={0,0,0,0} }, 3},
-  {"office",0,      { .rgbw={0,0,0,0} }, 2},
-  {"livingroom",0,  { .rgbw={0,0,0,0} }, 1},
-  {"kitchen",0,     { .rgbw={0,0,0,0} }, 0},
+  {"cinema",0,      { .rgbw={0,0,0,0} }, 9},
+  {"bedroom",0,     { .rgbw={0,0,0,0} }, 8},
+  {"office",0,      { .rgbw={0,0,0,0} }, 7},
+  {"livingroom",0,  { .rgbw={0,0,0,0} }, 6},
+  {"kitchen",0,     { .rgbw={0,0,0,0} }, 5},
   {NULL,0,          { .rgbw={0,0,0,0} }, 0},
 };
 static edisonValue_t ediValues[] = {
   {"off",0,   { .rgbw={0,0,0,0} } },
-  {"on",0,    { .rgbw={255,255,255,255} } },
+  {"on",0,    { .rgbw={255,147, 41,0} } },
   {NULL,0,    { .rgbw={0,0,0,0} } },
 };
 

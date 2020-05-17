@@ -12,7 +12,7 @@ void ledInit(void);
 void ledSet(uint8_t s);
 uint8_t ledGet(void);
 
-#define LED_CFG_LEDS_CNT                5       /*!< Number of leds in a strip row */
+#define LED_CFG_LEDS_CNT                10       /*!< Number of leds in a strip row */
 
 // Fade animaiton
 typedef struct 
