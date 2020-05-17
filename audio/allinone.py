@@ -714,7 +714,7 @@ if __name__ == '__main__':
   # keywords, noise = ['edison', 'cinema', 'on', 'off', '_cold_word'], 0.1 # keywords, coldwords and noise
   
   # own set, keywords only
-  keywords, coldwords, noise = ['edison', 'cinema', 'on', 'off'], ['_cold_word'], 0.1
+  keywords, coldwords, noise = ['edison', 'cinema','bedroom', 'office', 'livingroom','kitchen','on', 'off'], ['_cold_word'], 0.1
   
   # for speech commands data set
   # keywords, coldwords, noise = ['marvin', 'zero', 'cat', 'left'], ['sheila', 'seven', 'up', 'right'], 0.1
