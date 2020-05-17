@@ -5,3 +5,4 @@ venv
 *.pyc
 .cache
 .idea
+.shift_list

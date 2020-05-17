@@ -1,1 +1,0 @@
-{'input_1': 0, 'conv2d_1': 3, 'batch_normalization_1': 3, 're_lu_1': 3, 'max_pooling2d_1': 3, 'conv2d_2': 4, 'batch_normalization_2': 4, 're_lu_2': 4, 'max_pooling2d_2': 4, 'conv2d_3': 4, 'batch_normalization_3': 4, 're_lu_3': 4, 'dropout_1': 4, 'conv2d_4': 5, 'batch_normalization_4': 5, 're_lu_4': 5, 'dropout_2': 5, 'flatten_1': 5, 'dense_1': 3, 'softmax_1': 7}
