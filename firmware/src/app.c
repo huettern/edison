@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 10:38:01
+* @Last Modified time: 2020-05-17 10:51:29
 */
 #include "app.h"
 #include <stdlib.h>
@@ -301,6 +301,8 @@ int8_t appMicMfccInfereContinuous (uint8_t *args)
 
   free(netInSnapshot);
   ledSet(0);
+  ledSetColorAll(0, 0, 0);
+  ledUpdate(0);
   mainSetPrintfUart(&huart4);
 
   return ret;
