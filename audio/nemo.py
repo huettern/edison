@@ -151,6 +151,8 @@ class ConvNet(nn.Module):
     output = F.log_softmax(x, dim=1) # <== the softmax operation does not need to be quantized, we can keep it as it is
     return output
 
+
+
 # convenience class to keep track of averages
 class Metric(object):
   def __init__(self, name):
@@ -164,105 +166,133 @@ class Metric(object):
   def avg(self):
     return self.sum / self.n
 
-def train(model, device, train_loader, optimizer, epoch, verbose=True):
-  model.train()
+
+
+def train(model, device, train_loader, optimizer, criterion, max_epochs, verbose=True):
+  # model.train() # <- dunno what this should do
   train_loss = Metric('train_loss')
-  with tqdm(total=len(train_loader),
-      desc='Train Epoch     #{}'.format(epoch + 1),
-      disable=not verbose) as t:
-    for batch_idx, (data, target) in enumerate(train_loader):
-      data, target = data.to(device), target.to(device)
-      optimizer.zero_grad()
-      output = model(data)
-      loss = F.nll_loss(output, target)
-      loss.backward()
-      optimizer.step()
-      train_loss.update(loss)
-      t.set_postfix({'loss': train_loss.avg.item()})
-      t.update(1)
-  return train_loss.avg.item()
-
-def test(model, device, test_loader, integer=False, verbose=True):
-  model.eval()
-  test_loss = 0
-  correct = 0
-  test_acc = Metric('test_acc')
-  with tqdm(total=len(test_loader),
-        desc='Test',
+  for epoch in range(max_epochs):
+    with tqdm(total=len(train_loader),
+        desc='Train Epoch  #%d/%d' % (epoch+1, max_epochs),
         disable=not verbose) as t:
-    with torch.no_grad():
-      for data, target in test_loader:
-        if integer:      # <== this will be useful when we get to the 
-          data *= 255  #     IntegerDeployable stage
+      for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
+        optimizer.zero_grad()
         output = model(data)
-        test_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss
-        pred = output.argmax(dim=1, keepdim=True) # get the index of the max log-probability
-        correct += pred.eq(target.view_as(pred)).sum().item()
-        test_acc.update((pred == target.view_as(pred)).float().mean())
-        t.set_postfix({'acc' : test_acc.avg.item() * 100. })
+        # print('output', output)
+        # print('output.shape', output.shape)
+        # print('target', target)
+        # print('target.shape', target.shape)
+        # loss = F.nll_loss(output, target)
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
+        train_loss.update(loss)
+        t.set_postfix({'loss': train_loss.avg.item()})
         t.update(1)
-  test_loss /= len(test_loader.dataset)
-  return test_acc.avg.item() * 100.
+      # Validation
+      # with torch.set_grad_enabled(False):
+      #     for local_batch, local_labels in validation_generator:
+      #         # Transfer to GPU
+      #         local_batch, local_labels = local_batch.to(device), local_labels.to(device)
+
+      #         # Model computations
+      #         [...]
+  return train_loss.avg.item()
+  return
 
 
-# Data loaders
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() else {}
+# def test(model, device, test_loader, integer=False, verbose=True):
+#   model.eval()
+#   test_loss = 0
+#   correct = 0
+#   test_acc = Metric('test_acc')
+#   with tqdm(total=len(test_loader),
+#         desc='Test',
+#         disable=not verbose) as t:
+#     with torch.no_grad():
+#       for data, target in test_loader:
+#         if integer:      # <== this will be useful when we get to the 
+#           data *= 255  #     IntegerDeployable stage
+#         data, target = data.to(device), target.to(device)
+#         output = model(data)
+#         test_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss
+#         pred = output.argmax(dim=1, keepdim=True) # get the index of the max log-probability
+#         correct += pred.eq(target.view_as(pred)).sum().item()
+#         test_acc.update((pred == target.view_as(pred)).float().mean())
+#         t.set_postfix({'acc' : test_acc.avg.item() * 100. })
+#         t.update(1)
+#   test_loss /= len(test_loader.dataset)
+#   return test_acc.avg.item() * 100.
 
-# Convert data from NHWC to NCHW
-x_train   = np.transpose(np.load('.cache/allinone/x_train.npy'), [0, 3, 1, 2])
-x_test    = np.transpose(np.load('.cache/allinone/x_test.npy'), [0, 3, 1, 2])
-x_val     = np.transpose(np.load('.cache/allinone/x_val.npy'), [0, 3, 1, 2])
-y_train   = np.load('.cache/allinone/y_train.npy')
-y_test    = np.load('.cache/allinone/y_test.npy')
-y_val     = np.load('.cache/allinone/y_val.npy')
-keywords  = np.load('.cache/allinone/keywords.npy')
+######################################################################
+# main
+######################################################################
+if __name__ == '__main__':
 
-print('x_train.shape    ', x_train.shape)
-print('x_test.shape     ', x_test.shape)
-print('x_val.shape      ', x_val.shape)
-print('y_train.shape    ', y_train.shape)
-print('y_test.shape     ', y_test.shape)
-print('y_val.shape      ', y_val.shape)
+  # Data loaders
+  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+  kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() else {}
 
-x_train_t   = torch.Tensor(x_train)
-x_test_t    = torch.Tensor(x_test)
-x_val_t     = torch.Tensor(x_val)
-y_train_t   = torch.Tensor(y_train)
-y_test_t    = torch.Tensor(y_test)
-y_val_t     = torch.Tensor(y_val)
+  # Convert data from NHWC to NCHW
+  x_train   = np.transpose(np.load('.cache/allinone/x_train.npy'), [0, 3, 1, 2])
+  x_test    = np.transpose(np.load('.cache/allinone/x_test.npy'), [0, 3, 1, 2])
+  x_val     = np.transpose(np.load('.cache/allinone/x_val.npy'), [0, 3, 1, 2])
+  # y is one-hot in files, we need it flat
+  y_train   = np.load('.cache/allinone/y_train.npy').argmax(axis=1).astype(int)
+  y_test    = np.load('.cache/allinone/y_test.npy').argmax(axis=1).astype(int)
+  y_val     = np.load('.cache/allinone/y_val.npy').argmax(axis=1).astype(int)
+  keywords  = np.load('.cache/allinone/keywords.npy')
 
-trainset = torch.utils.data.TensorDataset(x_train_t,y_train_t)
-testset = torch.utils.data.TensorDataset(x_test_t,y_test_t)
-valset = torch.utils.data.TensorDataset(x_val_t,y_val_t)
+  # print('x_train.shape    ', x_train.shape)
+  # print('x_test.shape     ', x_test.shape)
+  # print('x_val.shape      ', x_val.shape)
+  # print('y_train.shape    ', y_train.shape)
+  # print('y_test.shape     ', y_test.shape)
+  # print('y_val.shape      ', y_val.shape)
 
-train_loader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True)
-test_loader = torch.utils.data.DataLoader(testset, batch_size=128, shuffle=True)
-val_loader = torch.utils.data.DataLoader(valset, batch_size=128, shuffle=True)
+  # convert to torch tensors
+  x_train_t   = torch.Tensor(x_train)
+  x_test_t    = torch.Tensor(x_test)
+  x_val_t     = torch.Tensor(x_val)
+  y_train_t   = torch.Tensor(y_train).long()
+  y_test_t    = torch.Tensor(y_test).long()
+  y_val_t     = torch.Tensor(y_val).long()
 
-# train at FullPrecision stage
-num_classes = y_train.shape[1]
-inp_shape = x_train.shape[1:]
-print('num_classes:',num_classes)
-model = ConvNet(num_classes).to(device)
+  # print(y_train_t)
 
-single_item = x_train_t[0:1]
-print('single_item.shape', single_item.shape)
-model.forward(single_item)
+  # create data loaders
+  trainset = torch.utils.data.TensorDataset(x_train_t,y_train_t)
+  testset = torch.utils.data.TensorDataset(x_test_t,y_test_t)
+  valset = torch.utils.data.TensorDataset(x_val_t,y_val_t)
 
-import torchsummary as tsum
-tsum.summary(model, inp_shape)
+  print(trainset)
 
-exit()
+  train_loader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True)
+  test_loader = torch.utils.data.DataLoader(testset, batch_size=128, shuffle=True)
+  val_loader = torch.utils.data.DataLoader(valset, batch_size=128, shuffle=True)
 
-learning_rate = 0.001
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-epoch = 1
-train(model, device, train_loader, optimizer, epoch, verbose=True)
+  # train at FullPrecision stage
+  num_classes = y_train.max()+1
+  inp_shape = x_train.shape[1:]
+  print('num_classes:',num_classes)
+  model = ConvNet(num_classes).to(device)
 
-acc = test(model, device, test_loader)
-print("\nFullPrecision accuracy: %.02f%%" % acc)
+  # single_item = x_train_t[0:1]
+  # print('single_item.shape', single_item.shape)
+  # model.forward(single_item)
+
+  import torchsummary as tsum
+  # tsum.summary(model, inp_shape)
+
+  learning_rate = 0.001
+  max_epochs = 10
+  optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+  loss = nn.CrossEntropyLoss()
+  train(model, device, train_loader, optimizer, loss, max_epochs, verbose=True)
+
+  # acc = test(model, device, test_loader)
+  # print("\nFullPrecision accuracy: %.02f%%" % acc)
 
 
 
