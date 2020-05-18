@@ -8,6 +8,11 @@ import nemo
 from tqdm import tqdm
 import numpy as np
 
+cache_dir = '.cache/ai_nemo'
+model_path = cache_dir+'/nemo_model.pt'
+
+import pathlib
+pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
 
 ##################################################
 # Model definition
@@ -202,28 +207,28 @@ def train(model, device, train_loader, optimizer, criterion, max_epochs, verbose
   return
 
 
-# def test(model, device, test_loader, integer=False, verbose=True):
-#   model.eval()
-#   test_loss = 0
-#   correct = 0
-#   test_acc = Metric('test_acc')
-#   with tqdm(total=len(test_loader),
-#         desc='Test',
-#         disable=not verbose) as t:
-#     with torch.no_grad():
-#       for data, target in test_loader:
-#         if integer:      # <== this will be useful when we get to the 
-#           data *= 255  #     IntegerDeployable stage
-#         data, target = data.to(device), target.to(device)
-#         output = model(data)
-#         test_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss
-#         pred = output.argmax(dim=1, keepdim=True) # get the index of the max log-probability
-#         correct += pred.eq(target.view_as(pred)).sum().item()
-#         test_acc.update((pred == target.view_as(pred)).float().mean())
-#         t.set_postfix({'acc' : test_acc.avg.item() * 100. })
-#         t.update(1)
-#   test_loss /= len(test_loader.dataset)
-#   return test_acc.avg.item() * 100.
+def test(model, device, test_loader, integer=False, verbose=True):
+  model.eval()
+  test_loss = 0
+  correct = 0
+  test_acc = Metric('test_acc')
+  with tqdm(total=len(test_loader),
+        desc='Test',
+        disable=not verbose) as t:
+    with torch.no_grad():
+      for data, target in test_loader:
+        if integer:      # <== this will be useful when we get to the 
+          data *= 255  #     IntegerDeployable stage
+        data, target = data.to(device), target.to(device)
+        output = model(data)
+        test_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss
+        pred = output.argmax(dim=1, keepdim=True) # get the index of the max log-probability
+        correct += pred.eq(target.view_as(pred)).sum().item()
+        test_acc.update((pred == target.view_as(pred)).float().mean())
+        t.set_postfix({'acc' : test_acc.avg.item() * 100. })
+        t.update(1)
+  test_loss /= len(test_loader.dataset)
+  return test_acc.avg.item() * 100.
 
 ######################################################################
 # main
@@ -244,10 +249,10 @@ if __name__ == '__main__':
   y_val     = np.load('.cache/allinone/y_val.npy').argmax(axis=1).astype(int)
   keywords  = np.load('.cache/allinone/keywords.npy')
 
-  # print('x_train.shape    ', x_train.shape)
+  print('x_train.shape    ', x_train.shape)
   # print('x_test.shape     ', x_test.shape)
   # print('x_val.shape      ', x_val.shape)
-  # print('y_train.shape    ', y_train.shape)
+  print('y_train.shape    ', y_train.shape)
   # print('y_test.shape     ', y_test.shape)
   # print('y_val.shape      ', y_val.shape)
 
@@ -282,18 +287,102 @@ if __name__ == '__main__':
   # print('single_item.shape', single_item.shape)
   # model.forward(single_item)
 
-  import torchsummary as tsum
+  # Show model info
+  # import torchsummary as tsum
   # tsum.summary(model, inp_shape)
 
-  learning_rate = 0.001
-  max_epochs = 10
-  optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-  loss = nn.CrossEntropyLoss()
-  train(model, device, train_loader, optimizer, loss, max_epochs, verbose=True)
+  do_train = False
+  if do_train:
+    learning_rate = 0.001
+    max_epochs = 10
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    loss = nn.CrossEntropyLoss()
+    train(model, device, train_loader, optimizer, loss, max_epochs, verbose=True)
+    torch.save(model.state_dict(), model_path)
+  else:
+    model.load_state_dict(torch.load(model_path))
 
-  # acc = test(model, device, test_loader)
-  # print("\nFullPrecision accuracy: %.02f%%" % acc)
+  acc = test(model, device, test_loader)
+  print("\nFullPrecision accuracy: %.02f%%" % acc)
 
+  ##########################################
+  # FakeQuantized network
+  #
+  model = nemo.transform.quantize_pact(model, dummy_input=torch.randn((1,)+x_train.shape[1:]).to(device))
+  precision = {
+    'conv1': {
+        'W_bits' : 15
+    },
+    'conv2': {
+        'W_bits' : 15
+    },
+    'conv3': {
+        'W_bits' : 15
+    },
+    'conv4': {
+        'W_bits' : 15
+    },
+    'fc1': {
+        'W_bits' : 15
+    },
+    'relu1': {
+        'x_bits' : 16
+    },
+    'relu2': {
+        'x_bits' : 16
+    },
+    'relu3': {
+        'x_bits' : 16
+    },
+    'relu4': {
+        'x_bits' : 16
+    },
+  }
+  model.change_precision(bits=1, min_prec_dict=precision)
+  acc = test(model, device, test_loader)
+  print("\nFakeQuantized @ 16b accuracy (first try): %.02f%%" % acc)
 
+  # calibarte activation quantization
+  model.set_statistics_act()
+  _ = test(model, device, test_loader)
+  model.unset_statistics_act()
+  model.reset_alpha_act()
+  acc = test(model, device, test_loader)
+  print("\nFakeQuantized @ 16b accuracy (calibrated): %.02f%%" % acc)
+
+  # heavier quantization
+  precision = {
+    'conv1': {
+        'W_bits' : 7
+    },
+    'conv2': {
+        'W_bits' : 7
+    },
+    'conv3': {
+        'W_bits' : 7
+    },
+    'conv4': {
+        'W_bits' : 7
+    },
+    'fc1': {
+        'W_bits' : 7
+    },
+    'relu1': {
+        'x_bits' : 8
+    },
+    'relu2': {
+        'x_bits' : 8
+    },
+    'relu3': {
+        'x_bits' : 8
+    },
+    'relu4': {
+        'x_bits' : 8
+    },
+  }
+  model.change_precision(bits=1, min_prec_dict=precision)
+  acc = test(model, device, test_loader)
+  print("\nFakeQuantized @ mixed-precision accuracy: %.02f%%" % acc)
+  nemo.utils.save_checkpoint(model, None, 0, checkpoint_name='mnist_fq_mixed')
 
 
