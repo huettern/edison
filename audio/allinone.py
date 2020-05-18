@@ -9,15 +9,19 @@ from scipy.io import wavfile
 
 # import tensorflow as tf
 
-# import tensorflow.keras as keras
-# from tensorflow.keras.models import Sequential, load_model, Model
-# from tensorflow.keras.layers import *
-# from tensorflow.keras.utils import to_categorical
+import tensorflow.keras as keras
+from tensorflow.keras.models import Sequential, load_model, Model
+from tensorflow.keras.layers import Flatten, Dense, Softmax
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras import Input, Model
 
-import keras
-from keras.models import Sequential, load_model, Model
-from keras.layers import *
-from keras.utils import to_categorical
+# import keras
+# from keras.models import Sequential, load_model, Model
+# from keras.layers import *
+# from keras.utils import to_categorical
+
+# For tcn nets
+from tcn import TCN, tcn_full_summary
 
 from sklearn.metrics import confusion_matrix
 
@@ -117,16 +121,75 @@ def get_model(inp_shape, num_classes):
   model.compile(optimizer=opt, loss ='categorical_crossentropy', metrics=['accuracy'])
   return model
 
+
+def get_tcn_model(inp_shape, num_classes):
+  """
+    builds a TCN model using https://github.com/philipperemy/keras-tcn
+  """
+
+  # Cut last dimenstion which is 1
+  inp_shape = inp_shape[:-1]
+  print("Building TCN model with input shape %s and %d classes" % (inp_shape, num_classes))
+
+  # input is of shape (batch_size, timesteps, input_dim)
+  inputs = Input(shape=inp_shape)
+  # batch_size = batchSize
+  # timesteps = inp_shape[0]
+  # input_dim = inp_shape[1]
+  # inputs = Input(batch_shape=(batch_size, timesteps, input_dim))
+
+  # The TCN layers are here.
+  #
+  # nb_filters:     Integer. The number of filters to use in the convolutional layers. Would be similar to units for LSTM.
+  # kernel_size:    Integer. The size of the kernel to use in each convolutional layer.
+  # dilations:      List. A dilation list. Example is: [1, 2, 4, 8, 16, 32, 64].
+  # nb_stacks:      Integer. The number of stacks of residual blocks to use.
+  # padding:        String. The padding to use in the convolutions. 'causal' for a causal network 
+  #                       (as in the original implementation) and 'same' for a non-causal network.
+  # use_skip_connections: Boolean. If we want to add skip connections from input to each residual block.
+  # return_sequences:   Boolean. Whether to return the last output in the output sequence, or the full sequence.
+  # dropout_rate:       Float between 0 and 1. Fraction of the input units to drop.
+  # activation:         The activation used in the residual blocks o = activation(x + F(x)).
+  # kernel_initializer: Initializer for the kernel weights matrix (Conv1D).
+  # use_batch_norm:     Whether to use batch normalization in the residual layers or not.
+  o = TCN(  nb_filters=64, 
+            kernel_size=2, 
+            nb_stacks=1, 
+            dilations=[1, 2, 4, 8, 16, 32], 
+            padding='causal', 
+            use_skip_connections=True, 
+            dropout_rate=0.2, 
+            return_sequences=True, 
+            activation='linear', 
+            kernel_initializer='he_normal', 
+            use_batch_norm=True )(inputs)
+  o = Flatten()(o)
+  o = Dense(num_classes)(o)
+  predictions = Softmax()(o)
+
+  model = Model(inputs=inputs, outputs=predictions)
+  # model.compile(optimizer='adam', loss='mse')
+  opt = keras.optimizers.Adam(learning_rate=initial_learningrate)
+  model.compile(optimizer=opt, loss='categorical_crossentropy')
+
+  tcn_full_summary(model, expand_residual_blocks=False)
+  print('model.input.shape', model.input.shape)
+
+  return model
+
+
+
 ##################################################
 # Model training
 def train(model, x, y, vx, vy, batchSize = 10, epochs = 30):
   
   early_stopping = keras.callbacks.EarlyStopping(monitor='val_loss', patience=10)
   reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=1, min_lr=1e-9)
+  tensorboard_callback = keras.callbacks.TensorBoard(log_dir='/tmp/edison/train', histogram_freq=1)
 
-  train_history = model.fit(x, y, batch_size = batchSize, epochs = epochs, 
+  train_history = model.fit(x, y, epochs = epochs, 
     validation_data = (vx, vy), 
-    callbacks = [early_stopping, reduce_lr], shuffle=True)
+    callbacks = [early_stopping, reduce_lr, tensorboard_callback])
 
   return train_history
 
@@ -742,7 +805,7 @@ if __name__ == '__main__':
 
   if sys.argv[1] == 'train':
     # build model
-    model = get_model(inp_shape=x_train.shape[1:], num_classes = len(keywords))
+    model = get_tcn_model(inp_shape=x_train.shape[1:], num_classes = len(keywords))
 
     # train model
     model.summary()
