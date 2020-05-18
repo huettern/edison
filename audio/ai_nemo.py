@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torchvision import datasets, transforms
 import nemo
 from tqdm import tqdm
 import numpy as np
@@ -127,6 +126,7 @@ class ConvNet(nn.Module):
     # print('x = self.relu1(x) size', x.shape)
     x = self.pool1(x)
     # print('x = self.pool1(x) size', x.shape)
+
     x = self.conv2(x)
     # print('x = self.conv2(x) size', x.shape)
     x = self.bn2(x)
@@ -135,6 +135,7 @@ class ConvNet(nn.Module):
     # print('x = self.relu2(x) size', x.shape)
     x = self.pool2(x)
     # print('x = self.pool2(x) size', x.shape)
+
     x = self.conv3(x)
     # print('x = self.conv3(x) size', x.shape)
     x = self.bn3(x)
@@ -143,6 +144,7 @@ class ConvNet(nn.Module):
     # print('x = self.relu3(x) size', x.shape)
     x = self.do1(x)
     # print('x = self.do1(x) size', x.shape)
+
     x = self.conv4(x)
     # print('x = self.conv4(x) size', x.shape)
     x = self.bn4(x)
@@ -271,8 +273,6 @@ if __name__ == '__main__':
   testset = torch.utils.data.TensorDataset(x_test_t,y_test_t)
   valset = torch.utils.data.TensorDataset(x_val_t,y_val_t)
 
-  print(trainset)
-
   train_loader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True)
   test_loader = torch.utils.data.DataLoader(testset, batch_size=128, shuffle=True)
   val_loader = torch.utils.data.DataLoader(valset, batch_size=128, shuffle=True)
@@ -294,7 +294,7 @@ if __name__ == '__main__':
   do_train = False
   if do_train:
     learning_rate = 0.001
-    max_epochs = 10
+    max_epochs = 1
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     loss = nn.CrossEntropyLoss()
     train(model, device, train_loader, optimizer, loss, max_epochs, verbose=True)
@@ -313,29 +313,29 @@ if __name__ == '__main__':
     'conv1': {
         'W_bits' : 15
     },
-    'conv2': {
-        'W_bits' : 15
-    },
-    'conv3': {
-        'W_bits' : 15
-    },
-    'conv4': {
-        'W_bits' : 15
-    },
-    'fc1': {
-        'W_bits' : 15
-    },
     'relu1': {
         'x_bits' : 16
+    },
+    'conv2': {
+        'W_bits' : 15
     },
     'relu2': {
         'x_bits' : 16
     },
+    'conv3': {
+        'W_bits' : 15
+    },
     'relu3': {
         'x_bits' : 16
     },
+    'conv4': {
+        'W_bits' : 15
+    },
     'relu4': {
         'x_bits' : 16
+    },
+    'fc1': {
+        'W_bits' : 15
     },
   }
   model.change_precision(bits=1, min_prec_dict=precision)
@@ -355,29 +355,29 @@ if __name__ == '__main__':
     'conv1': {
         'W_bits' : 7
     },
-    'conv2': {
-        'W_bits' : 7
-    },
-    'conv3': {
-        'W_bits' : 7
-    },
-    'conv4': {
-        'W_bits' : 7
-    },
-    'fc1': {
-        'W_bits' : 7
-    },
     'relu1': {
         'x_bits' : 8
+    },
+    'conv2': {
+        'W_bits' : 7
     },
     'relu2': {
         'x_bits' : 8
     },
+    'conv3': {
+        'W_bits' : 7
+    },
     'relu3': {
         'x_bits' : 8
     },
+    'conv4': {
+        'W_bits' : 7
+    },
     'relu4': {
         'x_bits' : 8
+    },
+    'fc1': {
+        'W_bits' : 7
     },
   }
   model.change_precision(bits=1, min_prec_dict=precision)
@@ -385,4 +385,34 @@ if __name__ == '__main__':
   print("\nFakeQuantized @ mixed-precision accuracy: %.02f%%" % acc)
   nemo.utils.save_checkpoint(model, None, 0, checkpoint_name='mnist_fq_mixed')
 
+  # towards a possible deployment: folding of batch-normalization layers
+  # folding absorbs them (batch-normalization layers) inside the quantized parameters
+  model.fold_bn()
+  model.reset_alpha_weights()
+  acc = test(model, device, test_loader)
+  print("\nFakeQuantized @ mixed-precision (folded) accuracy: %.02f%%" % acc)
+
+  # Re-equalize weights
+  # model.equalize_weights_dfq({'conv1':'conv2','conv2':'conv3','conv3':'conv4'})
+  model.equalize_weights_dfq({'conv1':'conv2'})
+  model.set_statistics_act()
+  _ = test(model, device, test_loader)
+  model.unset_statistics_act()
+  model.reset_alpha_act()
+  acc = test(model, device, test_loader)
+  print("\nFakeQuantized @ mixed-precision (folded+equalized) accuracy: %.02f%%" % acc)
+
+  print(model)
+
+  # transition to QuantizedDeployable state
+  # the inputs are MFCC coefficients in int16 format
+  input_channel_max_value = 2**16-1
+  state_dict = torch.load('checkpoint/mnist_fq_mixed.pth')['state_dict']
+  model.load_state_dict(state_dict, strict=True)
+  model = nemo.transform.bn_quantizer(model)
+  model.harden_weights()
+  model.set_deployment(eps_in=1./input_channel_max_value)
+  print(model)
+  acc = test(model, device, test_loader)
+  print("\nQuantizedDeployable @ mixed-precision accuracy: %.02f%%" % acc)
 
