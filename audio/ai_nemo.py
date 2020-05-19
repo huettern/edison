@@ -228,6 +228,122 @@ def test(model, device, test_loader, integer=False, verbose=True):
   test_loss /= len(test_loader.dataset)
   return test_acc.avg.item() * 100.
 
+def implement(model, dummy_input):
+
+  x = dummy_input
+
+  for idx, m in model.named_modules():
+    print('\n\n\n\n')
+    print(idx, '->', m, type(m))
+
+    # if convolution layer
+    if isinstance(m, nemo.quant.pact.PACT_Conv2d):
+      # arm_convolve_s8:
+      # * @param[in]       input           pointer to input tensor. Range: int8, format: [N,H,W,in_ch]
+      # * @param[in]       input_x         input tensor width
+      # * @param[in]       input_y         input tensor height
+      # * @param[in]       input_ch        number of input tensor channels
+      # * @param[in]       input_batches   number of input batches
+
+      # * @param[in]       kernel          pointer to kernel weights. Range: int8, format: [out_ch, H, W, in_ch]
+      # * @param[in]       output_ch       number of filters, i.e., output tensor channels
+      # * @param[in]       kernel_x        filter/kernel width
+      # * @param[in]       kernel_y        filter/kernel height
+
+      # * @param[in]       pad_x           padding along width
+      # * @param[in]       pad_y           padding along height
+
+      # * @param[in]       stride_x        convolution stride x
+      # * @param[in]       stride_y        convolution stride y
+
+      # * @param[in]       bias            pointer to per output channel bias. Range: int32
+
+      # * @param[in,out]   output          pointer to output tensor. format: [H, W, out_ch]
+
+      # * @param[in]       output_shift    pointer to per output channel requantization shift parameter.
+      # * @param[in]       output_mult     pointer to per output channel requantization multiplier parameter.
+
+      # * @param[in]       out_offset      output tensor offset. Range: int8
+      # * @param[in]       input_offset    input tensor offset. Range: int8
+      # * @param[in]       output_activation_min   Minimum value to clamp the output to. Range: int8
+      # * @param[in]       output_activation_max   Minimum value to clamp the output to. Range: int8
+      # * @param[in]       output_x    output tensor width
+      # * @param[in]       output_y    output tensor height
+      # * @param[in]       buffer_a    pointer to buffer space used for input optimization(partial im2col) and is necessary
+      # *                              when ARM_MATH_DSP is defined.
+      # *                              Required space: (2 * input_ch * kernel_x * kernel_y) * sizeof(q15_t) bytes
+      # *                              Use arm_convolve_s8_get_buffer_size() to get the size.
+
+      print('Found PACT_Conv2d layer')
+      l = {}
+      inp_shape = x.shape # NCHW
+      x = m(x)
+      oup_shape = x.shape
+      
+      l['input_x'] = inp_shape[3]
+      l['input_y'] = inp_shape[2]
+      l['input_ch'] = inp_shape[1]
+      l['input_batches'] = inp_shape[0]
+
+      # convert NCHW to NHWC
+      ker = m.weight.data.numpy()
+      l['kernel'] = np.transpose(ker, [0, 2, 3, 1]).ravel()
+      l['output_ch'] = oup_shape[1]
+      l['kernel_x'] = m.weight.shape[2]
+      l['kernel_y'] = m.weight.shape[3]
+
+      l['pad_x'] = m.padding[0]
+      l['pad_y'] = m.padding[1]
+
+      l['stride_x'] = m.stride[0]
+      l['stride_y'] = m.stride[1]
+
+      # convert NCHW to NHWC
+      bia = m.bias.data.numpy()
+      l['bias'] = bia.ravel()
+
+      # l['output_shift'] = 
+      # l['output_mult'] = 
+
+      l['out_offset'] = 0
+      l['input_offset'] = 0
+
+      l['output_activation_min'] = 0
+      l['output_activation_max'] = 255
+
+      l['output_x'] = oup_shape[3]
+      l['output_y'] = oup_shape[2]
+
+      bias = m.bias.data # tensor
+      weight = m.weight.data # tensor
+      pad = m.padding # tuple, (0,0)
+      stride = m.stride # tuple, (0,0)
+      in_ch = m.in_channels # int
+      out_ch = m.out_channels # int
+
+      # print(l)
+      
+    elif isinstance(m, nemo.quant.pact.PACT_IntegerBatchNormNd):
+      print('Found PACT_IntegerBatchNormNd layer')
+
+    elif isinstance(m, nemo.quant.pact.PACT_IntegerAct):
+      print('Found PACT_IntegerAct layer')
+
+    elif isinstance(m, torch.nn.modules.pooling.MaxPool2d):
+      print('Found MaxPool2d layer')
+
+    elif isinstance(m, nemo.quant.pact.PACT_Linear):
+      print('Found PACT_Linear layer')
+
+    else:
+      print('ERROR: Unsupported layer', type(m))
+      return -1
+
+
+  # for name, param in model.named_parameters():
+  #   print(name, param.size())
+  #   model.
+
 ######################################################################
 # main
 ######################################################################
@@ -301,6 +417,16 @@ if __name__ == '__main__':
   acc = test(model, device, test_loader)
   print("\nFullPrecision accuracy: %.02f%%" % acc)
 
+  ##########################################
+  # original net
+  #
+  batch_size = 1
+  inp_shape = x_train.shape[1:]
+  perm = lambda x : x
+  dummy_input = perm(torch.randn(batch_size, *inp_shape, device='cuda' if torch.cuda.is_available() else 'cpu'))
+  torch.onnx.export(model, dummy_input, cache_dir+'/kws_float.onnx',
+   do_constant_folding=True, export_params=True, opset_version=11)
+  # exit()
   ##########################################
   # FakeQuantized network
   #
@@ -416,13 +542,20 @@ if __name__ == '__main__':
 
   # transform the network to the last stage: IntegerDeployable
   model = nemo.transform.integerize_pact(model, eps_in=1.0/input_channel_max_value)
+  print(type(model))
   print(model)
   acc = test(model, device, test_loader, integer=True)
   print("\nIntegerDeployable @ mixed-precision accuracy: %.02f%%" % acc)
   # export
   nemo.utils.export_onnx(cache_dir+'/kws_id_mixed.onnx', model, model, inp_shape)
 
+  # run implementation
+  perm = lambda x : x
+  input_shape = inp_shape = x_train.shape[1:]
+  dummy_input = perm(torch.randn(1, *input_shape, device='cuda' if torch.cuda.is_available() else 'cpu'))
+  implement(model, dummy_input)
 
 
+  
 
 
