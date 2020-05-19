@@ -15,3 +15,7 @@ echo "export PYTHONPATH=`pwd`/implement/nnom/scripts:$PYTHONPATH" >> venv/bin/ac
 source venv/bin/activate
 pip install -r requirements.txt
 
+# install a fixed version of nemo
+pip uninstall -y pytorch-nemo
+pip install git+https://github.com/noah95/nemo
+

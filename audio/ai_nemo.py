@@ -13,6 +13,8 @@ model_path = cache_dir+'/nemo_model.pt'
 import pathlib
 pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
 
+input_channel_max_value = 2**16-1
+
 ##################################################
 # Model definition
 #
@@ -95,11 +97,6 @@ class ConvNet(nn.Module):
       stride=conv3_strides, padding=conv3_padding, padding_mode=conv3_padding_mode)
     self.bn3 = nn.BatchNorm2d(conv3_out_channels)
     self.relu3 = nn.ReLU()
-    # pool3_kernel_size = (2, 1)
-    # pool3_strides = (2,1)
-    # pool3_padding = (0,0)
-    # self.pool3 = nn.MaxPool2d(pool3_kernel_size, stride=pool3_strides, padding=pool3_padding)
-    self.do1 = torch.nn.Dropout(p=0.2)
 
     # Third hidden layer
     conv4_in_channels = conv3_out_channels
@@ -112,7 +109,6 @@ class ConvNet(nn.Module):
       stride=conv4_strides, padding=conv4_padding, padding_mode=conv4_padding_mode)
     self.bn4 = nn.BatchNorm2d(conv4_out_channels)
     self.relu4 = nn.ReLU()
-    self.do2 = torch.nn.Dropout(p=0.3)
     
     # output fully connected layer
     self.fc1 = nn.Linear(96, num_classes)
@@ -142,7 +138,7 @@ class ConvNet(nn.Module):
     # print('x = self.bn3(x) size', x.shape)
     x = self.relu3(x)
     # print('x = self.relu3(x) size', x.shape)
-    x = self.do1(x)
+    x = nn.functional.dropout(x, p=0.2)
     # print('x = self.do1(x) size', x.shape)
 
     x = self.conv4(x)
@@ -151,7 +147,7 @@ class ConvNet(nn.Module):
     # print('x = self.bn4(x) size', x.shape)
     x = self.relu4(x)
     # print('x = self.relu4(x) size', x.shape)
-    x = self.do2(x)
+    x = nn.functional.dropout(x, p=0.3)
     # print('x = self.do2(x) size', x.shape)
     x = torch.flatten(x, 1)
     x = self.fc1(x)
@@ -220,7 +216,7 @@ def test(model, device, test_loader, integer=False, verbose=True):
     with torch.no_grad():
       for data, target in test_loader:
         if integer:      # <== this will be useful when we get to the 
-          data *= 255  #     IntegerDeployable stage
+          data *= input_channel_max_value  #     IntegerDeployable stage
         data, target = data.to(device), target.to(device)
         output = model(data)
         test_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss
@@ -294,7 +290,7 @@ if __name__ == '__main__':
   do_train = False
   if do_train:
     learning_rate = 0.001
-    max_epochs = 1
+    max_epochs = 20
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     loss = nn.CrossEntropyLoss()
     train(model, device, train_loader, optimizer, loss, max_epochs, verbose=True)
@@ -383,7 +379,7 @@ if __name__ == '__main__':
   model.change_precision(bits=1, min_prec_dict=precision)
   acc = test(model, device, test_loader)
   print("\nFakeQuantized @ mixed-precision accuracy: %.02f%%" % acc)
-  nemo.utils.save_checkpoint(model, None, 0, checkpoint_name='mnist_fq_mixed')
+  nemo.utils.save_checkpoint(model, None, 0, checkpoint_name='kws_fq_mixed')
 
   # towards a possible deployment: folding of batch-normalization layers
   # folding absorbs them (batch-normalization layers) inside the quantized parameters
@@ -402,12 +398,9 @@ if __name__ == '__main__':
   acc = test(model, device, test_loader)
   print("\nFakeQuantized @ mixed-precision (folded+equalized) accuracy: %.02f%%" % acc)
 
-  print(model)
-
   # transition to QuantizedDeployable state
   # the inputs are MFCC coefficients in int16 format
-  input_channel_max_value = 2**16-1
-  state_dict = torch.load('checkpoint/mnist_fq_mixed.pth')['state_dict']
+  state_dict = torch.load('checkpoint/kws_fq_mixed.pth')['state_dict']
   model.load_state_dict(state_dict, strict=True)
   model = nemo.transform.bn_quantizer(model)
   model.harden_weights()
@@ -415,4 +408,21 @@ if __name__ == '__main__':
   print(model)
   acc = test(model, device, test_loader)
   print("\nQuantizedDeployable @ mixed-precision accuracy: %.02f%%" % acc)
+
+  # export net in ONNX
+  inp_shape = x_train.shape[1:]
+  nemo.utils.export_onnx(cache_dir+'/kws_qd_mixed.onnx', 
+    model, model, inp_shape, round_params=False) # round_params is active by default because NEMO mainly exports integerized networks!
+
+  # transform the network to the last stage: IntegerDeployable
+  model = nemo.transform.integerize_pact(model, eps_in=1.0/input_channel_max_value)
+  print(model)
+  acc = test(model, device, test_loader, integer=True)
+  print("\nIntegerDeployable @ mixed-precision accuracy: %.02f%%" % acc)
+  # export
+  nemo.utils.export_onnx(cache_dir+'/kws_id_mixed.onnx', model, model, inp_shape)
+
+
+
+
 
