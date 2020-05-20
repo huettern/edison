@@ -12,6 +12,15 @@ model_path = cache_dir+'/nemo_model.pt'
 
 import pathlib
 pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
+##################################################
+# Steps
+
+# Enable to train model (takes ~1min)
+do_train = False
+# Enable to test only on small number of samples to speed things up
+dummy_tests = True
+# Enable to run implementation
+do_implementation = True
 
 input_channel_max_value = 2**16-1
 
@@ -138,7 +147,7 @@ class ConvNet(nn.Module):
     # print('x = self.bn3(x) size', x.shape)
     x = self.relu3(x)
     # print('x = self.relu3(x) size', x.shape)
-    x = nn.functional.dropout(x, p=0.2)
+    # x = nn.functional.dropout(x, p=0.2)
     # print('x = self.do1(x) size', x.shape)
 
     x = self.conv4(x)
@@ -147,7 +156,7 @@ class ConvNet(nn.Module):
     # print('x = self.bn4(x) size', x.shape)
     x = self.relu4(x)
     # print('x = self.relu4(x) size', x.shape)
-    x = nn.functional.dropout(x, p=0.3)
+    # x = nn.functional.dropout(x, p=0.3)
     # print('x = self.do2(x) size', x.shape)
     x = torch.flatten(x, 1)
     x = self.fc1(x)
@@ -232,9 +241,27 @@ def implement(model, dummy_input):
 
   x = dummy_input
 
-  for idx, m in model.named_modules():
-    print('\n\n\n\n')
-    print(idx, '->', m, type(m))
+  bufsizes = {}
+  actsizes = {}
+  funCalls = {}
+  c_lines, h_lines = '',''
+
+  for name, m in model.named_modules():
+    # print('\n\n\n\n')
+    print('------------------------------------------------')
+    print(name, '->', m, type(m))
+    print('------------------------------------------------')
+
+    if isinstance(m, ConvNet):
+      continue
+
+    l = {}
+    # If this layer is fc, flatten first
+    if isinstance(m, nemo.quant.pact.PACT_Linear):
+      x = torch.flatten(x, 1)
+    inp_shape = x.shape # NCHW
+    x = m.forward(x)
+    oup_shape = x.shape
 
     # if convolution layer
     if isinstance(m, nemo.quant.pact.PACT_Conv2d):
@@ -274,11 +301,31 @@ def implement(model, dummy_input):
       # *                              Required space: (2 * input_ch * kernel_x * kernel_y) * sizeof(q15_t) bytes
       # *                              Use arm_convolve_s8_get_buffer_size() to get the size.
 
+      # arm_status arm_convolve_s8(const q7_t *input,
+      #                            const uint16_t input_x,
+      #                            const uint16_t input_y,
+      #                            const uint16_t input_ch,
+      #                            const uint16_t input_batches,
+      #                            const q7_t *kernel,
+      #                            const uint16_t output_ch,
+      #                            const uint16_t kernel_x,
+      #                            const uint16_t kernel_y,
+      #                            const uint16_t pad_x,
+      #                            const uint16_t pad_y,
+      #                            const uint16_t stride_x,
+      #                            const uint16_t stride_y,
+      #                            const int32_t *bias,
+      #                            q7_t *output,
+      #                            const int32_t *output_shift,
+      #                            const int32_t *output_mult,
+      #                            const int32_t out_offset,
+      #                            const int32_t input_offset,
+      #                            const int32_t output_activation_min,
+      #                            const int32_t output_activation_max,
+      #                            const uint16_t output_x,
+      #                            const uint16_t output_y,
+      #                            q15_t *buffer_a);
       print('Found PACT_Conv2d layer')
-      l = {}
-      inp_shape = x.shape # NCHW
-      x = m(x)
-      oup_shape = x.shape
       
       l['input_x'] = inp_shape[3]
       l['input_y'] = inp_shape[2]
@@ -286,8 +333,8 @@ def implement(model, dummy_input):
       l['input_batches'] = inp_shape[0]
 
       # convert NCHW to NHWC
-      ker = m.weight.data.numpy()
-      l['kernel'] = np.transpose(ker, [0, 2, 3, 1]).ravel()
+      ker = np.transpose(m.weight.data.numpy(), [0, 2, 3, 1]).ravel()
+      # l['kernel'] = ker
       l['output_ch'] = oup_shape[1]
       l['kernel_x'] = m.weight.shape[2]
       l['kernel_y'] = m.weight.shape[3]
@@ -299,45 +346,383 @@ def implement(model, dummy_input):
       l['stride_y'] = m.stride[1]
 
       # convert NCHW to NHWC
-      bia = m.bias.data.numpy()
-      l['bias'] = bia.ravel()
+      bias = m.bias.data.numpy().ravel()
+      # l['bias'] = bias
 
-      # l['output_shift'] = 
-      # l['output_mult'] = 
+      # These are probably done in the model's PACT_IntegerAct
+      for i, c in enumerate(name):
+        if c.isdigit():
+          lay_num = int(name[i:])    
+      print('layer number got', lay_num)
+      output_shift = np.array(l['output_ch']*[0])
+      output_mult = np.array(l['output_ch']*[1])
+      found_integer_act = False
+      for sname, mod in model.named_modules():
+        if sname == 'relu'+str(lay_num) and isinstance(mod, nemo.quant.pact.PACT_IntegerAct):
+          print('Found PACT_IntegerAct following Conv layer!!!')
+          found_integer_act = True
+          output_mult = np.array(l['output_ch']*[(mod.D*mod.eps_in/mod.eps_out).round()], dtype=int)
+          output_shift = np.array(l['output_ch']*[np.log2(mod.D)], dtype=int )
+          l['output_activation_min'] = 0
+          l['output_activation_max'] = int(mod.alpha_out)
+      if not found_integer_act:
+        print("WARNING: Didn't find a PACT_IntegerAct layer following a conv. This is not handled yet")
+      # print(output_mult)
+      # print(output_shift)
+      # lay_num = [int(s) for s in name.split() if s.isdigit()][0]
+      # for sname in model.named_modules():
+      #   if sname[-1]
 
       l['out_offset'] = 0
       l['input_offset'] = 0
 
-      l['output_activation_min'] = 0
-      l['output_activation_max'] = 255
-
       l['output_x'] = oup_shape[3]
       l['output_y'] = oup_shape[2]
+      actsizes[name] = 1*l['output_x']*l['output_y']*l['output_ch']
 
-      bias = m.bias.data # tensor
-      weight = m.weight.data # tensor
-      pad = m.padding # tuple, (0,0)
-      stride = m.stride # tuple, (0,0)
-      in_ch = m.in_channels # int
-      out_ch = m.out_channels # int
+      l['buffer_a_size'] = (2 * l['input_ch'] * l['kernel_x'] * l['kernel_y']) * 2 # 2 == sizeof(q15_t)
+      bufsizes[name] = l['buffer_a_size']
+      # bias = m.bias.data # tensor
+      # weight = m.weight.data # tensor
+      # pad = m.padding # tuple, (0,0)
+      # stride = m.stride # tuple, (0,0)
+      # in_ch = m.in_channels # int
+      # out_ch = m.out_channels # int
 
-      # print(l)
+      ##############################
+      # generate C code
+      h_lines += '// Layer ' + name + '\n'
+      un = name.upper()
+      # layer properties
+      for k, v in l.items():
+        h_lines += '#define ' + un + '_' + k.upper() + '\t' + str(v) + '\n'
+      # layer values
+      h_lines += '#define ' + un + '_WT {' + ','.join(map(str,ker.astype(int))) + '}\n'
+      h_lines += '#define ' + un + '_BIAS {' + ','.join(map(str,bias.astype(int))) + '}\n'
+      h_lines += '#define ' + un + '_OUT_MULT {' + ','.join(map(str,output_mult.astype(int))) + '}\n'
+      h_lines += '#define ' + un + '_OUT_SHIFT {' + ','.join(map(str,output_shift.astype(int))) + '}\n'
+      
+      # data arrays for weight and bias
+      c_lines += '// Layer ' + name + '\n'
+      c_lines += 'static const q7_t ' + name + '_wt [' + un + '_INPUT_CH*' + un + '_KERNEL_X*' + un + '_KERNEL_Y*' + un + '_OUTPUT_CH] = '+un+'_WT;\n'
+      c_lines += 'static const q7_t ' + name + '_bias [' + un + '_OUTPUT_CH] = '+un+'_BIAS;\n'
+      c_lines += 'static const q7_t ' + name + '_output_mult [' + un + '_OUTPUT_CH] = '+un+'_OUT_MULT;\n'
+      c_lines += 'static const q7_t ' + name + '_output_shift [' + un + '_OUTPUT_CH] = '+un+'_OUT_SHIFT;\n'
+
+      funCall = ''.join((
+        "status = arm_convolve_s8(__LAYER_IN,",
+        "{}, ".format(un+'_input_x'.upper()),
+        "{}, ".format(un+'_input_y'.upper()),
+        "{}, ".format(un+'_input_ch'.upper()),
+        "{}, ".format(un+'_input_batches'.upper()),
+        "{}, ".format(name + '_wt'),
+        "{}, ".format(un+'_output_ch'.upper()),
+        "{}, ".format(un+'_kernel_x'.upper()),
+        "{}, ".format(un+'_kernel_y'.upper()),
+        "{}, ".format(un+'_pad_x'.upper()),
+        "{}, ".format(un+'_pad_y'.upper()),
+        "{}, ".format(un+'_stride_x'.upper()),
+        "{}, ".format(un+'_stride_y'.upper()),
+        "{}, ".format(name + '_bias'),
+        "__LAYER_OUT,",
+        "{}, ".format(name + '_output_shift'),
+        "{}, ".format(name + '_output_mult'),
+        "{}, ".format(un+'_out_offset'.upper()),
+        "{}, ".format(un+'_input_offset'.upper()),
+        "{}, ".format(un+'_output_activation_min'.upper()),
+        "{}, ".format(un+'_output_activation_max'.upper()),
+        "{}, ".format(un+'_output_x'.upper()),
+        "{}, ".format(un+'_output_y'.upper()),
+        "__LAYER_BUF);"))
+      funCalls[name] = (funCall)
       
     elif isinstance(m, nemo.quant.pact.PACT_IntegerBatchNormNd):
       print('Found PACT_IntegerBatchNormNd layer')
 
     elif isinstance(m, nemo.quant.pact.PACT_IntegerAct):
       print('Found PACT_IntegerAct layer')
+      # Absorbed in conv layer
+      l = {}
+      l['eps_in'] = m.eps_in.numpy()
+      l['eps_out'] = m.eps_out
+      l['D'] = m.D.numpy()
+      l['alpha_out'] = m.alpha_out
+      l['shift'] = np.log2(l['D'])
+
+      l['eps_ratio'] = (m.D*m.eps_in/m.eps_out).round().numpy()
 
     elif isinstance(m, torch.nn.modules.pooling.MaxPool2d):
       print('Found MaxPool2d layer')
 
+      l['input_x'] = inp_shape[3]
+      l['input_y'] = inp_shape[2]
+      l['depth'] = inp_shape[1] # input channels
+
+      l['output_x'] = oup_shape[3]
+      l['output_y'] = oup_shape[2]
+
+      l['stride_x'] = m.stride[0]
+      l['stride_y'] = m.stride[1]
+      l['kernel_x'] = m.kernel_size[0]
+      l['kernel_y'] = m.kernel_size[1]
+      l['pad_x'] = m.padding[0]
+      l['pad_y'] = m.padding[1]
+      l['act_min'] = -2**(8-1)
+      l['act_max'] =  2**(8-1)-1
+      actsizes[name] = 1*l['output_x']*l['output_y']*l['depth']
+
+      ##############################
+      # generate C code
+      h_lines += '// Layer ' + name + '\n'
+      un = name.upper()
+      # layer properties
+      for k, v in l.items():
+        h_lines += '#define ' + un + '_' + k.upper() + '\t' + str(v) + '\n'
+
+      funCall = ''.join((
+        "status = arm_max_pool_s8_opt(",
+        "{}, ".format(un+'_input_y'.upper()),
+        "{}, ".format(un+'_input_x'.upper()),
+        "{}, ".format(un+'_output_y'.upper()),
+        "{}, ".format(un+'_output_x'.upper()),
+        "{}, ".format(un+'_stride_y'.upper()),
+        "{}, ".format(un+'_stride_x'.upper()),
+        "{}, ".format(un+'_kernel_y'.upper()),
+        "{}, ".format(un+'_kernel_x'.upper()),
+        "{}, ".format(un+'_pad_y'.upper()),
+        "{}, ".format(un+'_pad_x'.upper()),
+        "{}, ".format(un+'_act_min'.upper()),
+        "{}, ".format(un+'_act_max'.upper()),
+        "{}, ".format(un+'_depth'.upper()),
+        "__LAYER_IN, ",
+        "__LAYER_BUF, ",
+        "__LAYER_OUT);"))
+      funCalls[name] = funCall
+       #    /**
+       # * @brief s8 DSP optimized max pooling function
+       # * @param[in]       input_y     input tensor dimension along y
+       # * @param[in]       input_x     input tensor dimension along x
+       # * @param[in]       output_y    output tensor dimension along y
+       # * @param[in]       output_x    output tensor dimension along x
+       # * @param[in]       stride_y    stride along y
+       # * @param[in]       stride_x    stride along x
+       # * @param[in]       kernel_y    filter kernel size along y
+       # * @param[in]       kernel_x    filter kernel size along x
+       # * @param[in]       pad_y       padding size along y
+       # * @param[in]       pad_x       padding size along x
+       # * @param[in]       act_min     Activation min. Lower limit to clamp output to. Range: int8
+       # * @param[in]       act_max     Activation max. Upper limit to clamp output to. Range: int8
+       # * @param[in]       depth       number of input channels
+       # * @param[in]       input       pointer to input tensor
+       # * @param[in]       tmp_buffer  Not used.
+       # * @param[in,out]   output      pointer to output tensor
+       # * @return                      The function returns one of the following
+       # *                              <code>ARM_MATH_SIZE_MISMATCH</code> - Unsupported dimension of tensors
+       # *                              <code>ARM_MATH_SUCCESS</code> - Successful operation
+       # *                              <code>ARM_MATH_ARGUMENT_ERROR</code> - Implementation not available
+       # * @note The input data is corrupted by this function.
+       # * @details This optimized implementation is recommended when depth is >=  4 and dimensions are large.
+       # *
+       # */
+        # arm_status arm_max_pool_s8_opt(const uint16_t input_y,
+        #                                const uint16_t input_x,
+        #                                const uint16_t output_y,
+        #                                const uint16_t output_x,
+        #                                const uint16_t stride_y,
+        #                                const uint16_t stride_x,
+        #                                const uint16_t kernel_y,
+        #                                const uint16_t kernel_x,
+        #                                const uint16_t pad_y,
+        #                                const uint16_t pad_x,
+        #                                const int8_t act_min,
+        #                                const int8_t act_max,
+        #                                const uint16_t depth,
+        #                                int8_t *src,
+        #                                int16_t *tmp_buffer,
+        #                                int8_t *dst)
+
+
     elif isinstance(m, nemo.quant.pact.PACT_Linear):
       print('Found PACT_Linear layer')
+      weights = m.weight.detach().numpy().ravel()
+      bias = m.bias.detach().numpy().ravel()
+      # x_quant = input
+      # y = torch.nn.functional.linear(x_quant, W_quant, self.bias)
+      print(inp_shape)
+      print(oup_shape)
+
+      # l['pInput'] = 
+      l['pWeight'] = name + '_wt'
+      l['col_dim'] =  inp_shape[1]
+      l['row_dim'] =  oup_shape[1]
+      l['nb_batches'] =  1
+      l['input_offset'] = 0
+      l['filter_offset'] = 0
+      l['out_mult'] = 1
+      l['out_shift'] = 0
+      l['output_offset'] = 0
+      l['pBias'] = name + '_bias'
+      # l['pOut'] = 
+      l['output_activation_min'] = -2**(32-1)
+      l['output_activation_max'] =  2**(32-1)-1
+      l['vec_buffer'] = 'computationBuffer'
+      l['vec_buffer_size'] = int(2*l['col_dim'])
+      bufsizes[name] = l['vec_buffer_size']
+      actsizes[name] = 1*l['row_dim']
+
+      ##############################
+      # generate C code
+      h_lines += '// Layer ' + name + '\n'
+      un = name.upper()
+      # layer properties
+      for k, v in l.items():
+        h_lines += '#define ' + un + '_' + k.upper() + '\t' + str(v) + '\n'
+      # layer values
+      h_lines += '#define ' + un + '_WT {' + ','.join(map(str,weights.astype(int))) + '}\n'
+      h_lines += '#define ' + un + '_BIAS {' + ','.join(map(str,bias.astype(int))) + '}\n'
+
+      # data arrays for weight and bias
+      c_lines += '// Layer ' + name + '\n'
+      c_lines += 'static const q7_t ' + name + '_wt [ sizeof(q15_t) * ' + un + '_COL_DIM] = '+un+'_WT;\n'
+      c_lines += 'static const q7_t ' + name + '_bias [ sizeof(q15_t) * ' + un + '_ROW_DIM] = '+un+'_BIAS;\n'
+
+      funCall = ''.join((
+        "status = arm_fully_connected_s8(",
+        "__LAYER_IN, ",
+        "{}, ".format(name + '_wt'),
+        "{}, ".format(un+'_col_dim'.upper()),
+        "{}, ".format(un+'_row_dim'.upper()),
+        "{}, ".format(un+'_nb_batches'.upper()),
+        "{}, ".format(un+'_input_offset'.upper()),
+        "{}, ".format(un+'_filter_offset'.upper()),
+        "{}, ".format(un+'_out_mult'.upper()),
+        "{}, ".format(un+'_out_shift'.upper()),
+        "{}, ".format(un+'_output_offset'.upper()),
+        "{}, ".format(name + '_bias'),
+        "__LAYER_OUT, ",
+        "{}, ".format(un+'_output_activation_min'.upper()),
+        "{}, ".format(un+'_output_activation_max'.upper()),
+        "__LAYER_BUF);"))
+      funCalls[name] = funCall
+
+      # /**
+      #  * @brief S8 basic fully-connected and matrix multiplication layer function for TF Lite
+      #  * @param[in]       pInput                       pointer to pInput vector
+      #  * @param[in]       pWeight                      pointer to matrix weights
+      #  * @param[in]       col_dim                      dimension of the input vector
+      #  * @param[in]       row_dim                      dimension of the output vector
+      #  * @param[in]       nb_batches                   number of batches
+      #  * @param[in]       input_offset                 tensor offset for input. Range: -127 to 128
+      #  * @param[in]       filter_offset                tensor offset for filter. Range: -127 to 128
+      #  * @param[in]       out_mult                     requantization parameter
+      #  * @param[in]       out_shift                    requantization parameter
+      #  * @param[in]       output_offset                tensor offset for output. Range: int8
+      #  * @param[in]       pBias                        pointer to bias
+      #  * @param[out]      pOut                         pointer to output vector
+      #  * @param[in]       output_activation_min        for clamping
+      #  * @param[in]       output_activation_max        for clamping
+      #  * @param[in]       vec_buffer                   pointer to buffer space used for optimization and is necessary
+      #  *                                               when ARM_MATH_DSP is defined but not
+      #  *                                               ARM_MATH_MVEI.
+      #  *                                               Required space: col_dim * sizeof(q15_t) bytes
+      #  *                                               Use arm_fully_connected_s8_get_buffer_size() to get the size.
+      #  * @return          The function returns         ARM_MATH_SUCCESS
+      #  *
+      #  * @details
+      #  *
+      #  * <b>Buffer size:</b>
+      #  *
+      #  * vec_buffer size: col_dim of word16.
+      #  *
+      #  *  This basic function is designed to work with regular pWeight
+      #  *  matrix without interleaving.
+      #  *
+      #  *    1. Supported framework: TensorFlow Lite
+      #  *    2. q7 is used as data type eventhough it is s8 data. It is done so to be consistent with existing APIs.
+      #  *
+      #  */
+
+      # arm_fully_connected_s8(const int8_t *input,
+      #                        const int8_t *kernel,
+      #                        const uint16_t col_dim,
+      #                        const uint16_t row_dim,
+      #                        const uint16_t nb_batches,
+      #                        const int32_t input_offset,
+      #                        const int32_t filter_offset,
+      #                        const int32_t out_mult,
+      #                        const int32_t out_shift,
+      #                        const int32_t output_offset,
+      #                        const int32_t *bias,
+      #                        int8_t *output,
+      #                        const int32_t output_activation_min,
+      #                        const int32_t output_activation_max,
+      #                        q15_t *vec_buffer)
 
     else:
       print('ERROR: Unsupported layer', type(m))
       return -1
+
+  print('------------------------------------------------')
+  print('Write code')
+  print('------------------------------------------------')
+
+  print('Activation buffer per layer:', actsizes)
+  print('Scratch buffer per layer:', bufsizes)
+
+  with open(cache_dir+'/cmsis_net.h', 'w') as fd_header:
+    fd_header.write(h_lines)
+    fd_header.write('\n\narm_status cmsisRunInference (void* input, void* output);\n')
+
+  with open(cache_dir+'/cmsis_net.c', 'w') as fd_code:
+    fd_code.write('#include <stdint.h>\n')
+    fd_code.write('#include <stdio.h>\n')
+    fd_code.write('#include "arm_nnfunctions.h"\n')
+    fd_code.write('#include "cmsis_net.h"\n')
+
+    fd_code.write('\n\n\n'+c_lines)
+
+    # Write code
+    line = '\n'.join((
+      "\n// calculation and activations buffer",
+      "static uint8_t tmpBuf[{}];".format(max(bufsizes.items())[1]),
+      "static uint8_t activations1[{}];".format(max(actsizes.items())[1]),
+      "static uint8_t activations2[{}];".format(max(actsizes.items())[1]),
+      "\n// inference",
+      "arm_status cmsisRunInference (void* input, void* output)",
+      "{",
+      "  arm_status status;",
+      ))
+
+    c=[key for key,value in funCalls.items()]
+
+    # first and last
+    first, last = c[0], c[-1]
+    for name,funcall in funCalls.items():
+      if name == first:
+        inp = 'input'
+        oup = 'activations1'
+      elif name == last:
+        inp = oup
+        oup = 'output'
+      else:
+        inp, oup = oup, inp
+
+      funcall = funcall.replace('__LAYER_BUF', 'tmpBuf')
+      funcall = funcall.replace('__LAYER_IN', inp)
+      funcall = funcall.replace('__LAYER_OUT', oup)
+
+      line += '\n'.join((
+        "\n  // layer: {}, {} -> {}".format(name, inp, oup),
+        "  {}".format(funcall),
+        "\n"))
+      if name == first:
+        inp = 'activations2'
+
+    line += '\n'.join((
+      "  return status;\n}",
+      ))
+
+    fd_code.write(line)
 
 
   # for name, param in model.named_parameters():
@@ -378,6 +763,9 @@ if __name__ == '__main__':
   y_test_t    = torch.Tensor(y_test).long()
   y_val_t     = torch.Tensor(y_val).long()
 
+  if dummy_tests:
+    x_test_t = x_test_t[0:1]
+    y_test_t = y_test_t[0:1]
   # print(y_train_t)
 
   # create data loaders
@@ -403,7 +791,6 @@ if __name__ == '__main__':
   # import torchsummary as tsum
   # tsum.summary(model, inp_shape)
 
-  do_train = False
   if do_train:
     learning_rate = 0.001
     max_epochs = 20
@@ -423,13 +810,14 @@ if __name__ == '__main__':
   batch_size = 1
   inp_shape = x_train.shape[1:]
   perm = lambda x : x
+  model.eval()
   dummy_input = perm(torch.randn(batch_size, *inp_shape, device='cuda' if torch.cuda.is_available() else 'cpu'))
   torch.onnx.export(model, dummy_input, cache_dir+'/kws_float.onnx',
    do_constant_folding=True, export_params=True, opset_version=11)
   # exit()
   ##########################################
   # FakeQuantized network
-  #
+
   model = nemo.transform.quantize_pact(model, dummy_input=torch.randn((1,)+x_train.shape[1:]).to(device))
   precision = {
     'conv1': {
@@ -549,11 +937,12 @@ if __name__ == '__main__':
   # export
   nemo.utils.export_onnx(cache_dir+'/kws_id_mixed.onnx', model, model, inp_shape)
 
-  # run implementation
-  perm = lambda x : x
-  input_shape = inp_shape = x_train.shape[1:]
-  dummy_input = perm(torch.randn(1, *input_shape, device='cuda' if torch.cuda.is_available() else 'cpu'))
-  implement(model, dummy_input)
+  if do_implementation:
+    # run implementation
+    perm = lambda x : x
+    input_shape = inp_shape = x_train.shape[1:]
+    dummy_input = perm(torch.randn(1, *input_shape, device='cuda' if torch.cuda.is_available() else 'cpu'))
+    implement(model, dummy_input)
 
 
   
