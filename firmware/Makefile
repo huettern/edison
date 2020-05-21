@@ -36,9 +36,9 @@ LDSCRIPT  = src/link/STM32L475VGTx_FLASH.ld
 # buil options
 
 # debug build?
-DEBUG = 1
+DEBUG = 0
 # optimization
-OPT = -O0
+OPT = -O3
 # flags for gcc
 GCC_FLAGS = -Wall -fdata-sections -ffunction-sections
 # generate listings for each source
@@ -120,7 +120,7 @@ BUILD_DIR = build
 ##############################################################################
 # CMSIS
 CMSIS = src/lib/CMSIS
-CMSIS_OPT = -O1
+CMSIS_OPT = -O3
 include $(CMSIS)/cmsis.mk
 #
 ##############################################################################
@@ -128,7 +128,7 @@ include $(CMSIS)/cmsis.mk
 ##############################################################################
 # HAL
 HAL = src/lib/stm32f4/drivers/STM32L4xx_HAL_Driver
-HAL_OPT = -O0
+HAL_OPT = -O3
 include $(HAL)/hal.mk
 #
 ##############################################################################

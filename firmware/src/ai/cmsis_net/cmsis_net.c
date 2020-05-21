@@ -4,11 +4,27 @@
 #include "arm_nnsupportfunctions.h"
 #include "cmsis_net.h"
 
+/*------------------------------------------------------------------------------
+ * settings
+ * ---------------------------------------------------------------------------*/
+#define CYCLE_PROFILING
+
+#ifdef CYCLE_PROFILING
+  #define prfStart(x) cycProfStart(x)
+  #define prfEvent(x) cycProfEvent(x)
+  #define prfStop() cycProfStop()
+#else
+  #define prfStart(x)
+  #define prfEvent(x)
+  #define prfStop()
+#endif
+
+
 // Layer conv1
-static const q7_t conv1_wt [CONV1_INPUT_CH*CONV1_KERNEL_X*CONV1_KERNEL_Y*CONV1_OUTPUT_CH] = CONV1_WT;
-static const int32_t conv1_bias [CONV1_OUTPUT_CH] = CONV1_BIAS;
-static const int32_t conv1_output_mult [CONV1_OUTPUT_CH] = CONV1_OUT_MULT;
-static const int32_t conv1_output_shift [CONV1_OUTPUT_CH] = CONV1_OUT_SHIFT;
+static q7_t conv1_wt [CONV1_INPUT_CH*CONV1_KERNEL_X*CONV1_KERNEL_Y*CONV1_OUTPUT_CH] = CONV1_WT;
+static int32_t conv1_bias [CONV1_OUTPUT_CH] = CONV1_BIAS;
+static int32_t conv1_output_mult [CONV1_OUTPUT_CH] = CONV1_OUT_MULT;
+static int32_t conv1_output_shift [CONV1_OUTPUT_CH] = CONV1_OUT_SHIFT;
 // Layer conv2
 static const q7_t conv2_wt [CONV2_INPUT_CH*CONV2_KERNEL_X*CONV2_KERNEL_Y*CONV2_OUTPUT_CH] = CONV2_WT;
 static const int32_t conv2_bias [CONV2_OUTPUT_CH] = CONV2_BIAS;
@@ -123,19 +139,82 @@ arm_status nn_vec_mat_mult_t_s8(const q7_t *lhs,
                                     const int32_t activation_min,
                                     const int32_t activation_max);
 
+int simple_convolve_s8(const q7_t *input,
+               const uint16_t input_x,
+               const uint16_t input_y,
+               const uint16_t input_ch,
+               const uint16_t input_batches,
+               const q7_t *kernel,
+               const uint16_t output_ch,
+               const uint16_t kernel_x,
+               const uint16_t kernel_y,
+               const uint16_t pad_x,
+               const uint16_t pad_y,
+               const uint16_t stride_x,
+               const uint16_t stride_y,
+               const int32_t *bias,
+               q7_t *output,
+               const int32_t *output_shift,
+               const int32_t *output_mult,
+               const int32_t out_offset,
+               const int32_t input_offset,
+               const int32_t out_activation_min,
+               const int32_t out_activation_max,
+               const uint16_t output_x,
+               const uint16_t output_y,
+               q15_t *buffer_a);
+
 // inference
 arm_status cmsisRunInference (void* input, void* output)
 {
   arm_status status;
 
-  __disable_irq();
+  // __disable_irq();
+  prfStart("cmsis net inf");
 
-  for(int i = 0; i < CONV1_INPUT_X*CONV1_INPUT_Y*CONV1_INPUT_CH; i++) printf("%d, ", ((int8_t*)input)[i]);
-  hiSendS8((int8_t*)input, CONV1_INPUT_X*CONV1_INPUT_Y*CONV1_INPUT_CH, 0);
+  // for(int i = 0; i < CONV1_INPUT_X*CONV1_INPUT_Y*CONV1_INPUT_CH; i++) printf("%d, ", ((int8_t*)input)[i]);
+  // hiSendS8((int8_t*)input, CONV1_INPUT_X*CONV1_INPUT_Y*CONV1_INPUT_CH, 0);
 
-  printf("\n// layer: conv1, input -> activations1\n");
-  printf("required buf size: %d\n", arm_convolve_s8_get_buffer_size(CONV1_INPUT_CH, CONV1_KERNEL_X, CONV1_KERNEL_Y));
+  // printf("\n// layer: conv1, input -> activations1\n");
+  prfEvent("// layer: conv1, input -> activations1");
+  // printf("required buf size: %d\n", arm_convolve_s8_get_buffer_size(CONV1_INPUT_CH, CONV1_KERNEL_X, CONV1_KERNEL_Y));
   
+  // memset(input, 1, 5*5);
+  // memset(activations1, 42, sizeof(activations1)/sizeof(activations1[0]));
+  // memset(conv1_wt, 1, 5*5);
+  // memset(conv1_bias, 0, sizeof(conv1_bias)*sizeof(conv1_bias[0]));
+  // conv1_bias[0] = 10;
+  // memset(conv1_output_shift, 0, 16*sizeof(conv1_output_shift[0]));
+  // conv1_output_shift[0] = 0;
+  // memset(conv1_output_mult, 0, 16*sizeof(conv1_output_mult[0]));
+  // conv1_output_mult[0] = 1;
+
+  //  convolve_s8(
+  //   (const q7_t *)input, // input
+  //   5, // input_x
+  //   5, // input_y
+  //   1, // input_ch
+  //   1, // input_batches
+  //   conv1_wt, // kernel
+  //   1, // output_ch
+  //   5, // kernel_x
+  //   5, // kernel_y
+  //   0, // pad_x
+  //   0, // pad_y
+  //   1, // stride_x
+  //   1, // stride_y
+  //   conv1_bias, // bias
+  //   activations1,
+  //   conv1_output_shift, // output_shift
+  //   conv1_output_mult, // output_mult
+  //   0, // out_offset
+  //   0, // input_offset
+  //   0, // output_activation_min
+  //   255, // output_activation_max
+  //   1, // output_x
+  //   1, // output_y
+  //   (q15_t *)tmpBuf);
+
   status = convolve_s8((const q7_t *)input, CONV1_INPUT_X, CONV1_INPUT_Y, CONV1_INPUT_CH, CONV1_INPUT_BATCHES, 
     conv1_wt, CONV1_OUTPUT_CH, CONV1_KERNEL_X, CONV1_KERNEL_Y, 
     CONV1_PAD_X, CONV1_PAD_Y, CONV1_STRIDE_X, CONV1_STRIDE_Y,  conv1_bias, 
@@ -143,60 +222,82 @@ arm_status cmsisRunInference (void* input, void* output)
     CONV1_OUT_OFFSET, CONV1_INPUT_OFFSET, CONV1_OUTPUT_ACTIVATION_MIN, CONV1_OUTPUT_ACTIVATION_MAX, 
     CONV1_OUTPUT_X, CONV1_OUTPUT_Y, (q15_t *)tmpBuf);
   
-  printf("status = %d\n", status);
+  // printf("status = %d\n", status);
   // for(int i = 0; i < CONV1_OUTPUT_CH*CONV1_OUTPUT_X*CONV1_OUTPUT_Y; i++) printf("%d, ", activations1[i]);
-  hiSendS8((int8_t*)activations1, CONV1_OUTPUT_CH*CONV1_OUTPUT_X*CONV1_OUTPUT_Y, 1);
+  // hiSendS8((int8_t*)activations1, CONV1_OUTPUT_CH*CONV1_OUTPUT_X*CONV1_OUTPUT_Y, 1);
 
 
-  printf("\n// layer: pool1, activations1 -> activations2\n");
+  // printf("\n// layer: pool1, activations1 -> activations2\n");
+  prfEvent("// layer: pool1, activations1 -> activations2");
   status = max_pool_s8_opt(POOL1_INPUT_Y, POOL1_INPUT_X, POOL1_OUTPUT_Y, POOL1_OUTPUT_X, POOL1_STRIDE_Y, POOL1_STRIDE_X, POOL1_KERNEL_Y, POOL1_KERNEL_X, POOL1_PAD_Y, POOL1_PAD_X, POOL1_ACT_MIN, POOL1_ACT_MAX, POOL1_DEPTH, (int8_t *)activations1, (int16_t *)tmpBuf, (int8_t *)activations2);
-  printf("status = %d\n", status);
+  // printf("status = %d\n", status);
   // for(int i = 0; i < POOL1_DEPTH*POOL1_OUTPUT_X*POOL1_OUTPUT_Y; i++) printf("%d, ", activations2[i]);
-  hiSendS8((int8_t*)activations2, POOL1_DEPTH*POOL1_OUTPUT_X*POOL1_OUTPUT_Y, 2);
+  // hiSendS8((int8_t*)activations2, POOL1_DEPTH*POOL1_OUTPUT_X*POOL1_OUTPUT_Y, 2);
 
 
-  printf("\n// layer: conv2, activations2 -> activations1\n");
-  printf("required buf size: %d\n", arm_convolve_s8_get_buffer_size(CONV2_INPUT_CH, CONV2_KERNEL_X, CONV2_KERNEL_Y));
+  // printf("\n// layer: conv2, activations2 -> activations1\n");
+  prfEvent("// layer: conv2, activations2 -> activations1");
+  // printf("required buf size: %d\n", arm_convolve_s8_get_buffer_size(CONV2_INPUT_CH, CONV2_KERNEL_X, CONV2_KERNEL_Y));
   status = convolve_s8((const q7_t *)activations2,CONV2_INPUT_X, CONV2_INPUT_Y, CONV2_INPUT_CH, CONV2_INPUT_BATCHES, conv2_wt, CONV2_OUTPUT_CH, CONV2_KERNEL_X, CONV2_KERNEL_Y, CONV2_PAD_X, CONV2_PAD_Y, CONV2_STRIDE_X, CONV2_STRIDE_Y, conv2_bias, (q7_t *)activations1,conv2_output_shift, conv2_output_mult, CONV2_OUT_OFFSET, CONV2_INPUT_OFFSET, CONV2_OUTPUT_ACTIVATION_MIN, CONV2_OUTPUT_ACTIVATION_MAX, CONV2_OUTPUT_X, CONV2_OUTPUT_Y, (q15_t *)tmpBuf);
-  printf("status = %d\n", status);
+  // printf("status = %d\n", status);
   // for(int i = 0; i < CONV2_OUTPUT_CH*CONV2_OUTPUT_X*CONV2_OUTPUT_Y; i++) printf("%d, ", activations1[i]);
-  hiSendS8((int8_t*)activations1, CONV2_OUTPUT_CH*CONV2_OUTPUT_X*CONV2_OUTPUT_Y, 3);
+  // hiSendS8((int8_t*)activations1, CONV2_OUTPUT_CH*CONV2_OUTPUT_X*CONV2_OUTPUT_Y, 3);
 
 
-  printf("\n// layer: pool2, activations1 -> activations2\n");
+  // printf("\n// layer: pool2, activations1 -> activations2\n");
+  prfEvent("// layer: pool2, activations1 -> activations2");
   status = max_pool_s8_opt(POOL2_INPUT_Y, POOL2_INPUT_X, POOL2_OUTPUT_Y, POOL2_OUTPUT_X, POOL2_STRIDE_Y, POOL2_STRIDE_X, POOL2_KERNEL_Y, POOL2_KERNEL_X, POOL2_PAD_Y, POOL2_PAD_X, POOL2_ACT_MIN, POOL2_ACT_MAX, POOL2_DEPTH, (int8_t *)activations1, (int16_t *)tmpBuf, (int8_t *)activations2);
-  printf("status = %d\n", status);
+  // printf("status = %d\n", status);
   // for(int i = 0; i < POOL2_DEPTH*POOL2_OUTPUT_X*POOL2_OUTPUT_Y; i++) printf("%d, ",  activations2[i]);
-  hiSendS8((int8_t*)activations2, POOL2_DEPTH*POOL2_OUTPUT_X*POOL2_OUTPUT_Y, 4);
+  // hiSendS8((int8_t*)activations2, POOL2_DEPTH*POOL2_OUTPUT_X*POOL2_OUTPUT_Y, 4);
 
 
-  printf("\n// layer: conv3, activations2 -> activations1\n");
-  printf("required buf size: %d\n", arm_convolve_s8_get_buffer_size(CONV3_INPUT_CH, CONV3_KERNEL_X, CONV3_KERNEL_Y));
-  status = arm_convolve_s8((const q7_t *)activations2,CONV3_INPUT_X, CONV3_INPUT_Y, CONV3_INPUT_CH, CONV3_INPUT_BATCHES, conv3_wt, CONV3_OUTPUT_CH, CONV3_KERNEL_X, CONV3_KERNEL_Y, CONV3_PAD_X, CONV3_PAD_Y, CONV3_STRIDE_X, CONV3_STRIDE_Y, conv3_bias, (q7_t *)activations1,conv3_output_shift, conv3_output_mult, CONV3_OUT_OFFSET, CONV3_INPUT_OFFSET, CONV3_OUTPUT_ACTIVATION_MIN, CONV3_OUTPUT_ACTIVATION_MAX, CONV3_OUTPUT_X, CONV3_OUTPUT_Y, (q15_t *)tmpBuf);
-  printf("status = %d\n", status);
+  // printf("\n// layer: conv3, activations2 -> activations1\n");
+  prfEvent("// layer: conv3, activations2 -> activations1");
+  // printf("required buf size: %d\n", arm_convolve_s8_get_buffer_size(CONV3_INPUT_CH, CONV3_KERNEL_X, CONV3_KERNEL_Y));
+  status = convolve_s8((const q7_t *)activations2,CONV3_INPUT_X, CONV3_INPUT_Y, CONV3_INPUT_CH, CONV3_INPUT_BATCHES, conv3_wt, CONV3_OUTPUT_CH, CONV3_KERNEL_X, CONV3_KERNEL_Y, CONV3_PAD_X, CONV3_PAD_Y, CONV3_STRIDE_X, CONV3_STRIDE_Y, conv3_bias, (q7_t *)activations1,conv3_output_shift, conv3_output_mult, CONV3_OUT_OFFSET, CONV3_INPUT_OFFSET, CONV3_OUTPUT_ACTIVATION_MIN, CONV3_OUTPUT_ACTIVATION_MAX, CONV3_OUTPUT_X, CONV3_OUTPUT_Y, (q15_t *)tmpBuf);
+  // printf("status = %d\n", status);
   // for(int i = 0; i < CONV3_OUTPUT_CH*CONV3_OUTPUT_X*CONV3_OUTPUT_Y; i++) printf("%d, ", activations1[i] );
-  hiSendS8((int8_t*)activations1, CONV3_OUTPUT_CH*CONV3_OUTPUT_X*CONV3_OUTPUT_Y, 5);
+  // hiSendS8((int8_t*)activations1, CONV3_OUTPUT_CH*CONV3_OUTPUT_X*CONV3_OUTPUT_Y, 5);
 
 
-  printf("\n// layer: conv4, activations1 -> activations2\n");
-  printf("required buf size: %d\n", arm_convolve_s8_get_buffer_size(CONV4_INPUT_CH, CONV4_KERNEL_X, CONV4_KERNEL_Y));
-  status = arm_convolve_s8((const q7_t *)activations1,CONV4_INPUT_X, CONV4_INPUT_Y, CONV4_INPUT_CH, CONV4_INPUT_BATCHES, conv4_wt, CONV4_OUTPUT_CH, CONV4_KERNEL_X, CONV4_KERNEL_Y, CONV4_PAD_X, CONV4_PAD_Y, CONV4_STRIDE_X, CONV4_STRIDE_Y, conv4_bias, (q7_t *)activations2,conv4_output_shift, conv4_output_mult, CONV4_OUT_OFFSET, CONV4_INPUT_OFFSET, CONV4_OUTPUT_ACTIVATION_MIN, CONV4_OUTPUT_ACTIVATION_MAX, CONV4_OUTPUT_X, CONV4_OUTPUT_Y, (q15_t *)tmpBuf);
-  printf("status = %d\n", status);
+  // printf("\n// layer: conv4, activations1 -> activations2\n");
+  prfEvent("// layer: conv4, activations1 -> activations2");
+  // printf("required buf size: %d\n", arm_convolve_s8_get_buffer_size(CONV4_INPUT_CH, CONV4_KERNEL_X, CONV4_KERNEL_Y));
+  status = convolve_s8((const q7_t *)activations1,CONV4_INPUT_X, CONV4_INPUT_Y, CONV4_INPUT_CH, CONV4_INPUT_BATCHES, conv4_wt, CONV4_OUTPUT_CH, CONV4_KERNEL_X, CONV4_KERNEL_Y, CONV4_PAD_X, CONV4_PAD_Y, CONV4_STRIDE_X, CONV4_STRIDE_Y, conv4_bias, (q7_t *)activations2,conv4_output_shift, conv4_output_mult, CONV4_OUT_OFFSET, CONV4_INPUT_OFFSET, CONV4_OUTPUT_ACTIVATION_MIN, CONV4_OUTPUT_ACTIVATION_MAX, CONV4_OUTPUT_X, CONV4_OUTPUT_Y, (q15_t *)tmpBuf);
+  // printf("status = %d\n", status);
   // for(int i = 0; i < CONV4_OUTPUT_CH*CONV4_OUTPUT_X*CONV4_OUTPUT_Y; i++) printf("%d, ",  activations2[i]);
-  hiSendS8((int8_t*)activations2, CONV4_OUTPUT_CH*CONV4_OUTPUT_X*CONV4_OUTPUT_Y, 6);
+  // hiSendS8((int8_t*)activations2, CONV4_OUTPUT_CH*CONV4_OUTPUT_X*CONV4_OUTPUT_Y, 6);
 
 
-  printf("\n// layer: fc1, activations2 -> output\n");
+  // printf("\n// layer: fc1, activations2 -> output\n");
+  prfEvent("// layer: fc1, activations2 -> output");
   status = fully_connected_s8((const int8_t *)activations2, fc1_wt, FC1_COL_DIM, FC1_ROW_DIM, FC1_NB_BATCHES, FC1_INPUT_OFFSET, FC1_FILTER_OFFSET, FC1_OUT_MULT, FC1_OUT_SHIFT, FC1_OUTPUT_OFFSET, fc1_bias, (int8_t *)output, FC1_OUTPUT_ACTIVATION_MIN, FC1_OUTPUT_ACTIVATION_MAX, (q15_t *)tmpBuf);
-  printf("status = %d\n", status);
+  // printf("status = %d\n", status);
   // for(int i = 0; i < FC1_ROW_DIM; i++) printf("%d, ", ((int8_t*)output)[i]);
-  hiSendS8((int8_t*)output, FC1_ROW_DIM, 7);
+  // hiSendS8((int8_t*)output, FC1_ROW_DIM, 7);
 
-  __enable_irq();
-
+  // __enable_irq();
+  prfStop();
+  
   return status;
 }
 
+/**
+ * @brief           Requantize a given value.
+ * @param[in]       val         Value to be requantized
+ * @param[in]       multiplier  multiplier
+ * @param[in]       shift       left or right shift for 'val * multiplier'
+ *
+ * @return          Returns (val * multiplier)/(2 ^ shift)
+ *
+ */
+__STATIC_FORCEINLINE q31_t nn_requantize(const q31_t val, const q31_t multiplier, const q31_t shift)
+{
+  // return arm_nn_divide_by_power_of_two(arm_nn_sat_doubling_high_mult(val * (1 << LEFT_SHIFT(shift)), multiplier),
+  //                                      RIGHT_SHIFT(shift));
+  return (val * multiplier) >> shift;
+}
 
 arm_status convolve_s8(const q7_t *input,
                const uint16_t input_x,
@@ -318,7 +419,8 @@ arm_status convolve_s8(const q7_t *input,
           col_count--;
         }
 
-        sum = arm_nn_requantize(sum, output_mult[i], output_shift[i]);
+        sum = nn_requantize(sum, output_mult[i], output_shift[i]);
+        // sum = (sum * output_mult[i]) << output_shift[i];
         sum += out_offset;
         sum = MAX(sum, out_activation_min);
         sum = MIN(sum, out_activation_max);
@@ -457,13 +559,13 @@ q7_t *nn_mat_mult_kernel_s8_s16(const q7_t *input_a,
             col_count--;
         } /* while over col_count */
 
-        ch_0_out_0 = arm_nn_requantize(ch_0_out_0, *out_mult, *out_shift);
+        ch_0_out_0 = nn_requantize(ch_0_out_0, *out_mult, *out_shift);
         ch_0_out_0 += out_offset;
         ch_0_out_0 = MAX(ch_0_out_0, activation_min);
         ch_0_out_0 = MIN(ch_0_out_0, activation_max);
         *out_0++ = (q7_t)ch_0_out_0;
 
-        ch_0_out_1 = arm_nn_requantize(ch_0_out_1, *out_mult, *out_shift);
+        ch_0_out_1 = nn_requantize(ch_0_out_1, *out_mult, *out_shift);
         ch_0_out_1 += out_offset;
         ch_0_out_1 = MAX(ch_0_out_1, activation_min);
         ch_0_out_1 = MIN(ch_0_out_1, activation_max);
@@ -471,13 +573,13 @@ q7_t *nn_mat_mult_kernel_s8_s16(const q7_t *input_a,
         out_mult++;
         out_shift++;
 
-        ch_1_out_0 = arm_nn_requantize(ch_1_out_0, *out_mult, *out_shift);
+        ch_1_out_0 = nn_requantize(ch_1_out_0, *out_mult, *out_shift);
         ch_1_out_0 += out_offset;
         ch_1_out_0 = MAX(ch_1_out_0, activation_min);
         ch_1_out_0 = MIN(ch_1_out_0, activation_max);
         *out_0++ = (q7_t)ch_1_out_0;
 
-        ch_1_out_1 = arm_nn_requantize(ch_1_out_1, *out_mult, *out_shift);
+        ch_1_out_1 = nn_requantize(ch_1_out_1, *out_mult, *out_shift);
         ch_1_out_1 += out_offset;
         ch_1_out_1 = MAX(ch_1_out_1, activation_min);
         ch_1_out_1 = MIN(ch_1_out_1, activation_max);
@@ -531,13 +633,13 @@ q7_t *nn_mat_mult_kernel_s8_s16(const q7_t *input_a,
             ch_0_out_1 += a0 * b1;
             col_count--;
         }
-        ch_0_out_0 = arm_nn_requantize(ch_0_out_0, *out_mult, *out_shift);
+        ch_0_out_0 = nn_requantize(ch_0_out_0, *out_mult, *out_shift);
         ch_0_out_0 += out_offset;
         ch_0_out_0 = MAX(ch_0_out_0, activation_min);
         ch_0_out_0 = MIN(ch_0_out_0, activation_max);
         *out_0++ = (q7_t)ch_0_out_0;
 
-        ch_0_out_1 = arm_nn_requantize(ch_0_out_1, *out_mult, *out_shift);
+        ch_0_out_1 = nn_requantize(ch_0_out_1, *out_mult, *out_shift);
         ch_0_out_1 += out_offset;
         ch_0_out_1 = MAX(ch_0_out_1, activation_min);
         ch_0_out_1 = MIN(ch_0_out_1, activation_max);
@@ -907,8 +1009,8 @@ arm_status nn_vec_mat_mult_t_s8(const q7_t *lhs,
         }
 
         // Quantize down
-        res00 = arm_nn_requantize(res00, dst_multiplier, dst_shift);
-        res01 = arm_nn_requantize(res01, dst_multiplier, dst_shift);
+        res00 = nn_requantize(res00, dst_multiplier, dst_shift);
+        res01 = nn_requantize(res01, dst_multiplier, dst_shift);
 
         // Add offset
         res00 += dst_offset;
@@ -995,7 +1097,7 @@ arm_status nn_vec_mat_mult_t_s8(const q7_t *lhs,
         }
 
         // Quantize down
-        res00 = arm_nn_requantize(res00, dst_multiplier, dst_shift);
+        res00 = nn_requantize(res00, dst_multiplier, dst_shift);
 
         // Add offset
         res00 += dst_offset;

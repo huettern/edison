@@ -22,7 +22,9 @@ dummy_tests = True
 # Enable to run implementation
 do_implementation = True
 
-input_channel_max_value = 2**16-1
+# input_channel_max_value = 2**16-1
+# input_channel_max_value = 1/(2**16-1)
+input_channel_max_value = 1 # we don't normalize input data
 
 ##################################################
 # Model definition
@@ -240,6 +242,8 @@ def test(model, device, test_loader, integer=False, verbose=True):
 def implement(model, dummy_input):
 
   x = dummy_input
+  net_history = {}
+  net_history['inp'] = x.data.numpy()
 
   bufsizes = {}
   actsizes = {}
@@ -262,6 +266,7 @@ def implement(model, dummy_input):
     inp_shape = x.shape # NCHW
     x = m.forward(x)
     oup_shape = x.shape
+    net_history[name] = x.data.numpy()
 
     # if convolution layer
     if isinstance(m, nemo.quant.pact.PACT_Conv2d):
@@ -361,12 +366,44 @@ def implement(model, dummy_input):
         if sname == 'relu'+str(lay_num) and isinstance(mod, nemo.quant.pact.PACT_IntegerAct):
           print('Found PACT_IntegerAct following Conv layer!!!')
           found_integer_act = True
-          output_mult = np.array(l['output_ch']*[(mod.D*mod.eps_in/mod.eps_out).round()], dtype=int)
-          output_shift = np.array(l['output_ch']*[np.log2(mod.D)], dtype=int )
+
+          # extract parameters from relu
+          eps_ratio = (mod.D*mod.eps_in/mod.eps_out).round().item()
+          print('eps_ratio=',eps_ratio)
+          D = mod.D.item()
+          Dshift = np.log2(D)
+          print('D=',D,'log2(D)=',Dshift)
+          alpha = mod.alpha_out
+          print('alpha=',alpha)
+
+          relu_mult = int(eps_ratio)
+          relu_shift = int(Dshift)
+          relu_clamp = int(alpha)
+          # x_rq = (x) * (eps_ratio) / (D) 
+          # return x_rq.clamp(0, self.alpha_out)
+
+          output_mult = np.array(l['output_ch']*[relu_mult], dtype=int)
+          output_shift = np.array(l['output_ch']*[Dshift], dtype=int )
+
           l['output_activation_min'] = 0
-          l['output_activation_max'] = int(mod.alpha_out)
+          l['output_activation_max'] = int(alpha)
       if not found_integer_act:
         print("WARNING: Didn't find a PACT_IntegerAct layer following a conv. This is not handled yet")
+      # same for batchnorm
+      found_bn = False
+      for sname, mod in model.named_modules():
+        if sname == 'bn'+str(lay_num) and isinstance(mod, nemo.quant.pact.PACT_IntegerBatchNormNd):
+          print('Found PACT_IntegerBatchNormNd following Conv layer!!!')
+          found_bn = True
+          bn_mult = mod.kappa.data.numpy().ravel()
+          bn_bias = mod.lamda.data.numpy().ravel()
+          output_mult_new = np.multiply(output_mult, bn_mult)
+          bias_new = np.multiply(bias, bn_mult) + bn_bias
+          print('Synthesize BatchNorm into Conv')
+          output_mult = output_mult_new
+          bias = bias_new
+      if not found_bn:
+        print("WARNING: Didn't find a PACT_IntegerBatchNormNd layer following a conv. This is not handled yet")
       # print(output_mult)
       # print(output_shift)
       # lay_num = [int(s) for s in name.split() if s.isdigit()][0]
@@ -438,6 +475,7 @@ def implement(model, dummy_input):
       
     elif isinstance(m, nemo.quant.pact.PACT_IntegerBatchNormNd):
       print('Found PACT_IntegerBatchNormNd layer')
+      # Absorbed in conv layer
 
     elif isinstance(m, nemo.quant.pact.PACT_IntegerAct):
       print('Found PACT_IntegerAct layer')
@@ -723,6 +761,9 @@ def implement(model, dummy_input):
       ))
 
     fd_code.write(line)
+    import pickle
+    with open(cache_dir + '/net_hist.pkl', 'wb') as f:
+      pickle.dump(net_history, f, pickle.HIGHEST_PROTOCOL)
 
 
   # for name, param in model.named_parameters():
@@ -848,7 +889,7 @@ if __name__ == '__main__':
         'W_bits' : 15
     },
   }
-  model.change_precision(bits=1, min_prec_dict=precision)
+  model.change_precision(bits=8, min_prec_dict=precision)
   acc = test(model, device, test_loader)
   print("\nFakeQuantized @ 16b accuracy (first try): %.02f%%" % acc)
 
@@ -890,7 +931,7 @@ if __name__ == '__main__':
         'W_bits' : 7
     },
   }
-  model.change_precision(bits=1, min_prec_dict=precision)
+  model.change_precision(bits=8, min_prec_dict=precision)
   acc = test(model, device, test_loader)
   print("\nFakeQuantized @ mixed-precision accuracy: %.02f%%" % acc)
   nemo.utils.save_checkpoint(model, None, 0, checkpoint_name='kws_fq_mixed')
@@ -942,6 +983,17 @@ if __name__ == '__main__':
     perm = lambda x : x
     input_shape = inp_shape = x_train.shape[1:]
     dummy_input = perm(torch.randn(1, *input_shape, device='cuda' if torch.cuda.is_available() else 'cpu'))
+    # Create same input as in c
+    print(dummy_input)
+    inp_ar = []
+    val = 0
+    for i in range(np.array(inp_shape).prod()):
+      inp_ar.append(val)
+      val += 1
+      if val > 2**(8-1)-1:
+        val -= 256
+    dummy_input = perm(torch.from_numpy(np.array(inp_ar).reshape((1,)+inp_shape)).float())
+    print(dummy_input)
     implement(model, dummy_input)
 
 
