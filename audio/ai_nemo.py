@@ -405,12 +405,12 @@ def implement(model, dummy_input):
       # data arrays for weight and bias
       c_lines += '// Layer ' + name + '\n'
       c_lines += 'static const q7_t ' + name + '_wt [' + un + '_INPUT_CH*' + un + '_KERNEL_X*' + un + '_KERNEL_Y*' + un + '_OUTPUT_CH] = '+un+'_WT;\n'
-      c_lines += 'static const q7_t ' + name + '_bias [' + un + '_OUTPUT_CH] = '+un+'_BIAS;\n'
-      c_lines += 'static const q7_t ' + name + '_output_mult [' + un + '_OUTPUT_CH] = '+un+'_OUT_MULT;\n'
-      c_lines += 'static const q7_t ' + name + '_output_shift [' + un + '_OUTPUT_CH] = '+un+'_OUT_SHIFT;\n'
+      c_lines += 'static const int32_t ' + name + '_bias [' + un + '_OUTPUT_CH] = '+un+'_BIAS;\n'
+      c_lines += 'static const int32_t ' + name + '_output_mult [' + un + '_OUTPUT_CH] = '+un+'_OUT_MULT;\n'
+      c_lines += 'static const int32_t ' + name + '_output_shift [' + un + '_OUTPUT_CH] = '+un+'_OUT_SHIFT;\n'
 
       funCall = ''.join((
-        "status = arm_convolve_s8(__LAYER_IN,",
+        "status = arm_convolve_s8((const q7_t *)__LAYER_IN,",
         "{}, ".format(un+'_input_x'.upper()),
         "{}, ".format(un+'_input_y'.upper()),
         "{}, ".format(un+'_input_ch'.upper()),
@@ -424,7 +424,7 @@ def implement(model, dummy_input):
         "{}, ".format(un+'_stride_x'.upper()),
         "{}, ".format(un+'_stride_y'.upper()),
         "{}, ".format(name + '_bias'),
-        "__LAYER_OUT,",
+        "(q7_t *)__LAYER_OUT,",
         "{}, ".format(name + '_output_shift'),
         "{}, ".format(name + '_output_mult'),
         "{}, ".format(un+'_out_offset'.upper()),
@@ -433,7 +433,7 @@ def implement(model, dummy_input):
         "{}, ".format(un+'_output_activation_max'.upper()),
         "{}, ".format(un+'_output_x'.upper()),
         "{}, ".format(un+'_output_y'.upper()),
-        "__LAYER_BUF);"))
+        "(q15_t *)__LAYER_BUF);"))
       funCalls[name] = (funCall)
       
     elif isinstance(m, nemo.quant.pact.PACT_IntegerBatchNormNd):
@@ -494,9 +494,9 @@ def implement(model, dummy_input):
         "{}, ".format(un+'_act_min'.upper()),
         "{}, ".format(un+'_act_max'.upper()),
         "{}, ".format(un+'_depth'.upper()),
-        "__LAYER_IN, ",
-        "__LAYER_BUF, ",
-        "__LAYER_OUT);"))
+        "(int8_t *)__LAYER_IN, ",
+        "(int16_t *)__LAYER_BUF, ",
+        "(int8_t *)__LAYER_OUT);"))
       funCalls[name] = funCall
        #    /**
        # * @brief s8 DSP optimized max pooling function
@@ -583,12 +583,12 @@ def implement(model, dummy_input):
 
       # data arrays for weight and bias
       c_lines += '// Layer ' + name + '\n'
-      c_lines += 'static const q7_t ' + name + '_wt [ sizeof(q15_t) * ' + un + '_COL_DIM] = '+un+'_WT;\n'
-      c_lines += 'static const q7_t ' + name + '_bias [ sizeof(q15_t) * ' + un + '_ROW_DIM] = '+un+'_BIAS;\n'
+      c_lines += 'static const q7_t ' + name + '_wt [ sizeof(q15_t) * ' + un + '_COL_DIM * ' + un + '_ROW_DIM] = '+un+'_WT;\n'
+      c_lines += 'static const int32_t ' + name + '_bias [ sizeof(q15_t) * ' + un + '_ROW_DIM] = '+un+'_BIAS;\n'
 
       funCall = ''.join((
         "status = arm_fully_connected_s8(",
-        "__LAYER_IN, ",
+        "(const int8_t *)__LAYER_IN, ",
         "{}, ".format(name + '_wt'),
         "{}, ".format(un+'_col_dim'.upper()),
         "{}, ".format(un+'_row_dim'.upper()),
@@ -599,10 +599,10 @@ def implement(model, dummy_input):
         "{}, ".format(un+'_out_shift'.upper()),
         "{}, ".format(un+'_output_offset'.upper()),
         "{}, ".format(name + '_bias'),
-        "__LAYER_OUT, ",
+        "(int8_t *)__LAYER_OUT, ",
         "{}, ".format(un+'_output_activation_min'.upper()),
         "{}, ".format(un+'_output_activation_max'.upper()),
-        "__LAYER_BUF);"))
+        "(q15_t *)__LAYER_BUF);"))
       funCalls[name] = funCall
 
       # /**
@@ -684,9 +684,9 @@ def implement(model, dummy_input):
     # Write code
     line = '\n'.join((
       "\n// calculation and activations buffer",
-      "static uint8_t tmpBuf[{}];".format(max(bufsizes.items())[1]),
-      "static uint8_t activations1[{}];".format(max(actsizes.items())[1]),
-      "static uint8_t activations2[{}];".format(max(actsizes.items())[1]),
+      "static uint8_t tmpBuf[{}];".format(max(bufsizes.values())),
+      "static uint8_t activations1[{}];".format(max(actsizes.values())),
+      "static uint8_t activations2[{}];".format(max(actsizes.values())),
       "\n// inference",
       "arm_status cmsisRunInference (void* input, void* output)",
       "{",
