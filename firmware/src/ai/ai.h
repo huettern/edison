@@ -17,6 +17,7 @@
  */
 #define NET_TYPE_CUBE 1
 #define NET_TYPE_NNOM 2
+#define NET_TYPE_CMSIS 3
 
 #define NET_TYPE NET_TYPE_CUBE
 
@@ -55,6 +56,13 @@
   #define AI_NET_OUTNUM           1
   #define AI_NET_OUTSIZE           6
   #define AI_NET_OUTSIZE_BYTES     6
+#elif NET_TYPE == NET_TYPE_CMSIS
+  #define AI_NET_INNUM           1
+  #define AI_NET_INSIZE           403
+  #define AI_NET_INSIZE_BYTES     (1*AI_NET_INNUM)
+  #define AI_NET_OUTNUM           1
+  #define AI_NET_OUTSIZE           10
+  #define AI_NET_OUTSIZE_BYTES     (1*AI_NET_OUTSIZE)
 #endif
 
 /*------------------------------------------------------------------------------

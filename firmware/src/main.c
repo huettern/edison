@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 18:58:40
+* @Last Modified time: 2020-05-21 10:08:43
 */
 
 #include "main.h"
@@ -13,6 +13,7 @@
 #include "audioprocessing.h"
 #include "ai.h"
 #include "ai_nnom.h"
+#include "ai_cmsis.h"
 #include "cyclecounter.h"
 #include "led.h"
 
@@ -72,10 +73,10 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_CRC_Init();
-  MX_TIM1_Init();
+  // MX_TIM1_Init();
   MX_UART4_Init();
-  ledInit();
-  ledSetColorAll(0, 0, 0); ledUpdate(0);
+  // ledInit();
+  // ledSetColorAll(0, 0, 0); ledUpdate(0);
   
   printf("%s / %s / %s / %s\n",
              verProgName, verVersion,
@@ -88,22 +89,22 @@ int main(void)
   micInit();
   audioInit();
 
-  for(int i = 0; i < 7; i++)
-  {
-    if(i<5) ledSetColor(i, 0, 0, 200); ledUpdate(0);
-    ledSet(ledGet() | (1<<(i%8)));
-    HAL_Delay(50);
-  }
-  ledSet(0xff); HAL_Delay(500);
-  for(int i = 0; i < 20; i++)
-  {
-    ledSetColorAll(0, 0, (19-i)*12);
-    ledUpdate(0);
-    ledSet(0xff);
-    HAL_Delay((20-i)*1);
-    ledSet(0x00);
-    HAL_Delay(i*1);
-  }
+  // for(int i = 0; i < 7; i++)
+  // {
+  //   if(i<5) ledSetColor(i, 0, 0, 200); ledUpdate(0);
+  //   ledSet(ledGet() | (1<<(i%8)));
+  //   HAL_Delay(50);
+  // }
+  // ledSet(0xff); HAL_Delay(500);
+  // for(int i = 0; i < 20; i++)
+  // {
+  //   ledSetColorAll(0, 0, (19-i)*12);
+  //   ledUpdate(0);
+  //   ledSet(0xff);
+  //   HAL_Delay((20-i)*1);
+  //   ledSet(0x00);
+  //   HAL_Delay(i*1);
+  // }
   
 #ifdef CUBE_VERIFICATION
   MX_X_CUBE_AI_Init();
@@ -124,14 +125,19 @@ int main(void)
   aiPrintInfo();
   // aiRunInferenceHif();
 
-  while(1)
-  {
-    hifRun();
-  }
+  // while(1)
+  // {
+  //   hifRun();
+  // }
 
   /* TESTS --------------------------------------------------------*/
   // audioDevelop();
 
+
+  /* AI CMSIS --------------------------------------------------------*/
+  aiCMSISTest();
+  printf("Exited\n");
+  while(1);
 
   /* animaion test --------------------------------------------------------*/
   // animationBreath_t anim;

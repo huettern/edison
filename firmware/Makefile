@@ -26,7 +26,7 @@ FPU       = -D__FPU_PRESENT -mfpu=fpv4-sp-d16
 #     Hardware floating-point instructions and hardware floating-point linkage. 
 FLOAT-ABI = hard
 
-ARM_MATH  = ARM_MATH_CM4
+ARM_MATH  = -DARM_MATH_CM4 -DARM_MATH_DSP
 LDSCRIPT  = src/link/STM32L475VGTx_FLASH.ld
 #
 ##############################################################################
@@ -36,9 +36,9 @@ LDSCRIPT  = src/link/STM32L475VGTx_FLASH.ld
 # buil options
 
 # debug build?
-DEBUG = 0
+DEBUG = 1
 # optimization
-OPT = -O3
+OPT = -O0
 # flags for gcc
 GCC_FLAGS = -Wall -fdata-sections -ffunction-sections
 # generate listings for each source
@@ -59,6 +59,7 @@ USR_CSRC = 	$(wildcard src/*.c) \
 						$(wildcard src/hal/*.c) \
 						$(wildcard src/util/*.c) \
 						$(wildcard src/ai/*.c) \
+						$(wildcard src/ai/cmsis_net/*.c) \
 						$(wildcard src/audio/*.c) \
 
 USR_ASMSRC = src/startup/startup_stm32l475xx.s
@@ -99,6 +100,15 @@ NNOM_INC=-I$(NNOM)/inc -I$(NNOM)/port -I$(NNOM)
 
 
 ##############################################################################
+# CMSIS net
+CMSIS_NET_HEADER=../audio/.cache/ai_nemo/cmsis_net.h
+CMSIS_NET_SOURCE=../audio/.cache/ai_nemo/cmsis_net.c
+CMSIS_NET_KEYWORDS=../audio/.cache/allinone/keywords.txt
+CMSIS_NET=src/ai/cmsis_net
+#
+##############################################################################
+
+##############################################################################
 # paths
 
 # Build path
@@ -110,7 +120,7 @@ BUILD_DIR = build
 ##############################################################################
 # CMSIS
 CMSIS = src/lib/CMSIS
-CMSIS_OPT = -O3
+CMSIS_OPT = -O1
 include $(CMSIS)/cmsis.mk
 #
 ##############################################################################
@@ -118,7 +128,7 @@ include $(CMSIS)/cmsis.mk
 ##############################################################################
 # HAL
 HAL = src/lib/stm32f4/drivers/STM32L4xx_HAL_Driver
-HAL_OPT = -O3
+HAL_OPT = -O0
 include $(HAL)/hal.mk
 #
 ##############################################################################
@@ -179,7 +189,7 @@ AS_DEFS =
 C_DEFS =  -DGIT_SHA=\"$(GIT_VERSION)\" -DBUILD_DATE=\"$(BUILD_DATE)\"\
 	-DUSE_HAL_DRIVER \
 	-D$(DEVICE) \
-	-D$(ARM_MATH) \
+	$(ARM_MATH) \
 	$(USR_DEFINES) \
 	$(TEST_DEFINES) \
 	-D$(OPMODE)
@@ -255,6 +265,13 @@ import-nnom-net:
 	./scripts/import-nnom-net.sh $(NNOM_REPO) $(NNOM_WEIGHTS) $(NNOM_NAME) $(NNOM)
 	cp $(NNOM_MODEL) $(NNOM)/
 	cp $(NNOM_KEYWORDS) $(NNOM)/
+
+import-cmsis-net:
+	mkdir -p $(CMSIS_NET)
+	cp $(CMSIS_NET_HEADER) $(CMSIS_NET)/
+	cp $(CMSIS_NET_SOURCE) $(CMSIS_NET)/
+	cp $(CMSIS_NET_KEYWORDS) $(CMSIS_NET)/
+	
 
 #Pull in dependency info for *existing* .o files
 -include $(OBJ:.o=.d)
