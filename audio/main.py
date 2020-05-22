@@ -4,7 +4,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-22 09:03:32
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 11:26:41
+# @Last Modified time: 2020-05-22 11:42:36
 
 import argparse
 import sys
@@ -163,9 +163,6 @@ Commands
       print ('Unrecognized command')
       parser.print_help()
       exit(1)
-    
-    # use dispatch pattern to invoke method with same name
-    getattr(self, args.command)()
 
   def deploy(self):
     parser = argparse.ArgumentParser(
@@ -231,10 +228,12 @@ Commands
     edison.train.kws_nnom.main()
 
   def train_torch(self):
+    print('Not yet implemented')
     pass
 
   def kws_live(self):
-    pass
+    import edison.kws.kws_live
+    edison.kws.kws_live.main(sys.argv[2:])
 
   def kws_mcu(self):
     pass

@@ -7,21 +7,15 @@ import threading
 from time import sleep
 
 import tensorflow as tf
-import mfcc_utils as mfu
+import edison.mfcc.mfcc_utils as mfu
 
-import sys
-if len(sys.argv) < 2:
-  print('Usage:')
-  print('  kws_live.py <mode>')
-  print('    Modes:')
-  print('    host                   Run live inference on host')
-  print('    mcu                    Run live inference on mcu')
-  exit()
+# Settings
+from config import *
 
-cache_dir = '.cache/kws_mcu'
 # model_file = 'train/.cache/kws_keras/kws_model_medium_embedding_conv.h5'
-model_file ='.cache/allinone/kws_model.h5'
-keywords = np.load('.cache/allinone/keywords.npy')
+# model_file = cache_dir+'allinone/kws_model.h5'
+model_file = cache_dir+'../../firmware/src/ai/cube/kws/kws_model.h5'
+keywords = np.load(cache_dir+'allinone/keywords.npy')
 threshold = 0.6
 
 # Load trained model
@@ -33,8 +27,6 @@ input_size = np.prod(input_shape)
 output_shape = model.output.shape.as_list()[1:]
 output_size = np.prod(output_shape)
 
-# Settings
-from config import *
 
 # data buffer
 xdata = [0]
@@ -44,8 +36,8 @@ mic_data = []
 # abort when
 abort_after = 200
 
-# mfcc_fun = mfu.mfcc_mcu
-mfcc_fun = mfu.mfcc
+mfcc_fun = mfu.mfcc_mcu
+# mfcc_fun = mfu.mfcc
 # mfcc_fun = mfu.mfcc_tf
 
 ######################################################################
@@ -90,8 +82,8 @@ def kwsHostThd(xdata, ydata, mic_data):
           spotted_kwd = keywords[np.argmax(host_pred)]
           if spotted_kwd[0] != '_':
             print('Spotted', spotted_kwd)
-        np.set_printoptions(suppress=True)
-        # print(host_pred)
+        np.set_printoptions(suppress=True, precision=2)
+        print(host_pred)
         last_pred = host_pred
         
         host_mfcc = net_input.reshape(n_frames,num_mfcc)
@@ -116,7 +108,7 @@ def kwsMCUThd(xdata, ydata):
   frame_ctr = 0
   last_pred = 0
 
-  import mcu_util as mcu
+  import edison.mcu.mcu_util as mcu
 
   if mcu.sendCommand('kws_mic_continuous') < 0:
     print('MCU error')
@@ -165,7 +157,7 @@ def netOutFilt(net_outs, alpha):
 ######################################################################
 # Plot after
 ######################################################################
-def plotNetOutputHistory():
+def plotNetOutputHistoryGlobal():
   global xdata, ydata, mic_data
   
   fig, ax = plt.subplots(2, 1)
@@ -201,20 +193,30 @@ def plotNetOutputHistory(net_out, title):
 ######################################################################
 # main
 ######################################################################
-if __name__ == '__main__':
-  import sys
+def main(argv):
+  global cache_dir, xdata, ydata, mic_data
 
-  if sys.argv[1] == 'host':
+  if len(argv) < 2:
+    print('Usage:')
+    print('  kws_live.py <mode>')
+    print('    Modes:')
+    print('    host                   Run live inference on host')
+    print('    mcu                    Run live inference on mcu')
+    exit()
+
+  cache_dir += 'kws_live/'
+
+  if argv[1] == 'host':
     # post mortem plot
     print('output_size', output_size)
     kwsHostThd(xdata, ydata, mic_data)
 
     mic_data = np.array(mic_data).reshape((-1,))
 
-    plotNetOutputHistory()
+    plotNetOutputHistoryGlobal()
     plt.show()
 
-  if sys.argv[1] == 'mcu':
+  if argv[1] == 'mcu':
     # post mortem plot
     print('output_size', output_size)
 
@@ -222,7 +224,10 @@ if __name__ == '__main__':
     #   net_outs  = np.load(cache_dir+'/net_outs.npy')
     # except:
     net_outs, ampls, likelys, spotteds = kwsMCUThd(xdata, ydata)
+    import pathlib
+    pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
     np.save(cache_dir+'/net_outs.npy', net_outs)
+    print('Wrote net outputs at', cache_dir+'/net_outs.npy')
 
     # print(net_outs)
     plotNetOutputHistory(net_outs, 'raw outs MCU')
@@ -230,5 +235,9 @@ if __name__ == '__main__':
     plotNetOutputHistory(netOutF, 'MCU out filt 0.5')
     plt.show()
 
+
+if __name__ == '__main__':
+  import sys
+  main(sys.argv)
 
 

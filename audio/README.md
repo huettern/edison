@@ -76,6 +76,12 @@ train
   (torch)
 kws
   live
+```bash
+# Live on MCU
+./main.py kws live mcu
+# Live on host (not working currently)
+./main.py kws live host
+```
   mcu
 deploy
   nnom
