@@ -4,7 +4,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-22 09:03:32
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 11:08:12
+# @Last Modified time: 2020-05-22 11:12:07
 
 import argparse
 import sys
@@ -126,7 +126,6 @@ Commands
 
 Commands
     keras    Train the keras model
-    legacy   Train the legacy model
     nnom     Train for NNoM implementation
     torch    Train PyTorch model
 ''')
@@ -135,8 +134,6 @@ Commands
     
     if args.command == 'keras':
       self.train_keras()
-    elif args.command == 'legacy':
-      self.train_legacy()
     elif args.command == 'nnom':
       self.train_nnom()
     elif args.command == 'torch':
@@ -218,9 +215,6 @@ Commands
   def train_keras(self):
     import edison.train.kws_keras
     edison.train.kws_keras.main(sys.argv[2:])
-
-  def train_legacy(self):
-    pass
 
   def train_nnom(self):
     pass
