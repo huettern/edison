@@ -4,7 +4,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-22 09:03:32
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 11:46:46
+# @Last Modified time: 2020-05-22 11:59:35
 
 import argparse
 import sys
@@ -181,9 +181,6 @@ Commands
       print ('Unrecognized command')
       parser.print_help()
       exit(1)
-    
-    # use dispatch pattern to invoke method with same name
-    getattr(self, args.command)()
 
   ######################################################
   # Final commands to run
@@ -240,7 +237,7 @@ Commands
     edison.kws.kws_on_mcu.main(sys.argv[2:])
 
   def deploy_nnom(self):
-    pass
+    print('This is done by train nnom. Run ./main.py train nnom to generate weights')
 
 if __name__ == '__main__':
   Edison()
