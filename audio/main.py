@@ -4,7 +4,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-22 09:03:32
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 11:42:36
+# @Last Modified time: 2020-05-22 11:46:46
 
 import argparse
 import sys
@@ -236,7 +236,8 @@ Commands
     edison.kws.kws_live.main(sys.argv[2:])
 
   def kws_mcu(self):
-    pass
+    import edison.kws.kws_on_mcu
+    edison.kws.kws_on_mcu.main(sys.argv[2:])
 
   def deploy_nnom(self):
     pass

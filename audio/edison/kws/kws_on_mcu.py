@@ -2,25 +2,10 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-16 13:38:52
+# @Last Modified time: 2020-05-22 11:55:42
 
 import sys
 
-if len(sys.argv) < 2:
-  print('Usage:')
-  print('  kws_on_mcu.py <mode>')
-  print('    Modes:')
-  print('    single                   Single inference on random data')
-  print('    fileinf <file>           Get file, run MFCC on host and inference on MCU')
-  print('    file <file>              Get file, run MFCC and inference on host and on MCU')
-  print('    mic                      Record sample from onboard mic and do stuffs')
-  print('    host                     Record sample from host mic and do stuffs')
-  print('    hostcont                 Test net on host only using host mic')
-  print('    hostsingle               Test net on host only using host mic and single frame')
-  print('    miccont                  Continuous sample on MCU with net input history')
-  exit()
-mode = sys.argv[1]
-args = sys.argv[2:]
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -31,15 +16,18 @@ import scipy.io.wavfile as wavfile
 
 import keras
 import tensorflow as tf
-import mfcc_utils as mfu
+import edison.mfcc.mfcc_utils as mfu
 
-cache_dir = '.cache/kws_mcu'
-model_file ='.cache/allinone/kws_model.h5'
-keywords = np.load('.cache/allinone/keywords.npy')
+# Settings
+from config import *
+
+model_file = cache_dir+'../../firmware/src/ai/cube/kws/kws_model.h5'
+keywords = np.load(cache_dir+'allinone/keywords.npy')
+
 from_file = 0
 
 # define net type running on target (cube/nnom)
-net_type = 'nnom'
+net_type = 'cube'
 
 # Load trained model
 model = keras.models.load_model(model_file)
@@ -48,8 +36,9 @@ model.summary()
 input_shape = model.input.shape.as_list()[1:]
 input_size = np.prod(input_shape)
 
-# Settings
-from config import *
+cache_dir += '/kws_on_mcu/'
+import pathlib
+pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
 
 ######################################################################
 # plottery
@@ -185,7 +174,7 @@ def infereOnMCU(net_input, progress=False):
   """
     Upload, process and download inference
   """
-  import mcu_util as mcu
+  import edison.mcu.mcu_util as mcu
 
   if mcu.sendCommand('kws_single_inference') < 0:
     exit()
@@ -198,7 +187,7 @@ def mfccAndInfereOnMCU(data, progress=False):
   """
     Upload, process and download inference of raw audio data
   """
-  import mcu_util as mcu
+  import edison.mcu.mcu_util as mcu
 
   if data.dtype == 'float32':
     data = ( (2**15-1)*data).astype('int16')
@@ -230,7 +219,7 @@ def micAndAllOnMCU():
   """
     Records a sample from mic and processes it
   """
-  import mcu_util as mcu
+  import edison.mcu.mcu_util as mcu
 
   if mcu.sendCommand('kws_mic') < 0:
     exit()
@@ -281,7 +270,7 @@ def singleInference(repeat = 1):
   host_preds = np.array(host_preds)
   compare(host_preds, mcu_preds, 'predictions')
 
-def fileInference():
+def fileInference(args):
   """
     Read file and comput MFCC, launch inference on host and MCU
   """
@@ -318,11 +307,11 @@ def fileInference():
   compare(host_preds, mcu_preds, 'predictions')
   # print('host prediction: %f ' % (host_preds[-1]))
 
-def frameInference():
+def frameInference(args):
   """
     Reads file, computes mfcc and kws on mcu and host
   """
-  import mcu_util as mcu
+  import edison.mcu.mcu_util as mcu
 
   host_preds = []
   mcu_preds = []
@@ -594,7 +583,6 @@ def hostMicSingle():
   mfcc = np.array([])
   last_pred = 0
 
-  keywords = np.load('train/.cache/kws_keras'+'/keywords.npy')
   print('keywords:',keywords)
   threshold = 0.5
 
@@ -636,7 +624,7 @@ def hostMicSingle():
         return
 
 def mcuMicCont():
-  import mcu_util as mcu
+  import edison.mcu.mcu_util as mcu
 
   if mcu.sendCommand('kws_mic_continuous') < 0:
     exit()
@@ -652,16 +640,34 @@ def mcuMicCont():
 ######################################################################
 # main
 ######################################################################
-if __name__ == '__main__':
+def main(argv):
+
+  if len(argv) < 2:
+    print('Usage:')
+    print('  kws_on_mcu.py <mode>')
+    print('    Modes:')
+    print('    single                   Single inference on random data')
+    print('    fileinf <file>           Get file, run MFCC on host and inference on MCU')
+    print('    file <file>              Get file, run MFCC and inference on host and on MCU')
+    print('    mic                      Record sample from onboard mic and do stuffs')
+    print('    host                     Record sample from host mic and do stuffs')
+    print('    hostcont                 Test net on host only using host mic')
+    print('    hostsingle               Test net on host only using host mic and single frame')
+    print('    miccont                  Continuous sample on MCU with net input history')
+    exit()
+  mode = argv[1]
+  args = argv[2:]
+
+  print('Running mode', mode, 'with args', args)
   if mode == 'single':
     if len(args):
       singleInference(int(args[0]))
     else:
       singleInference(1)
   if mode == 'fileinf':
-    fileInference()
+    fileInference(args)
   if mode == 'file':
-    frameInference()
+    frameInference(args)
   if mode == 'mic':
     micInference()
   if mode == 'host':
@@ -672,6 +678,9 @@ if __name__ == '__main__':
     hostMicSingle()
   if mode == 'miccont':
     mcuMicCont()
+
+if __name__ == '__main__':
+  main(sys.argv)
 
 
 

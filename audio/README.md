@@ -83,6 +83,25 @@ kws
 ./main.py kws live host
 ```
   mcu
+```bash
+# Single inference on random data
+./main.py kws mcu single               
+# Get file, run MFCC on host and inference on MCU
+./main.py kws mcu fileinf .cache/acquire/noah/office/08848e0a.wav
+# Get file, run MFCC and inference on host and on MCU
+./main.py kws mcu file .cache/acquire/noah/office/08848e0a.wav          
+# Record sample from onboard mic and do stuffs
+./main.py kws mcu mic
+# Record sample from host mic and do stuffs
+./main.py kws mcu host
+# Test net on host only using host mic
+./main.py kws mcu hostcont
+# Test net on host only using host mic and single frame
+./main.py kws mcu hostsingle
+# Continuous sample on MCU with net input history
+# This is not implemented in the current firmware
+./main.py kws mcu miccont
+```
 deploy
   nnom
 
