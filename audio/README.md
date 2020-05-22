@@ -31,6 +31,9 @@ https://medium.com/manash-en-blog/building-a-dead-simple-word-recognition-engine
 
 mcu
   hif_test
+```bash
+./main.py mcu hif_test
+```
 mic
   bit_depth_analyze
 ```bash

@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-01 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 10:39:20
+# @Last Modified time: 2020-05-22 11:00:37
 
 import edison.mcu.mcu_util as mcu
 from time import sleep
@@ -194,12 +194,12 @@ def main():
   ret -= cmd_mel_one_batch()
   done += 1
   sleep(0.5)
-  ret -= cmd_kws_single_inference()
-  done += 1
-  sleep(0.5)
-  ret -= cmd_mfcc_kws_frame()
-  done += 1
-  sleep(0.5)
+  # ret -= cmd_kws_single_inference()
+  # done += 1
+  # sleep(0.5)
+  # ret -= cmd_mfcc_kws_frame()
+  # done += 1
+  # sleep(0.5)
 
   print('--------------------------------------------------')
   print('Passed %d/%d tests' % (done-ret, done))
