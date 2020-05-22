@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-01 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 10:32:51
+# @Last Modified time: 2020-05-22 10:39:20
 
 import edison.mcu.mcu_util as mcu
 from time import sleep
@@ -185,12 +185,12 @@ def main():
   ret -= cmd_mic_sample_processed_manual()
   done += 1
   sleep(0.5)
-  ret -= cmd_mic_sample()
-  done += 1
-  sleep(0.5)
-  ret -= cmd_mic_sample_preprocessed()
-  done += 1
-  sleep(0.5)
+  # ret -= cmd_mic_sample()
+  # done += 1
+  # sleep(0.5)
+  # ret -= cmd_mic_sample_preprocessed()
+  # done += 1
+  # sleep(0.5)
   ret -= cmd_mel_one_batch()
   done += 1
   sleep(0.5)
