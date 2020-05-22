@@ -57,8 +57,17 @@ mfcc
 ```
 acqiure
   sample_acq
+```bash
+./main.py acquire acq
+```
 train
   keras
+```bash
+# train model
+./main.py train keras train
+# test model only
+./main.py train keras test
+```
   legacy
   nnom
   (torch)

@@ -2,13 +2,13 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:47
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-11 17:56:53
+# @Last Modified time: 2020-05-22 11:05:22
 
 snipsDataPath = "/Users/noah/git/mlmcu-project/audio/data/snips/"
 # snipsDataPath = '/media/spare/data/hey_snips_research_6k_en_train_eval_clean_ter'
 
 scDataPath = 'train/.cache/speech_commands_v0.02'
-ownDataPath = '../acquire/out'
+ownDataPath = '.cache/acquire/noah'
 scDownloadURL = 'http://download.tensorflow.org/data/speech_commands_v0.02.tar.gz'
 
 

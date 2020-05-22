@@ -2,10 +2,10 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-12 16:04:47
+# @Last Modified time: 2020-05-22 11:10:05
 
-import audioutils as au
-import mfcc_utils as mfu
+import edison.audio.audioutils as au
+import edison.mfcc.mfcc_utils as mfu
 import tensorflow.keras
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, Softmax, Input, BatchNormalization, ReLU, MaxPool2D
@@ -23,7 +23,9 @@ try:
 except:
   pass
 
-cache_dir = '.cache/kws_keras'
+from config import *
+cache_dir += '/kws_keras/'
+
 verbose = 1
 
 # Select model architecture here:
@@ -142,22 +144,6 @@ model_arch = 'low_latency_conv'
 # training parameters
 batchSize = 64
 epochs  = 500
-
-# cut/padd each sample to that many seconds
-sample_len_seconds = 2.0
-
-# audio settings
-fs = 16000.0
-mel_mtx_scale = 128
-lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 32
-frame_length = 1024
-first_mfcc = 0
-num_mfcc = 13
-nSamples = int(sample_len_seconds*fs)
-frame_len = frame_length
-frame_step = frame_len
-frame_count = 0 # 0 for auto
-fft_len = frame_len
 
 
 ##################################################
@@ -549,63 +535,73 @@ def plotSomeMfcc(x_train, x_test, y_train=None, y_test=None, keywords=None):
 # MAIN
 # for multiple possible keywords
 ##################################################
+def main(argv):
 
-# load data
-keywords = ['cat','marvin','left','zero']
-coldwords=['bed','bird','stop','visual']
-noise=['_background_noise_']
-x_train_mfcc, x_test_mfcc, x_val_mfcc, y_train, y_test, y_val, keywords = load_data(keywords, coldwords, noise)
-print(keywords)
+  if len(argv) < 2:
+    print('Usage:')
+    print('  kws_keras <mode>')
+    print('    Modes:')
+    print('    train                     Train model')
+    print('    test                      Load model from file and test on it')
+    exit()
+    
+  # load data
+  keywords = ['cat','marvin','left','zero']
+  coldwords=['bed','bird','stop','visual']
+  noise=['_background_noise_']
+  x_train_mfcc, x_test_mfcc, x_val_mfcc, y_train, y_test, y_val, keywords = load_data(keywords, coldwords, noise)
+  print(keywords)
 
 
-print('x train shape: ', x_train_mfcc.shape)
-print('x test shape: ', x_test_mfcc.shape)
-print('x validation shape: ', x_val_mfcc.shape)
-print('y train shape: ', y_train.shape)
-print('y test shape: ', y_test.shape)
-print('y validation shape: ', y_val.shape)
+  print('x train shape: ', x_train_mfcc.shape)
+  print('x test shape: ', x_test_mfcc.shape)
+  print('x validation shape: ', x_val_mfcc.shape)
+  print('y train shape: ', y_train.shape)
+  print('y test shape: ', y_test.shape)
+  print('y validation shape: ', y_val.shape)
 
-if sys.argv[1] == 'train':
-  # build model
-  model = get_model(inp_shape=x_train_mfcc.shape[1:], num_classes = len(keywords))
-
-  # train model
-  model.summary()
-  train(model, x_train_mfcc, y_train, x_val_mfcc, y_val, batchSize = batchSize, epochs = epochs)
-
-  # store model
-  dte = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
   fname = cache_dir+'/kws_model_'+model_arch+'.h5'
-  model.save(fname)
-  print('Model saved as %s' % (fname))
 
-else:
-  # load model
-  model = tf.keras.models.load_model(sys.argv[2])
-  model.summary()
 
-# fig, axs = plotSomeMfcc(x_train_mfcc, x_test_mfcc, y_train, y_test, keywords)
-# plt.show()
-# exit()
+  if argv[1] == 'train':
+    # build model
+    model = get_model(inp_shape=x_train_mfcc.shape[1:], num_classes = len(keywords))
 
-y_pred = model.predict(x_test_mfcc)
-y_pred = 1.0*(y_pred > 0.5) 
+    # train model
+    model.summary()
+    train(model, x_train_mfcc, y_train, x_val_mfcc, y_val, batchSize = batchSize, epochs = epochs)
 
-# print(y_pred)
-# print(y_pred.shape)
-# print(y_test)
-# print(y_test.shape)
+    # store model
+    model.save(fname)
+    print('Model saved as %s' % (fname))
 
-print('Confusion matrix:')
-cmtx = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
-print(cmtx)
+  else:
+    # load model
+    model = tf.keras.models.load_model(fname)
+    model.summary()
 
-# true positive
-tp = np.sum(np.diagonal(cmtx))
-# total number of predictions
-tot = np.sum(cmtx)
+  # fig, axs = plotSomeMfcc(x_train_mfcc, x_test_mfcc, y_train, y_test, keywords)
+  # plt.show()
+  # exit()
 
-print('Correct predicionts: %d/%d (%.2f%%)' % (tp, tot, 100.0/tot*tp))
+  y_pred = model.predict(x_test_mfcc)
+  y_pred = 1.0*(y_pred > 0.5) 
+
+  # print(y_pred)
+  # print(y_pred.shape)
+  # print(y_test)
+  # print(y_test.shape)
+
+  print('Confusion matrix:')
+  cmtx = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
+  print(cmtx)
+
+  # true positive
+  tp = np.sum(np.diagonal(cmtx))
+  # total number of predictions
+  tot = np.sum(cmtx)
+
+  print('Correct predicionts: %d/%d (%.2f%%)' % (tp, tot, 100.0/tot*tp))
 
 
 

@@ -4,7 +4,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-22 09:03:32
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 10:53:12
+# @Last Modified time: 2020-05-22 11:08:12
 
 import argparse
 import sys
@@ -145,9 +145,6 @@ Commands
       print ('Unrecognized command')
       parser.print_help()
       exit(1)
-    
-    # use dispatch pattern to invoke method with same name
-    getattr(self, args.command)()
 
   def kws(self):
     parser = argparse.ArgumentParser(
@@ -219,7 +216,8 @@ Commands
     import edison.acquire.sample_acq
 
   def train_keras(self):
-    pass
+    import edison.train.kws_keras
+    edison.train.kws_keras.main(sys.argv[2:])
 
   def train_legacy(self):
     pass
