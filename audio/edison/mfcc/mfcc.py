@@ -7,8 +7,8 @@ from scipy.io import wavfile
 from scipy.fftpack import dct
 from tqdm import tqdm
 
-import mfcc_utils as mfu
-
+import edison.mfcc.mfcc_utils as mfu
+from config import *
 
 # Input wav file to use
 in_wav = 'data/heysnips_true_16k_16b.wav'
@@ -51,7 +51,7 @@ def plotFrame(frame, title=None):
   # Mel coefficients
   spectrogram_bins_mel = np.expand_dims( mfu.hertz_to_mel(f), 1)
   axs[0,1].plot(f, frame['spectrogram']/np.max(frame['spectrogram']), color='black', label='input')
-  axs[0,1].plot(f, frame['mel_weight_matrix'], label='mel filters')
+  axs[0,1].plot(f, frame['mel_weight_matrix'])
   axs[0,1].text(mel_lower_hz, 0.4, 'mel_lower_hz',rotation=90)
   axs[0,1].text(mel_upper_hz, 0.4, 'mel_upper_hz',rotation=90)
   rect = patches.Rectangle((mel_lower_hz,0),mel_upper_hz-mel_lower_hz,1,linewidth=0,edgecolor='r',facecolor='k',alpha=0.2)

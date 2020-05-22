@@ -4,7 +4,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-22 09:03:32
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 10:33:03
+# @Last Modified time: 2020-05-22 10:45:46
 
 import argparse
 import sys
@@ -97,9 +97,6 @@ Commands
       print ('Unrecognized command')
       parser.print_help()
       exit(1)
-    
-    # use dispatch pattern to invoke method with same name
-    getattr(self, args.command)()
 
   def acquire(self):
     parser = argparse.ArgumentParser(
@@ -212,7 +209,7 @@ Commands
     edison.mcu.hif_test.main()
 
   def mfcc_host(self):
-    pass
+    import edison.mfcc.mfcc
 
   def mfcc_mcu(self):
     pass
