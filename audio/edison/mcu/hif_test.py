@@ -2,13 +2,15 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-01 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-03 09:23:39
+# @Last Modified time: 2020-05-22 10:32:51
 
-import mcu_util as mcu
+import edison.mcu.mcu_util as mcu
 from time import sleep
 import struct
 import numpy as np
 from tqdm import tqdm
+
+from config import *
 
 def cmd_version():
   cmd = 'version'
@@ -174,7 +176,7 @@ def cmd_mfcc_kws_frame():
 ######################################################################
 # main
 ######################################################################
-if __name__ == '__main__':
+def main():
   ret = 0
   done = 0
   ret -= cmd_version()
@@ -202,3 +204,6 @@ if __name__ == '__main__':
   print('--------------------------------------------------')
   print('Passed %d/%d tests' % (done-ret, done))
   print('--------------------------------------------------')
+
+if __name__ == '__main__':
+  main()

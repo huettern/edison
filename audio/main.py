@@ -4,7 +4,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-22 09:03:32
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 10:19:19
+# @Last Modified time: 2020-05-22 10:33:03
 
 import argparse
 import sys
@@ -208,7 +208,8 @@ Commands
     import edison.mcu.fetch_mic_samples
 
   def hif_test(self):
-    pass
+    import edison.mcu.hif_test
+    edison.mcu.hif_test.main()
 
   def mfcc_host(self):
     pass
