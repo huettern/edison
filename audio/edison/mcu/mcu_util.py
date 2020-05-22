@@ -6,8 +6,10 @@ import numpy as np
 from tqdm import tqdm
 from enum import Enum
 
+from config import *
+
 try:
-  ser = Serial('/dev/tty.usbmodem141342103', 115200, bytesize=serial.EIGHTBITS,
+  ser = Serial(mcu_serial_port, 115200, bytesize=serial.EIGHTBITS,
     parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, write_timeout=None, inter_byte_timeout=None,
     xonxoff=False, rtscts=False, dsrdtr=False)  # open serial port
   if(ser.is_open):

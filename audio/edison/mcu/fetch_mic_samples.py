@@ -4,21 +4,27 @@ from scipy.io.wavfile import write
 from tqdm import tqdm
 from time import sleep
 import struct
+import pathlib
+
+from config import *
+cache_dir += 'fetch_mic_samples/'
+pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
 
 # Set tu False to get raw sampels, to true to get preprocessed samples
 preprocessed = 1
 preproc_bits = 16
 
 try:
-  ser = Serial('/dev/tty.usbmodem1413303', 115200)  # open serial port
+  ser = Serial(mcu_serial_port, 115200)  # open serial port
 except SerialException:
   print("coult not open serial port")
   exit()
 
 data = []
 
-count = 25000
-fs = 5000
+# count is limited by the buffer size in the current implementation
+count = 2048
+fs = 16000
 
 # request count samples
 ser.flush()
@@ -95,9 +101,9 @@ data = data - np.mean(data)
 data = data / np.max(np.abs(data))
 
 # dump raw values to file
-f=open('data_ac.txt','w')
+f=open(cache_dir+'data_ac.txt','w')
 for ele in data:
     f.write(str(ele)+'\n')
 
 # scaled = np.int16((data-np.mean(data))/np.max(np.abs(data)) * 32767)
-write('test.wav', fs, data)
+write(cache_dir+'test.wav', fs, data)
