@@ -104,6 +104,9 @@ data = data / np.max(np.abs(data))
 f=open(cache_dir+'data_ac.txt','w')
 for ele in data:
     f.write(str(ele)+'\n')
+f.close()
+print('wrote', cache_dir+'data_ac.txt')
 
 # scaled = np.int16((data-np.mean(data))/np.max(np.abs(data)) * 32767)
 write(cache_dir+'test.wav', fs, data)
+print('wrote', cache_dir+'test.wav')

@@ -33,7 +33,13 @@ mcu
   hif_test
 mic
   bit_depth_analyze
+```bash
+./main.py mic bit_depth_analyze
+```
   fetch_mic_samples
+```bash
+./main.py mic fetch_mic_samples
+```
 
 mfcc
   host
