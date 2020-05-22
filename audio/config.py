@@ -1,3 +1,8 @@
+
+# Cache directory
+cache_dir = '.cache'
+
+
 # audio and MFCC settings
 sample_len_seconds = 2.0
 fs = 16000

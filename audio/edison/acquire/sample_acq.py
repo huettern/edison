@@ -9,12 +9,16 @@ from pydub import AudioSegment
 from pydub.silence import split_on_silence
 import os
 
+from config import *
+cache_dir += '/acquire/'
+
 fs = 16000  # Sample rate
 seconds = 2  # Duration of recording
 # keywords = ["edison", "on", "off", "livingroomlight", "kitchenlight",
 #             "bedroomlight", "cinema"]
 keywords = ["livingroom", "kitchen", "bedroom", "office", "off", "on"]
-out_dir = "noah/"
+out_dir = cache_dir+"/noah/"
+pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
 max_cold_word_length = 4 # maximum number of words in a cold word sequence
 heading = 1600 # frames before threshold of cutting
 tailing = 3200 # frames after threshold of cutting
@@ -23,6 +27,7 @@ percent_of_average_volume = 0.2
 stats_per_keywords = [0]*(1+len(keywords))
 
 for k in keywords:
+    pathlib.Path(out_dir+k).mkdir(parents=True, exist_ok=True)
     stats_per_keywords[keywords.index(k)] = len([name for name in os.listdir(out_dir+k) if os.path.isfile(out_dir+k+'/'+name)])
 
 # dictionary that contains all input strings and actions to which they lead
@@ -36,7 +41,7 @@ files = {}
 cold_words = []
 
 # Read cold words from text file
-with open('cold_words.txt','r') as f:
+with open('edison/acquire/cold_words.txt','r') as f:
     for line in f:
         for word in line.split():
             if len(word) < 2: # if word is shorter than 2 letters, wo don't want it
