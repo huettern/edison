@@ -4,7 +4,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-22 09:03:32
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 10:09:46
+# @Last Modified time: 2020-05-22 10:17:42
 
 import argparse
 import sys
@@ -54,6 +54,9 @@ Commands
       print ('Unrecognized command')
       parser.print_help()
       exit(1)
+    
+    # use dispatch pattern to invoke method with same name
+    getattr(self, args.command)()
 
   def mcu(self):
     parser = argparse.ArgumentParser(
@@ -70,6 +73,9 @@ Commands
       print ('Unrecognized command')
       parser.print_help()
       exit(1)
+    
+    # use dispatch pattern to invoke method with same name
+    getattr(self, args.command)()
 
   def mfcc(self):
     parser = argparse.ArgumentParser(
@@ -91,6 +97,9 @@ Commands
       print ('Unrecognized command')
       parser.print_help()
       exit(1)
+    
+    # use dispatch pattern to invoke method with same name
+    getattr(self, args.command)()
 
   def acquire(self):
     parser = argparse.ArgumentParser(
@@ -109,6 +118,9 @@ Commands
       print ('Unrecognized command')
       parser.print_help()
       exit(1)
+    
+    # use dispatch pattern to invoke method with same name
+    getattr(self, args.command)()
 
   def train(self):
     parser = argparse.ArgumentParser(
@@ -136,6 +148,9 @@ Commands
       print ('Unrecognized command')
       parser.print_help()
       exit(1)
+    
+    # use dispatch pattern to invoke method with same name
+    getattr(self, args.command)()
 
   def kws(self):
     parser = argparse.ArgumentParser(
@@ -157,6 +172,9 @@ Commands
       print ('Unrecognized command')
       parser.print_help()
       exit(1)
+    
+    # use dispatch pattern to invoke method with same name
+    getattr(self, args.command)()
 
   def deploy(self):
     parser = argparse.ArgumentParser(
@@ -175,12 +193,16 @@ Commands
       print ('Unrecognized command')
       parser.print_help()
       exit(1)
+    
+    # use dispatch pattern to invoke method with same name
+    getattr(self, args.command)()
 
   ######################################################
   # Final commands to run
 
   def bit_depth_analyze(self):
-    pass
+    print('here')
+    import edison.audio.bit_depth_analyze
 
   def fetch_mic_samples(self):
     pass
