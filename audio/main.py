@@ -4,7 +4,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-22 09:03:32
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 11:12:07
+# @Last Modified time: 2020-05-22 11:26:41
 
 import argparse
 import sys
@@ -217,7 +217,18 @@ Commands
     edison.train.kws_keras.main(sys.argv[2:])
 
   def train_nnom(self):
-    pass
+    # Have to have tensorflow 1.15 installed here!
+    reinstall = False
+    import tensorflow as tf
+    if not tf.__version__.startswith('1'):
+      print('Have to have tensorflow 1.15 installed here!')
+      import os
+      os.system('pip uninstall tensorflow')
+      os.system('pip install tensorflow==1.15')
+      print('Relaunch command for NNoM to work')
+      exit(0)
+    import edison.train.kws_nnom
+    edison.train.kws_nnom.main()
 
   def train_torch(self):
     pass

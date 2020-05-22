@@ -19,10 +19,15 @@ try:
 except:
   pass
 
-cache_dir = '.cache/kws_nnom'
+
+from config import *
+
+in_dir = cache_dir+'kws_keras'
+
+cache_dir += 'kws_nnom/'
 import pathlib
 pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
-model_path = '../models/kws_model_medium_embedding_conv_nnom.h5'
+model_path = cache_dir+'kws_model_medium_embedding_conv_nnom.h5'
 
 def mfcc_plot(x, label= None):
   mfcc_feat = np.swapaxes(x, 0, 1)
@@ -144,7 +149,6 @@ def train(x_train, y_train, x_test, y_test, type, batch_size=64, epochs=100):
 def main():
 
   try:
-    in_dir = '.cache/kws_keras'
     x_train = np.load(in_dir+'/x_train_mfcc_mcu.npy')
     x_test = np.load(in_dir+'/x_test_mfcc_mcu.npy')
     x_val = np.load(in_dir+'/x_val_mfcc_mcu.npy')
@@ -264,6 +268,7 @@ def main():
   evaluate_model(model, x_test, y_test)
 
   generate_model(model, np.vstack((x_test, x_val)), name=cache_dir+'/weights.h')
+  print('Wrote weights in', cache_dir+'/weights.h')
 
   acc = history.history['accuracy']
   val_acc = history.history['val_accuracy']

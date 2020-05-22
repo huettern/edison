@@ -68,8 +68,11 @@ train
 # test model only
 ./main.py train keras test
 ```
-  legacy
   nnom
+```bash
+# Loads data from keras train, so this has to be run beforehand
+./main.py train nnom
+```
   (torch)
 kws
   live
