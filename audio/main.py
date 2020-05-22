@@ -4,7 +4,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-22 09:03:32
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 10:45:46
+# @Last Modified time: 2020-05-22 10:53:12
 
 import argparse
 import sys
@@ -212,7 +212,8 @@ Commands
     import edison.mfcc.mfcc
 
   def mfcc_mcu(self):
-    pass
+    import edison.mfcc.mfcc_on_mcu
+    edison.mfcc.mfcc_on_mcu.main(sys.argv[2:])
 
   def acquire_acq(self):
     import edison.acquire.sample_acq

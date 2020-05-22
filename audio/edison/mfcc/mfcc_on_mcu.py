@@ -2,18 +2,9 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-14 18:30:05
+# @Last Modified time: 2020-05-22 10:53:33
 
 import sys
-
-if len(sys.argv) < 2:
-  print('Usage:')
-  print('  mfcc_on_mcu.py <mode> [from file ]')
-  print('    Modes:')
-  print('    calc                     Calculate C constants header file')
-  print('    single                   Run MFCC on single frame')
-  print('    file data/test.wav       Run MFCC on wav file of any length')
-  exit()
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -22,19 +13,13 @@ from scipy.io import wavfile
 
 import tensorflow as tf
 
-import mfcc_utils as mfu
-import mcu_util as mcu
-
-fname = '.cache/mel_constants.h'
-cache_dir = '.cache/mfcc_mcu'
-from_files = 0
-
-mode = sys.argv[1]
-
-from_files = 1 if len(sys.argv) > 2 else from_files
+import edison.mfcc.mfcc_utils as mfu
+import edison.mcu.mcu_util as mcu
 
 # Settings
 from config import *
+cache_dir += '/mfcc_mcu/'
+fname = cache_dir+'mel_constants.h'
 
 ######################################################################
 # functions
@@ -321,7 +306,7 @@ def plotFileMode():
 ######################################################################
 # single
 ######################################################################
-def modeSingle():
+def modeSingle(from_files):
   global fs, y, host_fft, mcu_fft, mel_mtx, host_spec, mcu_spec, host_melspec, mcu_melspec, host_dct, mcu_dct
   global host_dct_reorder, host_dct_fft, host_dct_makhoul
   # Create synthetic sample
@@ -415,21 +400,21 @@ def modeSingle():
 ######################################################################
 # Calculate C constants
 ######################################################################
-def modeCalc():
+def modeCalc(from_files):
   calcCConstants()
 
 ######################################################################
 # File
 ######################################################################
-def modeFile():
+def modeFile(from_files, argv):
   global fs, y, host_fft, mcu_fft, mel_mtx, host_spec, mcu_spec, host_melspec, mcu_melspec, host_dct, mcu_dct, host_logmelspec
   global host_dct_reorder, host_dct_fft, host_dct_makhoul, nSamples, fname
 
-  if len(sys.argv) < 3:
+  if len(argv) < 3:
     print('Specify input file')
     exit()
-  fname = sys.argv[2]
-  from_files = 1 if len(sys.argv) > 3 else 0
+  fname = argv[2]
+  from_files = 1 if len(argv) > 3 else 0
   print('Working with %s' % (fname))
 
   # Read data
@@ -538,10 +523,29 @@ def modeFile():
 ######################################################################
 # main
 ######################################################################
-if __name__ == '__main__':
+def main(argv):
+
+  if len(argv) < 2:
+    print('Usage:')
+    print('  mfcc_on_mcu.py <mode> [from file ]')
+    print('    Modes:')
+    print('    calc                     Calculate C constants header file')
+    print('    single                   Run MFCC on single frame')
+    print('    file data/test.wav       Run MFCC on wav file of any length')
+    exit()
+
+  from_files = 0
+
+  mode = argv[1]
+
+  from_files = 1 if len(argv) > 2 else from_files
+
   if mode == 'single':
-    modeSingle()
+    modeSingle(from_files)
   if mode == 'calc':
-    modeCalc()
+    modeCalc(from_files)
   if mode == 'file':
-    modeFile()
+    modeFile(from_files, argv)
+
+if __name__ == '__main__':
+  main(sys.argv)
