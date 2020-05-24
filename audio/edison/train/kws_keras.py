@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 11:10:05
+# @Last Modified time: 2020-05-24 12:34:50
 
 import edison.audio.audioutils as au
 import edison.mfcc.mfcc_utils as mfu
@@ -127,7 +127,7 @@ verbose = 1
 #       [BiasAdd]<-(bias)
 #           v
 #
-# legacy: Total params: 4,846
+# simple_conv: Total params: 4,846
 # Conv2D
 # MaxPooling2D
 # Dropout
@@ -135,11 +135,11 @@ verbose = 1
 # Dense
 # Softmax
 # 
-# nnom: Total params: 43,368
+# kws_conv: Total params: 43,368
 # Stolen from https://github.com/majianjia/nnom/tree/master/examples/keyword_spotting
 
 
-model_arch = 'low_latency_conv'
+model_arch = 'kws_conv'
 
 # training parameters
 batchSize = 64
@@ -341,7 +341,7 @@ def get_model(inp_shape, num_classes):
     model.add(Dense(num_classes, activation=None, use_bias=True))
     model.add(Softmax())
 
-  if model_arch == 'legacy':
+  if model_arch == 'simple_conv':
     model = Sequential()
     model.add(Conv2D(8, kernel_size=(8, 8), activation='relu', padding='same', input_shape=inp_shape, strides=(1,1)))
     model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -350,7 +350,7 @@ def get_model(inp_shape, num_classes):
     model.add(Dense(num_classes))
     model.add(Softmax())
 
-  if model_arch == 'nnom':
+  if model_arch == 'kws_conv':
     model = Sequential()
 
     model.add(Conv2D(16, kernel_size=(5, 5), strides=(1, 1), padding='valid', input_shape=inp_shape))
@@ -418,12 +418,12 @@ def load_data(keywords, coldwords, noise):
   """
   # if in cache, use it
   try:
-    x_train_mfcc = np.load(cache_dir+'/x_train_mfcc_mcu.npy')
-    x_test_mfcc = np.load(cache_dir+'/x_test_mfcc_mcu.npy')
-    x_val_mfcc = np.load(cache_dir+'/x_val_mfcc_mcu.npy')
-    y_train = np.load(cache_dir+'/y_train_mcu.npy')
-    y_test = np.load(cache_dir+'/y_test_mcu.npy')
-    y_val = np.load(cache_dir+'/y_val_mcu.npy')
+    x_train_mfcc = np.load(cache_dir+'/x_train.npy')
+    x_test_mfcc = np.load(cache_dir+'/x_test.npy')
+    x_val_mfcc = np.load(cache_dir+'/x_val.npy')
+    y_train = np.load(cache_dir+'/y_train.npy')
+    y_test = np.load(cache_dir+'/y_test.npy')
+    y_val = np.load(cache_dir+'/y_val.npy')
     keywords = np.load(cache_dir+'/keywords.npy')
     assert x_train_mfcc.shape[1:] == x_test_mfcc.shape[1:]
     print('Load data from cache success!')
@@ -546,8 +546,7 @@ def main(argv):
     exit()
     
   # load data
-  keywords = ['cat','marvin','left','zero']
-  coldwords=['bed','bird','stop','visual']
+  keywords, coldwords, noise = ['edison', 'cinema','bedroom', 'office', 'livingroom','kitchen','on', 'off'], ['_cold_word'], 0.1
   noise=['_background_noise_']
   x_train_mfcc, x_test_mfcc, x_val_mfcc, y_train, y_test, y_val, keywords = load_data(keywords, coldwords, noise)
   print(keywords)
