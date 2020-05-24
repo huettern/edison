@@ -27,7 +27,7 @@ in_dir = cache_dir+'kws_keras'
 cache_dir += 'kws_nnom/'
 import pathlib
 pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
-model_path = cache_dir+'kws_model_medium_embedding_conv_nnom.h5'
+model_path = cache_dir+'kws_conv.h5'
 
 def mfcc_plot(x, label= None):
   mfcc_feat = np.swapaxes(x, 0, 1)
@@ -50,71 +50,71 @@ def label_to_category(label, selected):
 
 def train(x_train, y_train, x_test, y_test, type, batch_size=64, epochs=100):
 
-  first_filter_width = 8
-  first_filter_height = 8
-  first_filter_count = 16
-  first_conv_stride_x = 2
-  first_conv_stride_y = 2
-
-  inputs = Input(shape=x_train.shape[1:])
-  x = Conv2D(first_filter_count, 
-    kernel_size=(first_filter_width, first_filter_height),
-    strides=(first_conv_stride_x, first_conv_stride_y),
-    use_bias=True,
-    activation='relu', 
-    padding='same')(inputs)
-
-  dropout_rate = 0.25
-  x = Dropout(dropout_rate)(x)
-  x = MaxPooling2D(pool_size=(2, 2), strides=None, padding='same')(x)
-
-  second_filter_width = 4
-  second_filter_height = 4
-  second_filter_count = 12
-  second_conv_stride_x = 1
-  second_conv_stride_y = 1
-
-  x = Conv2D(second_filter_count, 
-    kernel_size=(second_filter_width, second_filter_height),
-    strides=(second_conv_stride_x, second_conv_stride_y),
-    use_bias=True,
-    activation='relu', 
-    padding='same' )(x)
-
-  dropout_rate = 0.25
-  x = Dropout(dropout_rate)(x)
-
-  x = Flatten()(x)
-  x = Dense(type)(x)
-  predictions = Softmax()(x)
-  
+  # first_filter_width = 8
+  # first_filter_height = 8
+  # first_filter_count = 16
+  # first_conv_stride_x = 2
+  # first_conv_stride_y = 2
 
   # inputs = Input(shape=x_train.shape[1:])
-  # x = Conv2D(16, kernel_size=(5, 5), strides=(1, 1), padding='valid')(inputs)
-  # x = BatchNormalization()(x)
-  # x = ReLU()(x)
-  # x = MaxPool2D((2, 1), strides=(2, 1), padding="valid")(x)
+  # x = Conv2D(first_filter_count, 
+  #   kernel_size=(first_filter_width, first_filter_height),
+  #   strides=(first_conv_stride_x, first_conv_stride_y),
+  #   use_bias=True,
+  #   activation='relu', 
+  #   padding='same')(inputs)
 
-  # x = Conv2D(32 ,kernel_size=(3, 3), strides=(1, 1), padding="valid")(x)
-  # x = BatchNormalization()(x)
-  # x = ReLU()(x)
-  # x = MaxPool2D((2, 1),strides=(2, 1), padding="valid")(x)
+  # dropout_rate = 0.25
+  # x = Dropout(dropout_rate)(x)
+  # x = MaxPooling2D(pool_size=(2, 2), strides=None, padding='same')(x)
 
-  # x = Conv2D(64 ,kernel_size=(3, 3), strides=(1, 1), padding="valid")(x)
-  # x = BatchNormalization()(x)
-  # x = ReLU()(x)
-  # #x = MaxPool2D((2, 1), strides=(2, 1), padding="valid")(x)
-  # x = Dropout(0.2)(x)
+  # second_filter_width = 4
+  # second_filter_height = 4
+  # second_filter_count = 12
+  # second_conv_stride_x = 1
+  # second_conv_stride_y = 1
 
-  # x = Conv2D(32, kernel_size=(3, 3), strides=(1, 1), padding="valid")(x)
-  # x = BatchNormalization()(x)
-  # x = ReLU()(x)
-  # x = Dropout(0.3)(x)
+  # x = Conv2D(second_filter_count, 
+  #   kernel_size=(second_filter_width, second_filter_height),
+  #   strides=(second_conv_stride_x, second_conv_stride_y),
+  #   use_bias=True,
+  #   activation='relu', 
+  #   padding='same' )(x)
+
+  # dropout_rate = 0.25
+  # x = Dropout(dropout_rate)(x)
 
   # x = Flatten()(x)
   # x = Dense(type)(x)
-
   # predictions = Softmax()(x)
+  
+
+  inputs = Input(shape=x_train.shape[1:])
+  x = Conv2D(16, kernel_size=(5, 5), strides=(1, 1), padding='valid')(inputs)
+  x = BatchNormalization()(x)
+  x = ReLU()(x)
+  x = MaxPool2D((2, 1), strides=(2, 1), padding="valid")(x)
+
+  x = Conv2D(32 ,kernel_size=(3, 3), strides=(1, 1), padding="valid")(x)
+  x = BatchNormalization()(x)
+  x = ReLU()(x)
+  x = MaxPool2D((2, 1),strides=(2, 1), padding="valid")(x)
+
+  x = Conv2D(64 ,kernel_size=(3, 3), strides=(1, 1), padding="valid")(x)
+  x = BatchNormalization()(x)
+  x = ReLU()(x)
+  #x = MaxPool2D((2, 1), strides=(2, 1), padding="valid")(x)
+  x = Dropout(0.2)(x)
+
+  x = Conv2D(32, kernel_size=(3, 3), strides=(1, 1), padding="valid")(x)
+  x = BatchNormalization()(x)
+  x = ReLU()(x)
+  x = Dropout(0.3)(x)
+
+  x = Flatten()(x)
+  x = Dense(type)(x)
+
+  predictions = Softmax()(x)
 
   model = Model(inputs=inputs, outputs=predictions)
 
@@ -149,12 +149,12 @@ def train(x_train, y_train, x_test, y_test, type, batch_size=64, epochs=100):
 def main():
 
   try:
-    x_train = np.load(in_dir+'/x_train_mfcc_mcu.npy')
-    x_test = np.load(in_dir+'/x_test_mfcc_mcu.npy')
-    x_val = np.load(in_dir+'/x_val_mfcc_mcu.npy')
-    y_train = np.load(in_dir+'/y_train_mcu.npy')
-    y_test = np.load(in_dir+'/y_test_mcu.npy')
-    y_val = np.load(in_dir+'/y_val_mcu.npy')
+    x_train = np.load(in_dir+'/x_train.npy')
+    x_test = np.load(in_dir+'/x_test.npy')
+    x_val = np.load(in_dir+'/x_val.npy')
+    y_train = np.load(in_dir+'/y_train.npy')
+    y_test = np.load(in_dir+'/y_test.npy')
+    y_val = np.load(in_dir+'/y_val.npy')
     keywords = np.load(in_dir+'/keywords.npy')
     print('Load data from cache success!')
 
