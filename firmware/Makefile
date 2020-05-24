@@ -86,10 +86,10 @@ CUBE_KEYWORDS = ../audio/.cache/allinone/keywords.txt
 
 ##############################################################################
 # NNoM
-NNOM_REPO=../audio/implement/nnom/
-NNOM_WEIGHTS=../audio/.cache/allinone/weights.h
+NNOM_REPO=../audio/edison/deploy/nnom/
+NNOM_WEIGHTS=../audio/.cache/kws_nnom/weights.h
 NNOM_NAME=kws_nnom
-NNOM_MODEL=../audio/.cache/allinone/kws_model.h5
+NNOM_MODEL=../audio/.cache/kws_nnom/kws_conv.h5
 NNOM_KEYWORDS=../audio/.cache/allinone/keywords.txt
 NNOM=src/ai/nnom/
 NNOM_CSRC=$(wildcard $(NNOM)/src/backends/*.c) $(wildcard $(NNOM)/src/layers/*.c) $(wildcard $(NNOM)/src/core/*.c)
