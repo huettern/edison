@@ -11,7 +11,7 @@ import edison.mfcc.mfcc_utils as mfu
 from config import *
 
 # Input wav file to use
-in_wav = 'data/heysnips_true_16k_16b.wav'
+in_wav = 'data/edison_16k_16b.wav'
 
 
 ######################################################################
@@ -26,7 +26,7 @@ def plotFrame(frame, title=None):
     fig.suptitle(title, fontsize=16)
 
   # Input
-  axs[0,0].plot(t, in_data, label='input')
+  axs[0,0].plot(t, in_data, label=in_wav)
   origin = (frame['t_start'],-30000)
   width = frame['t_end']-frame['t_start']
   height = 60000
@@ -198,9 +198,9 @@ o_mfcc_mcu = mfu.mfcc_mcu(in_data, fs, nSamples, frame_len, frame_step, frame_co
 ##
 # This makes two figures to compare own implementation with tensorflow
 ##
-fig = plotFrame(o_mfcc[5], 'Own implementation')
+fig = plotFrame(o_mfcc[3], 'Own implementation')
 fig.tight_layout()
-fig = plotFrame(o_mfcc_tf[5], 'Tensorflow')
+fig = plotFrame(o_mfcc_tf[3], 'Tensorflow')
 fig.tight_layout()
 
 ##
