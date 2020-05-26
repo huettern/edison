@@ -1,6 +1,6 @@
 
 # Cache directory
-cache_dir = '.cache/'
+cache_dir = 'cache/'
 
 # serial port
 mcu_serial_port = '/dev/tty.usbmodem141342303'

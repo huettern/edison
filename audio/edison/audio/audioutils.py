@@ -2,9 +2,9 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:47
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-26 17:42:07
+# @Last Modified time: 2020-05-26 18:06:54
 
-scDataPath = 'train/.cache/speech_commands_v0.02'
+scDataPath = '/tmp/speech_commands_v0.02'
 scDownloadURL = 'http://download.tensorflow.org/data/speech_commands_v0.02.tar.gz'
 
 def load_own_speech_commands(data_path, keywords=None, coldwords=None, fs=16000, sample_len=2*16000, frame_length=1024, playsome=False, test_val_size=0.2, noise=0.10):
