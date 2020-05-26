@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:23:59
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-26 16:48:26
+# @Last Modified time: 2020-05-26 17:46:10
 
 import numpy as np
 from scipy.fftpack import dct
@@ -206,6 +206,7 @@ def mfcc_tf(data, \
   Calculate same mfcc using tensor flow functions
   """
   import tensorflow as tf
+  tf.enable_eager_execution()
   # sess = tf.InteractiveSession()
 
   framed = frames(data, frame_length=frame_len, frame_step=frame_step)
