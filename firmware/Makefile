@@ -77,7 +77,7 @@ CUBEAI_INC = -Isrc/lib/ST/AI/Inc -Isrc/ai/cube/$(CUBEAI_NET_NAME)
 CUBEAI_LIBDIR = -Lsrc/lib/ST/AI/Lib
 CUBEAI_LIB = -l:NetworkRuntime500_CM4_GCC.a
 CUBEAI_SRC = 	$(wildcard src/ai/cube/$(CUBEAI_NET_NAME)/*.c)
-CUBE_KEYWORDS = ../audio/.cache/allinone/keywords.txt
+CUBE_KEYWORDS = ../audio/.cache/kws_keras/keywords.txt
 # src/ai/cube/$(CUBEAI_NET_NAME)/$(CUBEAI_NET_NAME).c \
 # 							src/ai/cube/$(CUBEAI_NET_NAME)/$(CUBEAI_NET_NAME)_data.c \
 # 							src/ai/cube/$(CUBEAI_NET_NAME)/app_x-cube-ai.c
@@ -90,7 +90,7 @@ NNOM_REPO=../audio/edison/deploy/nnom/
 NNOM_WEIGHTS=../audio/.cache/kws_nnom/weights.h
 NNOM_NAME=kws_nnom
 NNOM_MODEL=../audio/.cache/kws_nnom/kws_conv.h5
-NNOM_KEYWORDS=../audio/.cache/allinone/keywords.txt
+NNOM_KEYWORDS=../audio/.cache/kws_keras/keywords.txt
 NNOM=src/ai/nnom/
 NNOM_CSRC=$(wildcard $(NNOM)/src/backends/*.c) $(wildcard $(NNOM)/src/layers/*.c) $(wildcard $(NNOM)/src/core/*.c)
 NNOM_INC=-I$(NNOM)/inc -I$(NNOM)/port -I$(NNOM)
