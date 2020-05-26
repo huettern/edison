@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 11:55:42
+# @Last Modified time: 2020-05-26 17:40:09
 
 import sys
 
@@ -22,7 +22,7 @@ import edison.mfcc.mfcc_utils as mfu
 from config import *
 
 model_file = cache_dir+'../../firmware/src/ai/cube/kws/kws_model.h5'
-keywords = np.load(cache_dir+'allinone/keywords.npy')
+keywords = np.load(cache_dir+'kws_keras/keywords.npy')
 
 from_file = 0
 

@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-26 17:31:04
+# @Last Modified time: 2020-05-26 17:39:55
 
 import edison.audio.audioutils as au
 import edison.mfcc.mfcc_utils as mfu
@@ -655,7 +655,7 @@ def main(argv):
   print('y test shape: ', y_test.shape)
   print('y validation shape: ', y_val.shape)
 
-  model_name = cache_dir+'/kws_model_'+model_arch+'.h5'
+  model_name = cache_dir+'/kws_model.h5'
 
 
   if argv[1] == 'train':

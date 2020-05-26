@@ -13,9 +13,9 @@ import edison.mfcc.mfcc_utils as mfu
 from config import *
 
 # model_file = 'train/.cache/kws_keras/kws_model_medium_embedding_conv.h5'
-# model_file = cache_dir+'allinone/kws_model.h5'
+# model_file = cache_dir+'kws_keras/kws_model.h5'
 model_file = cache_dir+'../../firmware/src/ai/cube/kws/kws_model.h5'
-keywords = np.load(cache_dir+'allinone/keywords.npy')
+keywords = np.load(cache_dir+'kws_keras/keywords.npy')
 threshold = 0.6
 
 # Load trained model
