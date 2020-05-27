@@ -29,4 +29,153 @@ sudo apt install python3-libnvinfer python3-libnvinfer-dev
 https://medium.com/manash-en-blog/building-a-dead-simple-word-recognition-engine-using-convnet-in-keras-25e72c19c12b
 
 
+mcu
+  hif_test
+```bash
+./main.py mcu hif_test
+```
+mic
+  bit_depth_analyze
+```bash
+./main.py mic bit_depth_analyze
+```
+  fetch_mic_samples
+```bash
+./main.py mic fetch_mic_samples
+```
+
+mfcc
+  host
+  mcu
+```bash
+# Calculate header file for MCU processing
+./main.py mfcc mcu calc
+# single frame MFCC on mcu and host with detailed vectors
+./main.py mfcc mcu single
+# Multi-frame on host and mcu with input/output compare
+./main.py mfcc mcu file data/heysnips_true_16k_16b.wav
+```
+acqiure
+  sample_acq
+```bash
+./main.py acquire acq
+```
+train
+  keras
+```bash
+# train model
+./main.py train keras train
+# test model only
+./main.py train keras test
+```
+  nnom
+```bash
+# Loads data from keras train, so this has to be run beforehand
+./main.py train nnom
+```
+  (torch)
+kws
+  live
+```bash
+# Live on MCU
+./main.py kws live mcu
+# Live on host (not working currently)
+./main.py kws live host
+```
+  mcu
+```bash
+# Single inference on random data
+./main.py kws mcu single               
+# Get file, run MFCC on host and inference on MCU
+./main.py kws mcu fileinf .cache/acquire/noah/office/08848e0a.wav
+# Get file, run MFCC and inference on host and on MCU
+./main.py kws mcu file .cache/acquire/noah/office/08848e0a.wav          
+# Record sample from onboard mic and do stuffs
+./main.py kws mcu mic
+# Record sample from host mic and do stuffs
+./main.py kws mcu host
+# Test net on host only using host mic
+./main.py kws mcu hostcont
+# Test net on host only using host mic and single frame
+./main.py kws mcu hostsingle
+# Continuous sample on MCU with net input history
+# This is not implemented in the current firmware
+./main.py kws mcu miccont
+```
+deploy
+  nnom
+
+
+Folder structure
+
+
+edison.py
+config,py
+edison
+  audio
+    - bit_depth_analyze.py
+    - audioutils.py
+  mcu
+    - mcu_util.py
+    - fetch_mic_samples.py
+    - hif_test.py
+  mfcc
+    - mfcc_utils.py
+    - mfcc.py
+    - mfcc_on_mcu.py
+  acquire
+    - sample_acq.py
+  train
+    - allinone.py
+    - kws_keras.py
+    - kws_legacy.py
+    - kws_nnom.py
+    - visualize.py
+  kws
+    - kws_live.py
+    - kws_on_mcu.py
+  deploy
+    - nnom repo
+    - nnom.py
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

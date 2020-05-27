@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 19:16:38
+* @Last Modified time: 2020-05-23 15:12:26
 */
 #include "app.h"
 #include <stdlib.h>
@@ -38,6 +38,8 @@
 #define EDI_LOC_TIMEOUT 5000 // [ms] to wait for location after hotword
 
 #define EDI_WAKEWORD "edison" // on which keyword edison should wake and transition to hot
+
+#define EDI_STATUES_LED 1
 
 /**
  * @brief Enable this to show profiling on arduino Tx pin
@@ -732,7 +734,7 @@ static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
   brAnim.stop[1] = 0;
   brAnim.stop[2] = 0;
   brAnim.speed = 0.02;
-  brAnim.ledsOneHot = 1<<4;
+  brAnim.ledsOneHot = 1<<EDI_STATUES_LED;
   // fade animation of status led
   static animationFade_t statFadeAnim;
   statFadeAnim.start[0] = 0;
@@ -742,7 +744,7 @@ static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
   statFadeAnim.stop[1] = 20;
   statFadeAnim.stop[2] = 0;
   statFadeAnim.speed = 0.01;
-  statFadeAnim.ledsOneHot = 1<<4;
+  statFadeAnim.ledsOneHot = 1<<EDI_STATUES_LED;
 
   // time since last FSM call
   uint32_t tickNow = __HAL_TIM_GET_COUNTER(&htim1);
@@ -874,9 +876,9 @@ static void edisonFSM(float* predictions, float* predMax, uint32_t* predMaxIdx)
       if( (ediState == EDI_HOT) || (ediState == EDI_LOC) )
       {
         ledStopAnimation(brAnimIdx);
-        ledSetColor(4, 0, 20, 0); ledUpdate(0);
+        ledSetColor(EDI_STATUES_LED, 0, 20, 0); ledUpdate(0);
       } 
-      if( (ediState == EDI_RESET) ) ledSetColor(4, 0, 20, 0); ledUpdate(0);
+      if( (ediState == EDI_RESET) ) ledSetColor(EDI_STATUES_LED, 0, 20, 0); ledUpdate(0);
     }
     if (nextState == EDI_HOT)
     {

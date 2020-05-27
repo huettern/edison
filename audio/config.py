@@ -1,8 +1,18 @@
+
+# Cache directory
+cache_dir = 'cache/'
+
+# serial port
+mcu_serial_port = '/dev/tty.usbmodem141342303'
+
 # audio and MFCC settings
 sample_len_seconds = 2.0
 fs = 16000
 mel_mtx_scale = 128
 lower_edge_hertz, upper_edge_hertz, num_mel_bins = 80.0, 7600.0, 32
+mel_nbins = num_mel_bins
+mel_lower_hz = lower_edge_hertz
+mel_upper_hz = upper_edge_hertz
 frame_length = 1024
 sample_size = frame_length
 num_spectrogram_bins = sample_size//2+1
