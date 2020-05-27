@@ -1,34 +1,30 @@
-# Edison - Low Power Voice Commands [![Build Status](https://travis-ci.com/noah95/edison.svg?token=W9DfQq55LKsHhNiMPYw5&branch=master)](https://travis-ci.com/noah95/edison)
+# Edison - Keywords Spotting on MCU [![Build Status](https://travis-ci.com/noah95/edison.svg?token=W9DfQq55LKsHhNiMPYw5&branch=master)](https://travis-ci.com/noah95/edison)
 
 ## Setup
+Download pre-processed audio data, train the model, implement it and compile the MCU code.
 
-Quick compile of MCU firmware and flash:
 ```bash
-cd firmware/
-make -j8 flash
-```
-
-To train the model from extracted feature data, follow the following guide.
-```bash
-# clone and python env setup
+# clone and setup
 git clone https://github.com/noah95/edison
 cd edison
 source bootstrap.sh
 
-# fetch training data
-curl -L https://github.com/noah95/edison/releases/download/v1.1/keywords-4-noah.tar.gz | tar xvz
+# fetch training data and pre-trained model
+curl -L https://github.com/noah95/edison/releases/download/v2.0.0-RC1/keywords-8-noah.tar.gz | tar xvz
+curl -L https://github.com/noah95/edison/releases/download/v2.0.0-RC1/kws_model.h5 -o cache/kws_keras/kws_model.h5
 
 # train model
-python allinone.py train
+./main.py train keras train
+cp cache/kws_keras/kws_model.h5 ../firmware/src/ai/cube/kws/kws_model.h5
+```
 
-# copy model to firmware directory and convert using Cube
-cp .cache/allinone/kws_model.h5 ../firmware/src/ai/cube/kws/kws_model.h5
-#  - open cube project firmware/CubeMX/edison.ioc
-#  - Additional Software -> STMicro... -> kws
-#  - Browse: select firmware/src/ai/cube/kws/kws_model.h5
-#  - Analyze
-#  - GENERATE CODE
+- open cube project firmware/CubeMX/edison.ioc
+- Additional Software -> STMicro... -> kws
+- Browse: select firmware/src/ai/cube/kws/kws_model.h5
+- Analyse
+- click GENERATE CODE
 
+```bash
 # import net to firmware folder
 cd ../firmware/
 make import-cubeai-net
@@ -40,55 +36,6 @@ make -j8
 make flash
 ```
 
-### Store snapshot of training data
-This can then be uploaded to a github release asset.
-
-```bash
-cd audio/
-tar -czvf keywords-4-noah.tar.gz .cache/allinone/*.npy
-```
-
-
-## Comparing networks
-Different implementation techniques are compared.
-
-### Reference model
-The reference `medium_embedding_conv` model contains two conv2D layers and a fully connected output layer. It matches 4 keywords and is trained on hot/coldwords and noise.
-
-```
-keywords = ['cat','marvin','left','zero']
-coldwords=['bed','bird','stop','visual']
-noise=['_background_noise_']
-
-input shape (31, 13, 1)
-output shape (1, 1, 6)
-```
-
-![](doc/img/medium_embedding_conv.png)
-
-### Methods
-
-To compare differenc methods, a few keywords are used to perform on MCU. The rmse values are then averaged.
-
-```bash
-python kws_on_mcu.py file verification/marvin.wav | grep rmse
-python kws_on_mcu.py file verification/zero.wav | grep rmse
-python kws_on_mcu.py file verification/cat.wav | grep rmse
-python kws_on_mcu.py file verification/left.wav | grep rmse
-python kws_on_mcu.py file verification/stop.wav | grep rmse
-```
-
-#### Keras, CubeAI
-The net is build with keras and implemented using CubeAI. No quantization/compression is done.
-
-### Results
-
-| Method        | Inference time | MFCC time | `DEBUG` | Opt   | MACC   | RAM    | ROM     | RMSE avg      |
-|:--------------|:---------------|:----------|:--------|:------|:-------|:-------|:--------|:--------------|
-| Keras, CubeAI | 22.54ms        | 18.25ms   | 1       | `-O0` | 219638 | 3.42KB | 25.74KB | 0.01195651532 |
-| Keras, CubeAI | 22.53ms        | 2.97ms    | 0       | `-O3` | 219638 | 3.42KB | 25.74KB | 0.01195651532 |
-| Keras, NNoM, CMSIS-NN   | 14.32ms        | 2.21ms    | 0       | `-O3` | 214300 | KB | KB | 0.01195651532 |
-
 
 ## Experimenting with MFCC
 
@@ -96,7 +43,7 @@ The net is build with keras and implemented using CubeAI. No quantization/compre
 This script runs MFCC on a audio sample with a custom implementation of MFCC and with Tensorflow.
 
 ```bash
-python mfcc.py
+./main.py mfcc host
 ```
 
 ![](doc/img/mel_own.png)
@@ -107,11 +54,9 @@ python mfcc.py
 Build the firmware and follow these instructions to get some data.
 
 ### MFCC Single
-Working and tested at f86859f.
-
 To test a single 1024 element frame of audio data, run in the `audio` directory
 ```bash
-python mfcc_on_mcu.py single
+./main.py mfcc mcu single
 ```
 
 ![](doc/img/mfcc_on_mcu_single.png)
@@ -120,7 +65,7 @@ python mfcc_on_mcu.py single
 Working and tested at 6ddbdc4.
 
 ```bash
-python mfcc_on_mcu.py file data/heysnips_true_16k_16b.wav
+./main.py mfcc mcu file data/edison_16k_16b.wav
 ```
 
 ![](doc/img/mfcc_snips.png)
@@ -129,15 +74,26 @@ python mfcc_on_mcu.py file data/heysnips_true_16k_16b.wav
 A sound file on the host can be sent to the MCU where it is processed and a single inference is run. The result is compared with the same operations on the host.
 
 ```bash
-python kws_on_mcu.py file data/heysnips_true_16k_16b.wav
-# host prediction: 0.000000 mcu prediction: 0.000001
+./main.py kws mcu file data/edison_16k_16b.wav
+# host prediction: [0.973 0.004 0.002 0.    0.    0.001 0.014 0.001 0.004 0.   ] edison
+# mcu prediction:  [0.929 0.008 0.009 0.001 0.003 0.002 0.011 0.003 0.028 0.006] edison
+# rmse: 0.016304305
 # _________________________________________________________________
-# Number of inferences run: 1
-# Deviation: max -74633.805% min -74633.805% avg -74633.805%
-# rmse 0.000
+# Comparing: predictions
+# Deviation: max 24.428% min -3983.088% avg -818.319%
+# rmse 0.016
+# scale 0.955=1/1.048
+# correlation coeff 1.000
 # _________________________________________________________________
-# MCU Audio processing took 974.02ms (15.71ms per frame)
-# MCU inference took 34.26ms
+# _________________________________________________________________
+# Comparing: MFCC=net input
+# Deviation: max 5873.424% min -51588.922% avg -105.840%
+# rmse 2.036
+# scale 0.959=1/1.043
+# correlation coeff 0.997
+# _________________________________________________________________
+# MCU Audio processing took 72.23ms (2.33ms per frame)
+# MCU inference took 97.17ms
 ```
 
 ![](doc/img/mfcc_inference.png)
@@ -146,20 +102,22 @@ python kws_on_mcu.py file data/heysnips_true_16k_16b.wav
 Run entire pipeline on MCU with mircophone data.
 
 ```bash
-python kws_on_mcu.py mic
-# Host prediction: 0.85339564 MCU prediction: 0.117089234
+./main.py kws mcu mic
+# host prediction: [0.01  0.035 0.007 0.001 0.006 0.011 0.01  0.017 0.289 0.613] _noise
+# mcu prediction:  [0.805 0.006 0.009 0.07  0.004 0.003 0.004 0.004 0.093 0.001] edison
+# rmse: 0.3242575
 ```
 
 ![](doc/img/kws_mic.png)
 
 ### Continuous inference with Microphone
-Open the serial port from the ST-link board with `115200` baud and send a `4` character. This starts a continuous inference with
-data from the microphone.
+Open the serial port from the ST-link board with `115200` baud and send a `4` character. This starts a continuous 
+inference with data from the microphone.
 
 ## From Model to MCU
+Or how to implement a neural network on the microcontroller.
 
 ### Using CubeMX
-
 1. Open CubeMX
 2. Make sure X-CUBE-AI inst installed under Help -> Manage packages -> STMicroelectronics
 3. Access to board selector
@@ -203,30 +161,71 @@ To test a net on the MCU and compare it to the host, use the `kws_on_mcu.py` pro
 Generates random test data and runs inference on host and MCU.
 
 ```bash
-# 5: number of random test vectors to run
-python kws_on_mcu.py single 5
+# 1: number of random test vectors to run
+./main.py kws mcu single 1
+# host prediction: [0.001 0.005 0.001 0.    0.001 0.001 0.004 0.022 0.01  0.953] _noise
+# mcu prediction:  [0.007 0.019 0.001 0.002 0.004 0.006 0.03  0.091 0.037 0.802] _noise
+# rmse: 0.054266647
+# _________________________________________________________________
+# Comparing: predictions
+# Deviation: max 27.728% min -643.447% avg -313.669%
+# rmse 0.054
+# scale 0.841=1/1.189
+# correlation coeff 0.996
+# _________________________________________________________________
 ```
 
 **Inference from wav file**
 Reads a wav file, computes MFCC on host and runs inference on host and MCU.
 
 ```bash
-# File with hotword
-python kws_on_mcu.py fileinf data/snips/audio_files/43654f5b-c51c-40fc-9a03-6b0fbb3c366f.wav
-# File without hotword
-python kws_on_mcu.py fileinf data/snips/audio_files/26eb7524-6f7a-41f4-80e3-a0c374542f1a.wav
+./main.py kws mcu fileinf data/edison_16k_16b.wav
+# host prediction: [0.973 0.004 0.002 0.    0.    0.001 0.014 0.001 0.004 0.   ] edison
+# mcu prediction:  [0.965 0.006 0.006 0.001 0.002 0.001 0.004 0.001 0.011 0.003] edison
+# rmse: 0.004834224
+# _________________________________________________________________
+# Comparing: predictions
+# Deviation: max 68.465% min -2318.963% avg -405.016%
+# rmse 0.005
+# scale 0.992=1/1.008
+# correlation coeff 1.000
+# _________________________________________________________________
 ```
 
 **MFCC and inference from wav file**
 Reads a wav file, computes MFCC and inference on host and MCU.
 
 ```bash
-# File with hotword
-python kws_on_mcu.py file data/snips/audio_files/43654f5b-c51c-40fc-9a03-6b0fbb3c366f.wav
-# File without hotword
-python kws_on_mcu.py file data/snips/audio_files/26eb7524-6f7a-41f4-80e3-a0c374542f1a.wav
+./main.py kws mcu file data/edison_16k_16b.wav
+# host prediction: [0.973 0.004 0.002 0.    0.    0.001 0.014 0.001 0.004 0.   ] edison
+# mcu prediction:  [0.929 0.008 0.009 0.001 0.003 0.002 0.011 0.003 0.028 0.006] edison
+# rmse: 0.016304305
+# _________________________________________________________________
+# Comparing: predictions
+# Deviation: max 24.428% min -3983.088% avg -818.319%
+# rmse 0.016
+# scale 0.955=1/1.048
+# correlation coeff 1.000
+# _________________________________________________________________
+# _________________________________________________________________
+# Comparing: MFCC=net input
+# Deviation: max 5873.424% min -51588.922% avg -105.840%
+# rmse 2.036
+# scale 0.959=1/1.043
+# correlation coeff 0.997
+# _________________________________________________________________
+# MCU Audio processing took 71.92ms (2.32ms per frame)
+# MCU inference took 97.17ms
 ```
 
+## Development
 
+### Store snapshot of training data
+This can then be uploaded to a github release asset.
+
+```bash
+cd audio/
+tar -czvf keywords-4-noah.tar.gz .cache/allinone/*.npy
+```
 
 
