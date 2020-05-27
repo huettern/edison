@@ -1,5 +1,7 @@
 # Edison Firmware
 
+Run `make` to compile current model architecture.
+
 ## Disclaimer
 ```
 This directory contains source code from other projects. Please refer to the corresponding folders for license notices.
