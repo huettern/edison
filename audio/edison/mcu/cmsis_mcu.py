@@ -2,12 +2,12 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-20 18:07:22
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-21 14:07:21
+# @Last Modified time: 2020-05-27 17:34:46
 
 
 import mcu_util as mcu
 import pickle
-with open('.cache/ai_nemo/net_hist.pkl', 'rb') as handle:
+with open('cache/ai_nemo/net_hist.pkl', 'rb') as handle:
     net_hist = pickle.load(handle)
 
 data, tag = mcu.receiveData(timeout=-1)

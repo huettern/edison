@@ -18,6 +18,11 @@ To enable CubeAI verification of the Cube net, compile with
 make OPMODE=CUBE_VERIFICATION
 ```
 
+To compile the CMSIS-NN network from Nemo, run
+```bash
+make OPMODE=CMSIS_NN_TEST
+```
+
 ## CMSIS DSP lessons learned
 `arm_cfft_q15` 
 

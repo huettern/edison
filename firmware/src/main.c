@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-27 17:15:25
+* @Last Modified time: 2020-05-27 17:33:30
 */
 
 #include "main.h"
@@ -121,6 +121,13 @@ int main(void)
   appNnomKwsRun();
 #endif
 
+#ifdef CMSIS_NN_TEST
+  printf("Running aiCMSISTest\n");
+  aiCMSISTest();
+  printf("Exited\n");
+  while(1);
+#endif
+
   aiInitialize();
   aiPrintInfo();
   // aiRunInferenceHif();
@@ -132,9 +139,9 @@ int main(void)
 
  
   /* AI CMSIS --------------------------------------------------------*/
-  aiCMSISTest();
-  printf("Exited\n");
-  while(1);
+  // aiCMSISTest();
+  // printf("Exited\n");
+  // while(1);
 
   /* TESTS --------------------------------------------------------*/
   // audioDevelop();
