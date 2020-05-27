@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-13 13:49:34
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 18:58:40
+* @Last Modified time: 2020-05-27 17:15:25
 */
 
 #include "main.h"
@@ -13,6 +13,7 @@
 #include "audioprocessing.h"
 #include "ai.h"
 #include "ai_nnom.h"
+#include "ai_cmsis.h"
 #include "cyclecounter.h"
 #include "led.h"
 
@@ -128,6 +129,12 @@ int main(void)
   {
     hifRun();
   }
+
+ 
+  /* AI CMSIS --------------------------------------------------------*/
+  aiCMSISTest();
+  printf("Exited\n");
+  while(1);
 
   /* TESTS --------------------------------------------------------*/
   // audioDevelop();
