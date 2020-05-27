@@ -81,7 +81,8 @@ source bootstrap.sh
 #### torch
 ```bash
 # Loads data from keras train, so this has to be run beforehand
-./main.py train nnom
+./main.py train torch train
+./main.py train torch impl
 ```
 
 ### kws

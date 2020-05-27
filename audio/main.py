@@ -4,7 +4,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-22 09:03:32
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 11:59:35
+# @Last Modified time: 2020-05-27 17:25:10
 
 import argparse
 import sys
@@ -225,7 +225,8 @@ Commands
     edison.train.kws_nnom.main()
 
   def train_torch(self):
-    print('Not yet implemented')
+    import edison.train.kws_nemo
+    edison.train.kws_nemo.main(sys.argv[2:])
     pass
 
   def kws_live(self):

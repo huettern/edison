@@ -7,18 +7,23 @@ import nemo
 from tqdm import tqdm
 import numpy as np
 
-cache_dir = '.cache/ai_nemo'
+import pathlib
+
+from config import *
+
+in_data_dir = cache_dir+'/kws_keras'
+
+pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
+cache_dir += '/ai_nemo'
 model_path = cache_dir+'/nemo_model.pt'
 
-import pathlib
-pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
 ##################################################
 # Steps
 
 # Enable to train model (takes ~1min)
-do_train = False
+do_train = True
 # Enable to test only on small number of samples to speed things up
-dummy_tests = True
+dummy_tests = False
 # Enable to run implementation
 do_implementation = True
 
@@ -710,6 +715,7 @@ def implement(model, dummy_input):
   with open(cache_dir+'/cmsis_net.h', 'w') as fd_header:
     fd_header.write(h_lines)
     fd_header.write('\n\narm_status cmsisRunInference (void* input, void* output);\n')
+  print('Written', cache_dir+'/cmsis_net.h')
 
   with open(cache_dir+'/cmsis_net.c', 'w') as fd_code:
     fd_code.write('#include <stdint.h>\n')
@@ -764,7 +770,7 @@ def implement(model, dummy_input):
     import pickle
     with open(cache_dir + '/net_hist.pkl', 'wb') as f:
       pickle.dump(net_history, f, pickle.HIGHEST_PROTOCOL)
-
+  print('Written', cache_dir+'/cmsis_net.c')
 
   # for name, param in model.named_parameters():
   #   print(name, param.size())
@@ -773,21 +779,37 @@ def implement(model, dummy_input):
 ######################################################################
 # main
 ######################################################################
-if __name__ == '__main__':
+def main(argv=None):
+
+  if argv is not None:
+    if len(argv) < 2:
+      print('Usage:')
+      print('  kws_nemo <mode>')
+      print('    Modes:')
+      print('    train                     Train model')
+      print('    impl                      Implement')
+      exit()
+      
+    if argv[1] == 'train':
+      do_train = True
+      do_implementation = False
+    if argv[1] == 'impl':
+      do_train = False
+      do_implementation = True
 
   # Data loaders
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
   kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() else {}
 
   # Convert data from NHWC to NCHW
-  x_train   = np.transpose(np.load('.cache/allinone/x_train.npy'), [0, 3, 1, 2])
-  x_test    = np.transpose(np.load('.cache/allinone/x_test.npy'), [0, 3, 1, 2])
-  x_val     = np.transpose(np.load('.cache/allinone/x_val.npy'), [0, 3, 1, 2])
+  x_train   = np.transpose(np.load(in_data_dir+'/x_train.npy'), [0, 3, 1, 2])
+  x_test    = np.transpose(np.load(in_data_dir+'/x_test.npy'), [0, 3, 1, 2])
+  x_val     = np.transpose(np.load(in_data_dir+'/x_val.npy'), [0, 3, 1, 2])
   # y is one-hot in files, we need it flat
-  y_train   = np.load('.cache/allinone/y_train.npy').argmax(axis=1).astype(int)
-  y_test    = np.load('.cache/allinone/y_test.npy').argmax(axis=1).astype(int)
-  y_val     = np.load('.cache/allinone/y_val.npy').argmax(axis=1).astype(int)
-  keywords  = np.load('.cache/allinone/keywords.npy')
+  y_train   = np.load(in_data_dir+'/y_train.npy').argmax(axis=1).astype(int)
+  y_test    = np.load(in_data_dir+'/y_test.npy').argmax(axis=1).astype(int)
+  y_val     = np.load(in_data_dir+'/y_val.npy').argmax(axis=1).astype(int)
+  keywords  = np.load(in_data_dir+'/keywords.npy')
 
   print('x_train.shape    ', x_train.shape)
   # print('x_test.shape     ', x_test.shape)
@@ -839,8 +861,10 @@ if __name__ == '__main__':
     loss = nn.CrossEntropyLoss()
     train(model, device, train_loader, optimizer, loss, max_epochs, verbose=True)
     torch.save(model.state_dict(), model_path)
+    print('Stored model at', model_path)
   else:
     model.load_state_dict(torch.load(model_path))
+    print('Loaded model from', model_path)
 
   acc = test(model, device, test_loader)
   print("\nFullPrecision accuracy: %.02f%%" % acc)
@@ -855,6 +879,7 @@ if __name__ == '__main__':
   dummy_input = perm(torch.randn(batch_size, *inp_shape, device='cuda' if torch.cuda.is_available() else 'cpu'))
   torch.onnx.export(model, dummy_input, cache_dir+'/kws_float.onnx',
    do_constant_folding=True, export_params=True, opset_version=11)
+  print('Written model file', cache_dir+'/kws_float.onnx')
   # exit()
   ##########################################
   # FakeQuantized network
@@ -968,6 +993,7 @@ if __name__ == '__main__':
   inp_shape = x_train.shape[1:]
   nemo.utils.export_onnx(cache_dir+'/kws_qd_mixed.onnx', 
     model, model, inp_shape, round_params=False) # round_params is active by default because NEMO mainly exports integerized networks!
+  print('Written model file', cache_dir+'/kws_qd_mixed.onnx')
 
   # transform the network to the last stage: IntegerDeployable
   model = nemo.transform.integerize_pact(model, eps_in=1.0/input_channel_max_value)
@@ -977,6 +1003,7 @@ if __name__ == '__main__':
   print("\nIntegerDeployable @ mixed-precision accuracy: %.02f%%" % acc)
   # export
   nemo.utils.export_onnx(cache_dir+'/kws_id_mixed.onnx', model, model, inp_shape)
+  print('Written model file', cache_dir+'/kws_id_mixed.onnx')
 
   if do_implementation:
     # run implementation
