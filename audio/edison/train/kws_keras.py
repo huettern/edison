@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-27 10:39:11
+# @Last Modified time: 2020-05-27 14:32:57
 
 import edison.audio.audioutils as au
 import edison.mfcc.mfcc_utils as mfu
@@ -34,7 +34,6 @@ except:
 
 from config import *
 cache_dir += '/kws_keras/'
-speech_data_dir = 'cache/acquire/noah'
 
 verbose = 1
 

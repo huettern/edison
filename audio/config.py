@@ -2,6 +2,9 @@
 # Cache directory
 cache_dir = 'cache/'
 
+# Voice data dir
+speech_data_dir = 'cache/acquire/noah'
+
 # serial port
 mcu_serial_port = '/dev/tty.usbmodem141342103'
 

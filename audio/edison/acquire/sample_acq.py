@@ -10,14 +10,13 @@ from pydub.silence import split_on_silence
 import os
 
 from config import *
-cache_dir += '/acquire/'
 
 fs = 16000  # Sample rate
 seconds = 2  # Duration of recording
 # keywords = ["edison", "on", "off", "livingroomlight", "kitchenlight",
 #             "bedroomlight", "cinema"]
 keywords = ["livingroom", "kitchen", "bedroom", "office", "off", "on"]
-out_dir = cache_dir+"/noah/"
+out_dir = speech_data_dir+'/'
 pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
 max_cold_word_length = 4 # maximum number of words in a cold word sequence
 heading = 1600 # frames before threshold of cutting
