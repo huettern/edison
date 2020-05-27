@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-20 17:22:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-22 10:53:33
+# @Last Modified time: 2020-05-27 16:29:46
 
 import sys
 
@@ -315,7 +315,7 @@ def modeSingle(from_files):
   y = np.array(1000*np.cos(2*np.pi*(fs/16)*t)+500*np.cos(2*np.pi*(fs/128)*t), dtype='int16')
   # y = np.array((2**15-1)*np.cos(2*np.pi*(fs/80)*t), dtype='int16') # saturating
   # y = np.array((2**15-1)*np.cos(2*np.pi*(2*fs/1024)*t), dtype='int16')
-  y = np.array(65536*np.random.rand(sample_size)-65536//2, dtype='int16') # random
+  # y = np.array(65536*np.random.rand(sample_size)-65536//2, dtype='int16') # random
 
   # natural sample
   in_fs, in_data = wavfile.read('data/hey_short_16k.wav')

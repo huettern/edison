@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:23:59
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-27 10:05:32
+# @Last Modified time: 2020-05-27 16:31:39
 
 import numpy as np
 from scipy.fftpack import dct
@@ -312,6 +312,7 @@ def mfcc_mcu(data, \
     # log(x) is intentionally left out to safe computation resources
     if use_log:
       mel_spectrogram = np.log(mel_spectrogram+1e-6)
+    frame['log_mel_spectrogram'] = mel_spectrogram
 
     # calculate DCT-II
     mfcc = 1.0/64*dct(mel_spectrogram, type=2)
