@@ -79,6 +79,10 @@ source bootstrap.sh
 ./main.py train nnom
 ```
 #### torch
+This is used to test an implementation using Nemo. The model is trained using pyTorch and the quantization
+is performed in Nemo. The deployment with `impl` is made with a custom script that maps the Nemo layers to
+CMSIS-NN API functions.
+
 ```bash
 # Loads data from keras train, so this has to be run beforehand
 ./main.py train torch train
