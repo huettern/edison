@@ -1,5 +1,11 @@
 # Edison - Keywords Spotting on MCU [![Build Status](https://travis-ci.com/noah95/edison.svg?token=W9DfQq55LKsHhNiMPYw5&branch=master)](https://travis-ci.com/noah95/edison)
 
+![](doc/img/edison_hw.jpg)
+
+In my first project on the topic of Machine Learning I implemented a simple keyword spotting algorithm on a Microcontroller. In this post I will walk you through the steps of implementing and testing feature extraction and a neural network on a MCU!
+
+For an overview, check out my write-up here: [https://hütter.ch/posts/edison-kws-on-mcu/](https://hütter.ch/posts/edison-kws-on-mcu/)
+
 ## Setup
 Download pre-processed audio data, train the model, implement it and compile the MCU code.
 
