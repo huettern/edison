@@ -1,52 +1,57 @@
 # Audio Utilities
 
-A collection of scripts to test and train.
+A collection of scripts to test and train. They are all bundled in the `main.py` scrtipt.
 
-| File | Does |
-|--|--|
-| `bit_depth_analyze.py` | Takes samples from text file and creates different bit with outputs. Used for determining the required bit depth for voice recognition |
-| `fetch_mic_samples.py` | Interfaces with the microcontroller to fetch raw microphone data |
-| `mfcc.py` | Experiment with Mel Frequency cepstral coefficients |
-| `mfcc_utils.py` | Library to calculate MFCCs |
-| `mfcc_on_mcu.py` | Testing MFCC implementation on MCU |
+```bash
+./main.py
+# usage: edison <module> <command> [<args>]
+
+# The modules:
+#     mic       Test microphone, analyze bit depths
+#     mcu       Tools to communicate with microcontroller
+#     mfcc      Mel frequency cepstral coefficient tools
+#     acquire   Collect training data
+#     train     Train network
+#     kws       Experiment with the keyword spotting algorithm
+#     deploy    Deploy the algorithm to microcontroller code
+
+# Run edison <module> for commands for the selected module
+# main.py: error: the following arguments are required: module
+```
 
 ## Environment
 Setup once:
 ```bash
-virtualenv -p python3.7 venv
-source venv/bin/activate
-pip install -r requirements.txt
+cd ../
+source bootstrap.sh
 ```
 
-On marvin
-```bash
-sudo apt install python3-libnvinfer python3-libnvinfer-dev
-```
+## Example commands
 
-## Speechrecognizer
+### mcu
 
-### Inspirations
-https://medium.com/manash-en-blog/building-a-dead-simple-word-recognition-engine-using-convnet-in-keras-25e72c19c12b
-
-
-mcu
-  hif_test
+#### hif_test
 ```bash
 ./main.py mcu hif_test
 ```
-mic
-  bit_depth_analyze
+### mic
+#### bit_depth_analyze
 ```bash
 ./main.py mic bit_depth_analyze
 ```
-  fetch_mic_samples
+
+### fetch_mic_samples
 ```bash
 ./main.py mic fetch_mic_samples
 ```
 
-mfcc
-  host
-  mcu
+### mfcc
+#### host
+```bash
+# runs MFCC on a audio sample with a custom implementation of MFCC and with Tensorflow.
+./main.py mfcc host
+```
+#### mcu
 ```bash
 # Calculate header file for MCU processing
 ./main.py mfcc mcu calc
@@ -55,34 +60,39 @@ mfcc
 # Multi-frame on host and mcu with input/output compare
 ./main.py mfcc mcu file data/heysnips_true_16k_16b.wav
 ```
-acqiure
+### acqiure
   sample_acq
 ```bash
 ./main.py acquire acq
 ```
-train
-  keras
+### train
+#### keras
 ```bash
 # train model
 ./main.py train keras train
 # test model only
 ./main.py train keras test
 ```
-  nnom
+#### nnom
 ```bash
 # Loads data from keras train, so this has to be run beforehand
 ./main.py train nnom
 ```
-  (torch)
-kws
-  live
+#### torch
+```bash
+# Loads data from keras train, so this has to be run beforehand
+./main.py train nnom
+```
+
+### kws
+#### live
 ```bash
 # Live on MCU
 ./main.py kws live mcu
 # Live on host (not working currently)
 ./main.py kws live host
 ```
-  mcu
+#### mcu
 ```bash
 # Single inference on random data
 ./main.py kws mcu single               
@@ -102,80 +112,4 @@ kws
 # This is not implemented in the current firmware
 ./main.py kws mcu miccont
 ```
-deploy
-  nnom
-
-
-Folder structure
-
-
-edison.py
-config,py
-edison
-  audio
-    - bit_depth_analyze.py
-    - audioutils.py
-  mcu
-    - mcu_util.py
-    - fetch_mic_samples.py
-    - hif_test.py
-  mfcc
-    - mfcc_utils.py
-    - mfcc.py
-    - mfcc_on_mcu.py
-  acquire
-    - sample_acq.py
-  train
-    - allinone.py
-    - kws_keras.py
-    - kws_legacy.py
-    - kws_nnom.py
-    - visualize.py
-  kws
-    - kws_live.py
-    - kws_on_mcu.py
-  deploy
-    - nnom repo
-    - nnom.py
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
