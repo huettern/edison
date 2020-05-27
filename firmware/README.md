@@ -23,7 +23,6 @@ make OPMODE=CUBE_VERIFICATION
 - FFT output is not in fractional format, hence applying `arm_cmplx_mag_q15` doesn't work
 
 
-
 ## Host interface
 
 When `hifRun` is run, a host can communicate with the board via UART. Below is a list of commands and their description follows.
@@ -32,40 +31,16 @@ Each command is acknowledged by a 1 byte status byte.
 
 | Command byte | N Args | Command                          | Short Description                               |
 |:-------------|:-------|:---------------------------------|:------------------------------------------------|
-| `'0' = 0x30` | 0      | `VERSION`                        | Returns version string                          |
-| `'1' = 0x31` | 0      | `MIC_SAMPLE_PREPROCESSED_MANUAL` | Sample and preprocess mic for manual inspection |
-| `0x00`       | 2      | `MIC_SAMPLE`                     | Raw sample mic                                  |
-| `0x01`       | 3      | `MIC_SAMPLE_PREPROCESSED`        | Sample and preprocess mic                       |
-
-
-### `VERSION`
-Args:
- - None
-
-Return:
- - ASCII Version string
-
-### `MIC_SAMPLE_PREPROCESSED_MANUAL`
-Args:
- - None
-
-Return:
- - Binary preprocessed mic samples
-
-Used for debuggung, samlpe count and bit depth coded in `hostinterface.c`.
-
-### `MIC_SAMPLE`
-Args:
- - 2 byte sample count (big-endian)
-
-Return:
- - Raw mic samples, nSample\*4 bytes, signed integer big-endian
-
-### `MIC_SAMPLE_PREPROCESSED`
-Args:
-  - 1 byte bit depth, 8 or 16
-  - 2 byte sample count (big-endian)
-
-Return:
- - Preprocessed mic samples, nSample\*(bitDepth/8) bytes, signed integer big-endian
+|'0' | 0 | verPrintWrap | Returns version string |
+|'1' | 0 | micHostSampleRequestPreprocessedManualWrap | Sample and preprocess mic for manual inspection |
+|'2' | 0 | aiPrintInfoWrap | Print network info |
+|'3' | 0 | audioHifInfo | Print audio processing info |
+|'4' | 0 | appMicMfccInfereContinuous | Start continuous inference |
+|'5' | 0 | appMicMfccInfereBlocks | Start continuous inference in block mode, no sliding window |
+|0x0 | 2 | micHostSampleRequestWrap | Raw sample mic |
+|0x1 | 3 | micHostSampleRequestPreprocessedWrap | Sample and preprocess mic |
+|0x2 | 0 | audioMELSingleBatchWrap | MFCC computation |
+|0x3 | 0 | aiRunInferenceHifWrap | Run inference |
+|0x4 | 0 | appHifMfccAndInference | Upload samples, MCU computes mfcc and inference |
+|0x5 | 0 | appHifMicMfccInfere | Run MFCC and inference with data from microphone |
 
