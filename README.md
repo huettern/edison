@@ -42,6 +42,42 @@ make -j8
 make flash
 ```
 
+## Train and build with Cube
+```bash
+# train model
+./main.py train keras train
+cp cache/kws_keras/kws_model.h5 ../firmware/src/ai/cube/kws/kws_model.h5
+```
+
+Analyze in cube as mentioned above.
+
+```bash
+# import net to firmware folder
+cd ../firmware/
+make import-cubeai-net
+
+# build MCU code
+make clean && make NET_TYPE=NET_TYPE_CUBE -j16
+```
+
+## Train and build with NNoM
+Make sure you trained with keras before because the feature extraction step is made there. Then run:
+
+```bash
+# train NNoM model
+ ./main.py train nnom train
+
+# import net to firmware folder
+cd ../firmware/
+make import-nnom-net
+
+# build MCU code
+make clean && make NET_TYPE=NET_TYPE_NNOM -j16
+
+# Test with
+./main.py train nnom testfile data/edison
+```
+
 
 ## Experimenting with MFCC
 
