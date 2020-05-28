@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-30 14:43:56
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-26 17:40:09
+# @Last Modified time: 2020-05-28 15:32:51
 
 import sys
 
@@ -433,6 +433,13 @@ def micInference():
 
   # report
   report(host_pred, mcu_pred)
+  
+  import edison.mcu.mcu_util as mcu
+  stats = mcu.getStats()
+  mcuInferenceTime = stats['lastinferencetime']
+  mcuMfccTime = stats['AudioLastProcessingTime']
+  print('MCU Audio processing took %.2fms (%.2fms per frame)' % (n_frames*mcuMfccTime, mcuMfccTime))
+  print('MCU inference took %.2fms' % (mcuInferenceTime))
 
   # store this valuable data!
   import pathlib

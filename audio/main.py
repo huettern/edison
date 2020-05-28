@@ -4,7 +4,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-05-22 09:03:32
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-27 17:25:10
+# @Last Modified time: 2020-05-28 14:34:54
 
 import argparse
 import sys
@@ -222,7 +222,7 @@ Commands
       print('Relaunch command for NNoM to work')
       exit(0)
     import edison.train.kws_nnom
-    edison.train.kws_nnom.main()
+    edison.train.kws_nnom.main(sys.argv[2:])
 
   def train_torch(self):
     import edison.train.kws_nemo

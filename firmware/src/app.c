@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-23 15:12:26
+* @Last Modified time: 2020-05-28 15:39:04
 */
 #include "app.h"
 #include <stdlib.h>
@@ -11,12 +11,16 @@
 #include "printf.h"
 #include "microphone.h"
 #include "ai.h"
+#include "ai_nnom.h"
 #include "audioprocessing.h"
 #include "hostinterface.h"
 #include "cyclecounter.h"
 #include "mfcc.h"
 #include "led.h"
 
+#if NET_TYPE == NET_TYPE_NNOM
+#include "kws_nnom/weights.h"
+#endif
 /*------------------------------------------------------------------------------
  * Types
  * ---------------------------------------------------------------------------*/
@@ -28,7 +32,11 @@
  * @brief Consider network output above this thershold as hit
  */
 #define TRUE_THRESHOLD 0.5
-#define NET_OUT_MOVING_AVG_ALPHA 0.5
+#if NET_TYPE == NET_TYPE_CUBE
+  #define NET_OUT_MOVING_AVG_ALPHA 0.5
+#elif NET_TYPE == NET_TYPE_NNOM
+  #define NET_OUT_MOVING_AVG_ALPHA 0.9
+#endif
 
 #define AMPLITUDE_MOVING_AVG_ALPHA 0.9
 
@@ -261,7 +269,7 @@ int8_t appHifMicMfccInfere(uint8_t *args)
     hiSendF32(netInput, AI_NET_INSIZE, 0x31);
     hiSendF32(netOutput, AI_NET_OUTSIZE, 0x32);
   #elif NET_TYPE == NET_TYPE_NNOM
-    hiSendS8(netInSnapshot, AI_NET_INSIZE, 0x31);
+    hiSendS8(netInput, AI_NET_INSIZE, 0x31);
     hiSendS8(netOutput, AI_NET_OUTSIZE, 0x32);
   #endif
 
@@ -678,9 +686,9 @@ void mfccToNetInput(int16_t* mfcc, uint16_t in_x, uint16_t in_y, uint32_t xoffse
   for(int mfccCtr = 0; mfccCtr < in_x; mfccCtr++)
   { 
     // scale and clip MFCCs
-    tmps16 = mfcc[mfccCtr] / 16;
-    tmps16 = (tmps16 >  127) ?  127 : tmps16;
-    tmps16 = (tmps16 < -128) ? -128 : tmps16;
+    tmps16 = mfcc[mfccCtr] / NNOM_INPUT_SCALE;
+    tmps16 = (tmps16 >  NNOM_INPUT_MAX) ?  NNOM_INPUT_MAX : tmps16;
+    tmps16 = (tmps16 <  NNOM_INPUT_MIN) ?  NNOM_INPUT_MIN : tmps16;
     netInput[xoffset*in_x + mfccCtr] = (int8_t)(tmps16);
   }
 #endif

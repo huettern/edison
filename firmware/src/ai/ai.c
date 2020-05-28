@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-17 12:25:51
+* @Last Modified time: 2020-05-28 14:53:04
 */
 #include "ai.h"
 
@@ -149,6 +149,7 @@ void aiRunInferenceHif(void)
   int8_t *in_data=NULL, *out_data=NULL;
   in_data = malloc(AI_NET_INSIZE_BYTES);
   out_data = malloc(AI_NET_OUTSIZE_BYTES);
+  if(!in_data || !out_data) printf("Malloc error\n");
   prfEvent("malloc");
   len = hiReceive(in_data, AI_NET_INSIZE_BYTES, DATA_FORMAT_S8, &tag);
   (void)len;
@@ -157,9 +158,11 @@ void aiRunInferenceHif(void)
 
   prfEvent("receive");
 
-  // for(int i = 0; i < AI_NET_INSIZE; i++) printf("o: %d\n",in_data[i]);
+  printf("input data:\n");
+  for(int i = 0; i < AI_NET_INSIZE; i++) printf("%4d ",in_data[i]);
   ret = aiRunInference((void*)in_data, (void*)out_data);
-  // for(int i = 0; i < AI_NET_OUTSIZE; i++) printf("o: %d\n",out_data[i]);
+  printf("output data:\n");
+  for(int i = 0; i < AI_NET_OUTSIZE; i++) printf("%4d ",out_data[i]);
   (void)ret;
 
   prfEvent("aiRunInference");

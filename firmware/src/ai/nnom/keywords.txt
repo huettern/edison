@@ -1,1 +1,2 @@
-"edison", "cinema", "on", "off", "_cold", "_noise"
+"edison", "cinema", "bedroom", "office", "livingroom", "kitchen", "on", "off"
+, "_cold", "_noise"

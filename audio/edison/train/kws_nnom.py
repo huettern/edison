@@ -141,12 +141,13 @@ def train(x_train, y_train, x_test, y_test, type, batch_size=64, epochs=100):
         shuffle=True, callbacks=callback_lists)
 
   model.save(model_path)
+  print('Stored model at', model_path)
   del model
   K.clear_session()
 
   return history
 
-def main():
+def main(argv):
 
   try:
     x_train = np.load(in_dir+'/x_train.npy')
@@ -170,7 +171,6 @@ def main():
     print('Could not load')
     exit()
 
-
   # label: the selected label will be recognised, while the others will be classified to "unknow". 
   #selected_lable = ['yes', 'no', 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go']
   #selected_lable = ['marvin', 'sheila', 'yes', 'no', 'left', 'right', 'forward', 'backward', 'stop', 'go']
@@ -179,16 +179,19 @@ def main():
 
   print('y_val.shape', y_val.shape)
 
+  print('x_train.shape', x_train.shape)
+  print('y_train.shape', y_train.shape)
+
   # parameters
   epochs = 10
   batch_size = 64
   num_type = len(selected_lable)
 
   # Check this: only take 2~13 coefficient. 1 is destructive.
-  num_mfcc = 13
-  x_train = x_train[:, :, :num_mfcc]
-  x_test = x_test[:, :, :num_mfcc]
-  x_val = x_val[:, :, :num_mfcc]
+  # num_mfcc = 13
+  # x_train = x_train[:, :, :num_mfcc]
+  # x_test = x_test[:, :, :num_mfcc]
+  # x_val = x_val[:, :, :num_mfcc]
 
   # expand on channel axis because we only have one channel
   x_train = x_train.reshape((x_train.shape[0], x_train.shape[1], x_train.shape[2], 1))
@@ -198,12 +201,17 @@ def main():
 
   # fake quantised
   # instead of using maximum value for quantised, we allows some saturation to save more details in small values.
-  quantise_factor = pow(2, 4)
-  print("quantised by", quantise_factor)
+  quantise_factor = nnom_net_input_scale
+  print('x_train.max()', x_train.max())
+  print('x_train.min()', x_train.min())
+  print("scale by", quantise_factor, 'clip to', nnom_net_input_clip_min, nnom_net_input_clip_max)
 
-  x_train = (x_train / quantise_factor)
-  x_test = (x_test / quantise_factor)
-  x_val = (x_val / quantise_factor)
+  x_train = np.clip( (x_train * quantise_factor), nnom_net_input_clip_min, nnom_net_input_clip_max)
+  x_test = np.clip( (x_test * quantise_factor), nnom_net_input_clip_min, nnom_net_input_clip_max)
+  x_val = np.clip( (x_val * quantise_factor), nnom_net_input_clip_min, nnom_net_input_clip_max)
+
+  print('x_train.max()', x_train.max())
+  print('x_train.min()', x_train.min())
 
   # training data enforcement
   # x_train = np.vstack((x_train, x_train*0.8))
@@ -211,23 +219,23 @@ def main():
   print(y_train.shape)
 
   # saturation to -1 to 1
-  x_train = np.clip(x_train, -1, 1)
-  x_test = np.clip(x_test, -1, 1)
-  x_val = np.clip(x_val, -1, 1)
+  # x_train = np.clip(x_train, -1, 1)
+  # x_test = np.clip(x_test, -1, 1)
+  # x_val = np.clip(x_val, -1, 1)
 
   # -1 to 1 quantised to 256 level (8bit)
-  x_train = (x_train * 128).round()/128
-  x_test = (x_test * 128).round()/128
-  x_val = (x_val * 128).round()/128
+  # x_train = (x_train * 128).round()/128
+  # x_test = (x_test * 128).round()/128
+  # x_val = (x_val * 128).round()/128
 
   print('quantised', 'x_train shape:', x_train.shape, 'max', x_train.max(), 'min', x_train.min())
-  print("dataset abs mean at", abs(x_test).mean()*128)
+  # print("dataset abs mean at", abs(x_test).mean()*128)
 
   # test, if you want to see a few random MFCC imagea. 
   if(0):
     which = 232
     while True:
-      mfcc_plot(x_train[which].reshape((63, 12))*128, y_train[which])
+      mfcc_plot(x_train[which].reshape((31, 13))*128, keywords[y_train[which].argmax()])
       which += 352
 
   # word label to number label
@@ -248,38 +256,124 @@ def main():
   # x_train = x_train[permutation, :]
   # y_train = y_train[permutation]
 
-  # generate test data for MCU
-  generate_test_bin(x_test * 127, y_test, cache_dir+'/test_data.bin')
-  generate_test_bin(x_train * 127, y_train, cache_dir+'/train_data.bin')
+  if argv[1] == 'train':
+    # generate test data for MCU
+    generate_test_bin(x_test, y_test, cache_dir+'/test_data.bin')
+    generate_test_bin(x_train, y_train, cache_dir+'/train_data.bin')
 
-  # do the job
-  print('num_type', num_type)
-  print('len', len(keywords))
-  print(keywords)
-  print('y_train.shape',y_train.shape)
-  history = train(x_train, y_train, x_val, y_val, type=num_type, batch_size=batch_size, epochs=epochs)
+    # do the job
+    print('num_type', num_type)
+    print('len', len(keywords))
+    print(keywords)
+    print('y_train.shape',y_train.shape)
+    history = train(x_train, y_train, x_val, y_val, type=num_type, batch_size=batch_size, epochs=epochs)
 
-  print(history)
-  print(history.history)
+    print(history)
+    print(history.history)
 
-  # reload the best model
-  model = load_model(model_path)
+    # reload the best model
+    model = load_model(model_path)
 
-  evaluate_model(model, x_test, y_test)
+    evaluate_model(model, x_test, y_test)
 
-  generate_model(model, np.vstack((x_test, x_val)), name=cache_dir+'/weights.h')
-  print('Wrote weights in', cache_dir+'/weights.h')
+    generate_model(model, np.vstack((x_test, x_val)), name=cache_dir+'/weights.h')
+    print('Wrote weights in', cache_dir+'/weights.h')
 
-  acc = history.history['accuracy']
-  val_acc = history.history['val_accuracy']
+    # append scaling as macros
+    with open(cache_dir+'/weights.h', 'a+') as fd:
+      fd.write('#define NNOM_INPUT_SCALE '+str(int(1/quantise_factor))+'\n')
+      fd.write('#define NNOM_INPUT_MIN '+str(int(nnom_net_input_clip_min))+'\n')
+      fd.write('#define NNOM_INPUT_MAX '+str(int(nnom_net_input_clip_max))+'\n')
 
-  plt.plot(range(0, epochs), acc, color='red', label='Training acc')
-  plt.plot(range(0, epochs), val_acc, color='green', label='Validation acc')
-  plt.title('Training and validation accuracy')
-  plt.xlabel('Epochs')
-  plt.ylabel('Loss')
-  plt.legend()
-  plt.show()
+    acc = history.history['accuracy']
+    val_acc = history.history['val_accuracy']
+
+    plt.plot(range(0, epochs), acc, color='red', label='Training acc')
+    plt.plot(range(0, epochs), val_acc, color='green', label='Validation acc')
+    plt.title('Training and validation accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.show()
+  else:
+    model = load_model(model_path)
+
+  if argv[1] == 'testfile':
+    import scipy.io.wavfile as wavfile
+    in_fs, data = wavfile.read(argv[2])
+    data = ( (2**15-1)*data).astype('int16')
+
+    if (in_fs != fs):
+      print('Sample rate of file %d doesn\'t match %d' % (in_fs, fs))
+      exit()
+
+    # Cut/pad sample
+    if data.shape[0] < sample_len:
+      data = np.pad(data, (0, sample_len-data.shape[0]))
+    else:
+      data = data[:sample_len]
+
+    # Calculate MFCC
+    import edison.mfcc.mfcc_utils as mfu
+    o_mfcc = mfu.mfcc_mcu(data, fs, nSamples, frame_len, frame_step, frame_count, fft_len, 
+      num_mel_bins, lower_edge_hertz, upper_edge_hertz, mel_mtx_scale)
+    data_mfcc = np.array([x['mfcc'][:num_mfcc] for x in o_mfcc])
+    # make fit shape and dtype
+    input_shape = model.input.shape.as_list()[1:]
+    print('data_mfcc.max()', data_mfcc.max())
+    print('data_mfcc.min()', data_mfcc.min())
+    print("scale by", quantise_factor, 'clip to', nnom_net_input_clip_min, nnom_net_input_clip_max)
+    net_input = np.array(data_mfcc.reshape([1]+input_shape), dtype='float32')
+    net_input = np.clip( (net_input * quantise_factor), nnom_net_input_clip_min, nnom_net_input_clip_max).round()
+    print('net_input.max()', net_input.max())
+    print('net_input.min()', net_input.min())
+    np.set_printoptions(precision=1, suppress=True)
+    print('net input', net_input.ravel())
+    
+    # predict on CPU and MCU
+    host_preds, mcu_preds = [], []
+    host_preds.append((127*model.predict(net_input)[0]).round())
+
+    # import matplotlib.pyplot as plt
+    # fig = plt.figure(constrained_layout=True)
+    # gs = fig.add_gridspec(1, 2)
+    # ax = fig.add_subplot(gs[0, 0])
+    # ax.plot(data)
+    # ax = fig.add_subplot(gs[0, 1])
+    # c = ax.pcolor(net_input.reshape(31,13).T, cmap='PuBu')
+    # plt.show()
+
+    # infere on MCU
+    import edison.mcu.mcu_util as mcu
+    if mcu.sendCommand('kws_single_inference') < 0:
+      exit()
+    mcu.sendData(net_input.reshape(-1).astype('int8'), 0, progress=True)
+    mcu_pred, tag = mcu.receiveData()
+    print('Received %s type with tag 0x%x len %d' % (mcu_pred.dtype, tag, mcu_pred.shape[0]))
+    mcu_preds.append(mcu_pred)
+
+    def rmse(a, b):
+      return np.sqrt(np.mean((a-b)**2))
+    # report
+    rmserror = rmse(host_preds[-1], mcu_preds[-1])
+    np.set_printoptions(precision=3, suppress=True)
+    print('keywords:',keywords)
+    print('host prediction:',host_preds[-1],keywords[host_preds[-1].argmax()])
+    print('mcu prediction: ',mcu_preds[-1],keywords[mcu_preds[-1].argmax()])
+    print('rmse:', rmserror)
+
+    mcu_preds = np.array(mcu_preds)
+    host_preds = np.array(host_preds)
+
+    deviaitons = 100.0 * (1.0 - (mcu_preds.ravel()+1e-9) / (host_preds.ravel()+1e-9) )
+    print('_________________________________________________________________')
+    print('Comparing: %s' % ('stuffs'))
+    print("Deviation: max %.3f%% min %.3f%% avg %.3f%% \nrmse %.3f" % (
+      deviaitons.max(), deviaitons.min(), np.mean(deviaitons), rmse(mcu_preds.ravel(), host_preds.ravel())))
+    print('scale %.3f=1/%.3f' % (mcu_preds.max()/host_preds.max(), host_preds.max()/mcu_preds.max()))
+    print('correlation coeff %.3f' % (np.corrcoef(host_preds.ravel(),mcu_preds.ravel())[0,1]))
+    print('_________________________________________________________________')
+
 
 
 if __name__=='__main__':

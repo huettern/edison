@@ -2,14 +2,13 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-14 15:49:15
+* @Last Modified time: 2020-05-28 15:40:21
 */
 
 #include "ai_nnom.h"
 
 #include "nnom.h"
-// #include "kws_nnom/weights.h"
-#include "kws_nnom/weights_example.h"
+#include "kws_nnom/weights.h"
 #include "cyclecounter.h"
 
 /*------------------------------------------------------------------------------

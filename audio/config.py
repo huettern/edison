@@ -38,9 +38,9 @@ MEL_BREAK_FREQUENCY_HERTZ = 700.0
 # net
 
 # NNoM
-# net_input_scale = 1.0 / 16
-# net_input_clip_min = -128
-# net_input_clip_max = 127
+nnom_net_input_scale = 1.0 / 1
+nnom_net_input_clip_min = -128
+nnom_net_input_clip_max = 127
 
 # Cube
 net_input_scale = 1.0
