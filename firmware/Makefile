@@ -8,7 +8,7 @@ CPU       = cortex-m4
 
 # default operation mode
 OPMODE 		?= OPMODE_APP
-NET_TYPE 	?= NET_TYPE_CUBE # NET_TYPE_CUBE, NET_TYPE_NNOM
+NET_TYPE 	?= NET_TYPE_NNOM # NET_TYPE_CUBE, NET_TYPE_NNOM
 
 # mfpu
 # None for this target
