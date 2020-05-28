@@ -1,6 +1,6 @@
 # Edison Firmware
 
-Run `make` to compile current model architecture.
+Run `make` to compile current model architecture. The code can be run on the [B-L475E-IOT01A STM32L4 Discovery kit IoT node](https://www.st.com/en/evaluation-tools/b-l475e-iot01a.html).
 
 ## Disclaimer
 ```
