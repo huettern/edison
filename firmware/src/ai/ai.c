@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-28 14:53:04
+* @Last Modified time: 2020-05-28 16:23:20
 */
 #include "ai.h"
 
@@ -262,7 +262,8 @@ static void printNnomInfo(void)
 {
   printf("-------------------------------------------------------------\n");
   printf("AI net information\n");
-  printf(" last inference time: %.2fms\n", (float)lastInferenceTimeUs/1000.0);
+  aiNnomPrintInfo();
+  printf("\n\n last inference time: %.2fms\n", (float)lastInferenceTimeUs/1000.0);
 }
 #endif
 

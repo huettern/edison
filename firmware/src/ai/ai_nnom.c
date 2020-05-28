@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-28 15:40:21
+* @Last Modified time: 2020-05-28 16:22:19
 */
 
 #include "ai_nnom.h"
@@ -25,6 +25,14 @@
   #define prfEvent(x)
   #define prfStop()
 #endif
+
+
+/*------------------------------------------------------------------------------
+ * Prototypes
+ * ---------------------------------------------------------------------------*/
+static void print_layer_info(nnom_layer_t *layer, uint32_t layer_count);
+static size_t tensorSize(nnom_tensor_t* t);
+static size_t io_mem_size(nnom_layer_io_t *io);
 
 /*------------------------------------------------------------------------------
  * Data
@@ -94,6 +102,24 @@ int aiNnomPredict(uint32_t *label, float *prob)
 
 void aiNnomPrintInfo(void)
 {
+  printf("\nNNoM version %d.%d.%d\n", NNOM_MAJORVERSION, NNOM_SUBVERSION, NNOM_REVISION);
+  printf("Start compiling model...\n");
+  printf("Layer(#)         Activation    output shape    ops(MAC)   mem(in, out, buf)      mem blk lifetime\n");
+  printf("-------------------------------------------------------------------------------------------------\n");
+
+  // compile layers, started from list head, nested run till the end of models
+  uint32_t layer_count=0;
+  nnom_layer_t *layer = model->head;
+  while (layer)
+  {
+    print_layer_info(layer, layer_count++);
+    if(layer->out->hook.io->type != 1) break;
+    layer = layer->out->hook.io->owner;
+    printf("\n");
+  }
+
+  printf("\n-------------------------------------------------------------------------------------------------\n");
+
 
 }
 int8_t* aiNnomGetInputBuffer(void)
@@ -103,4 +129,72 @@ int8_t* aiNnomGetInputBuffer(void)
 int8_t* aiNnomGetOutputBuffer(void)
 {
   return nnom_output_data;
+}
+
+static size_t tensorSize(nnom_tensor_t* t)
+{
+  size_t size = 0;
+  if (t)
+  {
+    size = t->dim[0];
+    for (int i = 1; i < t->num_dim; i++)
+      size *= t->dim[i];
+  }
+  return size;
+}
+static size_t io_mem_size(nnom_layer_io_t *io)
+{
+  size_t size = 0;
+  if (io != NULL)
+  {
+    while (io)
+    {
+      size += tensorSize(io->tensor);
+      io = io->aux;
+    }
+  }
+  return size;
+}
+static void print_layer_info(nnom_layer_t *layer, uint32_t layer_count)
+{
+  size_t in_size = io_mem_size(layer->in);
+  size_t out_size = io_mem_size(layer->out);
+  size_t compsize;
+  size_t mac = layer->stat.macc;
+  if (layer->comp != NULL)
+    compsize = shape_size(&layer->comp->shape);
+  else
+    compsize = 0;
+  // names
+  printf("#%-3d %-10s - ", layer_count, default_layer_names[layer->type]);
+  // activations
+  if (layer->actail != NULL)
+    printf("%-8s - ", default_activation_names[layer->actail->type]);
+  else
+    printf("         - ");
+
+  printf("(");
+  for (int i = 0; i < 3; i++)
+  {
+    if (layer->out->tensor->num_dim > i)
+      printf("%4d,", layer->out->tensor->dim[i]);
+    else 
+      printf("     ");
+  }
+  printf(")  ");
+  
+  // MAC operation
+  if(mac == 0)
+    printf("        ");
+  else if (mac < 10000)
+    printf("%7d ", mac);
+  else if (mac < 1000*1000)
+    printf("%6dk ", mac/1000);
+  else if (mac < 1000*1000*1000)
+    printf("%3d.%02dM ", mac/(1000*1000), mac%(1000*1000)/(10*1000)); // xxx.xx M
+  else
+    printf("%3d.%02dG ", mac/(1000*1000*1000), mac%(1000*1000*1000)/(10*1000*1000)); // xxx.xx G
+  
+  // memory 
+  printf("(%6d,%6d,%6d)", in_size, out_size, compsize);
 }
