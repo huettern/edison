@@ -8,6 +8,7 @@ CPU       = cortex-m4
 
 # default operation mode
 OPMODE 		?= OPMODE_APP
+NET_TYPE 	?= NET_TYPE_CUBE # NET_TYPE_CUBE, NET_TYPE_NNOM
 
 # mfpu
 # None for this target
@@ -36,9 +37,9 @@ LDSCRIPT  = src/link/STM32L475VGTx_FLASH.ld
 # buil options
 
 # debug build?
-DEBUG = 0
+DEBUG = 1
 # optimization
-OPT = -O3
+OPT = -O0
 # flags for gcc
 GCC_FLAGS = -Wall -fdata-sections -ffunction-sections
 # generate listings for each source
@@ -191,7 +192,7 @@ C_DEFS =  -DGIT_SHA=\"$(GIT_VERSION)\" -DBUILD_DATE=\"$(BUILD_DATE)\"\
 	$(ARM_MATH) \
 	$(USR_DEFINES) \
 	$(TEST_DEFINES) \
-	-D$(OPMODE)
+	-D$(OPMODE) -DNET_TYPE=$(NET_TYPE)
 
 # AS includes
 AS_INCLUDES = 

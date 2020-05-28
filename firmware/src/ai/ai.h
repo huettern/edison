@@ -19,7 +19,9 @@
 #define NET_TYPE_NNOM 2
 #define NET_TYPE_CMSIS 3
 
-#define NET_TYPE NET_TYPE_NNOM
+#ifndef NET_TYPE
+#define NET_TYPE NET_TYPE_CUBE
+#endif
 
 /**
  * This defines settings for the cube net
