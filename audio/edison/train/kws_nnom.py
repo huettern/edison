@@ -147,8 +147,34 @@ def train(x_train, y_train, x_test, y_test, type, batch_size=64, epochs=100):
 
   return history
 
+def predictWithConfMatrix(model, x,y):
+  """
+    Predict with model and print confusion matrix
+  """
+  from sklearn.metrics import confusion_matrix
+  y_pred = model.predict(x)
+  y_pred = 1.0*(y_pred > 0.5) 
+
+  print('Confusion matrix:')
+  cmtx = confusion_matrix(y.argmax(axis=1), y_pred.argmax(axis=1))
+  print(cmtx)
+  # true positive
+  tp = np.sum(np.diagonal(cmtx))
+  # total number of predictions
+  tot = np.sum(cmtx)
+  print('Correct predicionts: %d/%d (%.2f%%)' % (tp, tot, 100.0/tot*tp))
+
 def main(argv):
 
+  if len(argv) < 2:
+    print('Usage:')
+    print('  kws_nnom <mode>')
+    print('    Modes:')
+    print('    train                     Train model and quantise/implement with NNoM')
+    print('    test                      Load model from file and test on it')
+    print('    testfile <file>           Load data from file and compute MFCC on host, infere on MCU')
+    exit()
+    
   try:
     x_train = np.load(in_dir+'/x_train.npy')
     x_test = np.load(in_dir+'/x_test.npy')
@@ -297,6 +323,14 @@ def main(argv):
     plt.show()
   else:
     model = load_model(model_path)
+
+  if argv[1] == 'test':
+    print('Performance on train data')
+    predictWithConfMatrix(model, x_train,y_train)
+    print('Performance on test data')
+    predictWithConfMatrix(model, x_test,y_test)
+    print('Performance on val data')
+    predictWithConfMatrix(model, x_val,y_val)
 
   if argv[1] == 'testfile':
     import scipy.io.wavfile as wavfile
