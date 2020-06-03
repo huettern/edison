@@ -13,6 +13,7 @@ Download pre-processed audio data, train the model, implement it and compile the
 # clone and setup
 git clone https://github.com/noah95/edison
 cd edison
+python3 -m pip install --user virtualenv
 source bootstrap.sh
 
 # fetch training data and pre-trained model
