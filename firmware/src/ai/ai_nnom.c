@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:16:05
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-06-24 08:39:16
+* @Last Modified time: 2020-06-24 09:44:30
 */
 
 #include "ai_nnom.h"
@@ -14,7 +14,7 @@
 /*------------------------------------------------------------------------------
  * settings
  * ---------------------------------------------------------------------------*/
-// #define CYCLE_PROFILING
+#define CYCLE_PROFILING
 
 #ifdef CYCLE_PROFILING
   #define prfStart(x) cycProfStart(x)

@@ -75,6 +75,7 @@ void cycProfStop(void)
   int32_t time_prev;
   int32_t timestamp;
   int32_t delta_t, sum_t;
+  uint32_t cycles, cycles_prev;
 
   tick_per_1us = SystemCoreClock / 1000000;
 
@@ -85,16 +86,19 @@ void cycProfStop(void)
   }
 
   printf("Profiling \"%s\" sequence: \r\n"
-               "--Event-----------------------|--timestamp--|----delta_t---\r\n", prof_name);
+               "--Event-----------------------|--timestamp--|----delta_t---|----cycles---\r\n", prof_name);
   time_prev = 0;
+  cycles_prev = 0;
 
   sum_t = 0;
   for (int i = 0; i < event_count; i++)
   {
     timestamp = (time_event[i] - time_start) / tick_per_1us;
+    cycles = time_event[i] - cycles_prev;
     delta_t = timestamp - time_prev;
     time_prev = timestamp;
-    printf("%-30s:%9d us | +%9d us\r\n", event_name[i], timestamp, delta_t);
+    cycles_prev = cycles;
+    printf("%-30s:%9d us | +%9d us | +%9d\r\n", event_name[i], timestamp, delta_t, cycles);
     sum_t += delta_t;
   }
   printf("%-30s:%9d us | +%9d us\r\n", "Total", 0, sum_t);
