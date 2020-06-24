@@ -2,7 +2,7 @@
 # @Author: Noah Huetter
 # @Date:   2020-04-16 16:59:06
 # @Last Modified by:   Noah Huetter
-# @Last Modified time: 2020-05-27 14:32:57
+# @Last Modified time: 2020-06-24 08:31:07
 
 import edison.audio.audioutils as au
 import edison.mfcc.mfcc_utils as mfu
@@ -374,12 +374,12 @@ def get_model(inp_shape, num_classes):
     model.add(Conv2D(16, kernel_size=(5, 5), strides=(1, 1), padding='valid', input_shape=inp_shape))
     model.add(BatchNormalization())
     model.add(ReLU())
-    model.add(MaxPooling2D((2, 1), strides=(2, 1), padding="valid"))
+    model.add(MaxPooling2D((2, 2), strides=(1, 1), padding="valid"))
 
     model.add(Conv2D(32 ,kernel_size=(3, 3), strides=(1, 1), padding="valid"))
     model.add(BatchNormalization())
     model.add(ReLU())
-    model.add(MaxPooling2D((2, 1),strides=(2, 1), padding="valid"))
+    model.add(MaxPooling2D((2, 2),strides=(1, 1), padding="valid"))
 
     model.add(Conv2D(64 ,kernel_size=(3, 3), strides=(1, 1), padding="valid"))
     model.add(BatchNormalization())

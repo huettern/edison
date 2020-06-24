@@ -93,12 +93,12 @@ def train(x_train, y_train, x_test, y_test, type, batch_size=64, epochs=100):
   x = Conv2D(16, kernel_size=(5, 5), strides=(1, 1), padding='valid')(inputs)
   x = BatchNormalization()(x)
   x = ReLU()(x)
-  x = MaxPool2D((2, 1), strides=(2, 1), padding="valid")(x)
+  x = MaxPool2D((2, 2), strides=(1, 1), padding="valid")(x)
 
   x = Conv2D(32 ,kernel_size=(3, 3), strides=(1, 1), padding="valid")(x)
   x = BatchNormalization()(x)
   x = ReLU()(x)
-  x = MaxPool2D((2, 1),strides=(2, 1), padding="valid")(x)
+  x = MaxPool2D((2, 2),strides=(1, 1), padding="valid")(x)
 
   x = Conv2D(64 ,kernel_size=(3, 3), strides=(1, 1), padding="valid")(x)
   x = BatchNormalization()(x)
