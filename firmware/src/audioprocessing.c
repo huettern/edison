@@ -2,7 +2,7 @@
 * @Author: Noah Huetter
 * @Date:   2020-04-15 11:33:22
 * @Last Modified by:   Noah Huetter
-* @Last Modified time: 2020-05-14 18:13:16
+* @Last Modified time: 2020-06-24 10:55:04
 */
 #include "audioprocessing.h"
 
@@ -33,7 +33,7 @@ typedef struct
 /**
  * @brief Enable this to show profiling on arduino Tx pin
  */
-// #define CYCLE_PROFILING
+#define CYCLE_PROFILING
 
 #ifdef CYCLE_PROFILING
   #define prfStart(x) cycProfStart(x)

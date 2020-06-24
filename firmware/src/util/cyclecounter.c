@@ -86,22 +86,22 @@ void cycProfStop(void)
   }
 
   printf("Profiling \"%s\" sequence: \r\n"
-               "--Event-----------------------|--timestamp--|----delta_t---|----cycles---\r\n", prof_name);
+               "--Event-----------------------|--timestamp--|----delta_t----|----cycles--\r\n", prof_name);
   time_prev = 0;
-  cycles_prev = 0;
+  cycles_prev = time_start;
 
   sum_t = 0;
   for (int i = 0; i < event_count; i++)
   {
     timestamp = (time_event[i] - time_start) / tick_per_1us;
-    cycles = time_event[i] - cycles_prev;
     delta_t = timestamp - time_prev;
+    cycles = delta_t * tick_per_1us;
     time_prev = timestamp;
     cycles_prev = cycles;
-    printf("%-30s:%9d us | +%9d us | +%9d\r\n", event_name[i], timestamp, delta_t, cycles);
+    printf("%-30s:%9d us | +%9d us |  %9d\r\n", event_name[i], timestamp, delta_t, cycles);
     sum_t += delta_t;
   }
-  printf("%-30s:%9d us | +%9d us\r\n", "Total", 0, sum_t);
+  printf("%-30s:%9d us | +%9d us |  %9d\r\n", "Total", 0, sum_t, sum_t*tick_per_1us);
   printf("\r\n");
   event_count = __PROF_STOPED;
 }
