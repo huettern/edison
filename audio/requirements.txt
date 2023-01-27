@@ -32,7 +32,7 @@ matplotlib==3.2.1
 numba==0.49.0
 numpy==1.18.2
 oauthlib==3.1.0
-onnx==1.7.0
+onnx==1.13.0
 opt-einsum==3.2.1
 packaging==20.3
 Pillow==7.1.2
